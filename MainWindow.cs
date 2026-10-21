@@ -17,11 +17,11 @@ using Forms = System.Windows.Forms;
 
 namespace Sonora;
 
-public sealed class MainWindow : Window
+public sealed partial class MainWindow : Window
 {
     private readonly AudioService audio = new();
     private readonly SettingsStore store = new();
-    public Settings Preferences { get; }
+    public Settings Preferences { get; private set; }
     private readonly StackPanel page = new();
     private readonly StackPanel navigation = new();
     private readonly TextBlock status = Text("Ready when you are", 12, Muted);
@@ -39,6 +39,7 @@ public sealed class MainWindow : Window
     private TextBlock? cycleCount;
     private bool quitting;
     private bool paused;
+    private DateTime lastShortcutRetry = DateTime.MinValue;
     private static readonly Brush Muted = Brush("#9297AC");
     private static readonly Brush Mint = Brush("#8BE2C5");
     private static readonly Brush Purple = Brush("#B8A3FF");
@@ -89,7 +90,7 @@ public sealed class MainWindow : Window
         bottom.Children.Add(Text("ALWAYS WITHIN REACH", 10, Muted, FontWeights.SemiBold));
         var trayLine = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 12, 0, 20) };
         trayLine.Children.Add(Text("●  ", 12, Mint)); trayLine.Children.Add(trayStatus); bottom.Children.Add(trayLine);
-        bottom.Children.Add(Text("SONORA  /  1.0", 10, Brush("#5D637B")));
+        bottom.Children.Add(Text("SONORA  /  1.1", 10, Brush("#5D637B")));
         Grid.SetRow(bottom, 2); sidebar.Children.Add(bottom); shell.Children.Add(sidebar);
         var main = new Grid(); Grid.SetColumn(main, 1);
         main.RowDefinitions.Add(new RowDefinition { Height = new GridLength(44) });
@@ -203,10 +204,24 @@ public sealed class MainWindow : Window
             var line = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 22, 0, 0) };
             line.Children.Add(Card(Text((f == AudioFlow.Output ? Preferences.OutputShortcut : Preferences.InputShortcut).Label, 17, Purple, FontWeights.SemiBold), 13));
             var edit = Button("Record shortcut", () => ChangeShortcut(f)); edit.Margin = new Thickness(14, 0, 0, 0); edit.VerticalAlignment = VerticalAlignment.Center; line.Children.Add(edit); p.Children.Add(line);
+            var active = new CheckBox { Content = "Enable this shortcut", IsChecked = f == AudioFlow.Output ? Preferences.OutputHotkeyEnabled : Preferences.InputHotkeyEnabled, Margin = new Thickness(0, 16, 0, 0) };
+            active.Click += (_, _) =>
+            {
+                var previous = f == AudioFlow.Output ? Preferences.OutputHotkeyEnabled : Preferences.InputHotkeyEnabled;
+                if (f == AudioFlow.Output) Preferences.OutputHotkeyEnabled = active.IsChecked == true; else Preferences.InputHotkeyEnabled = active.IsChecked == true;
+                try { SettingsTransfer.Validate(Preferences); RegisterShortcuts(); Save(); }
+                catch (Exception ex) { if (f == AudioFlow.Output) Preferences.OutputHotkeyEnabled = previous; else Preferences.InputHotkeyEnabled = previous; active.IsChecked = previous; RegisterShortcuts(); SetStatus(ex.Message, true); }
+            };
+            p.Children.Add(active);
             var card = Card(p, 24); card.Margin = new Thickness(0, 0, 0, 16); page.Children.Add(card);
         }
         var enabled = new CheckBox { Content = "Enable global shortcuts", IsChecked = Preferences.HotkeysEnabled, Margin = new Thickness(2, 8, 0, 15) };
-        enabled.Click += (_, _) => { Preferences.HotkeysEnabled = enabled.IsChecked == true; RegisterShortcuts(); Save(); Navigate("Shortcuts"); }; page.Children.Add(enabled);
+        enabled.Click += (_, _) =>
+        {
+            var previous = Preferences.HotkeysEnabled; Preferences.HotkeysEnabled = enabled.IsChecked == true;
+            try { SettingsTransfer.Validate(Preferences); RegisterShortcuts(); Save(); Navigate("Shortcuts"); }
+            catch (Exception ex) { Preferences.HotkeysEnabled = previous; enabled.IsChecked = previous; RegisterShortcuts(); SetStatus(ex.Message, true); }
+        }; page.Children.Add(enabled);
         page.Children.Add(Text("Use Ctrl, Alt or Shift with a letter, number or function key. Esc cancels recording.", 12, Muted));
         if (hotkeyErrors.Count > 0) page.Children.Add(new TextBlock { Text = "Shortcut unavailable: " + string.Join(", ", hotkeyErrors) + ". Choose a different combination or release it in the other app.", Foreground = Brush("#F0B68A"), TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 16, 0, 0) });
     }
@@ -307,6 +322,7 @@ public sealed class MainWindow : Window
     private void BuildSettings()
     {
         Heading("Small details, your way", "Settle into your flow.", "Sonora stays quietly in your system tray, ready whenever you need it.");
+        BuildSettingsTransfer();
         var preferences = new StackPanel();
         void Option(string title, string description, bool value, Action<bool> change)
         {
@@ -318,7 +334,7 @@ public sealed class MainWindow : Window
         Option("Start with Windows", "Launch Sonora in your tray when you sign in.", IsStartupEnabled(), SetStartup);
         Option("Open in the tray", "Keep the main window hidden when Sonora starts.", Preferences.StartMinimized, v => Preferences.StartMinimized = v);
         page.Children.Add(Card(preferences, 25));
-        var about = new StackPanel { Margin = new Thickness(0, 25, 0, 0) }; about.Children.Add(Text("SONORA 1.0.0", 11, Purple, FontWeights.SemiBold)); about.Children.Add(new TextBlock { Text = "Native Windows audio switching. No account, no ads, no telemetry.\nYour preferences stay on this computer.", Foreground = Muted, FontSize = 13, LineHeight = 24, Margin = new Thickness(0, 10, 0, 15) });
+        var about = new StackPanel { Margin = new Thickness(0, 25, 0, 0) }; about.Children.Add(Text("SONORA 1.1.0", 11, Purple, FontWeights.SemiBold)); about.Children.Add(new TextBlock { Text = "Native Windows audio switching. No account, no ads, no telemetry.\nYour preferences stay on this computer.", Foreground = Muted, FontSize = 13, LineHeight = 24, Margin = new Thickness(0, 10, 0, 15) });
         var line = new StackPanel { Orientation = Orientation.Horizontal }; line.Children.Add(Button("Open settings folder", () => Process.Start(new ProcessStartInfo("explorer.exe", SettingsStore.DirectoryPath) { UseShellExecute = true })));
         var quit = Button("Quit Sonora", Quit); quit.Margin = new Thickness(12, 0, 0, 0); line.Children.Add(quit); about.Children.Add(line); page.Children.Add(about);
     }
@@ -368,11 +384,13 @@ public sealed class MainWindow : Window
         if (hotkeys == null) return; hotkeys.Clear(); hotkeyErrors.Clear();
         if (Preferences.HotkeysEnabled)
         {
-            if (!hotkeys.Register(1, Preferences.OutputShortcut, () => Cycle(AudioFlow.Output))) hotkeyErrors.Add("output");
-            if (!hotkeys.Register(2, Preferences.InputShortcut, () => Cycle(AudioFlow.Input))) hotkeyErrors.Add("input");
+            if (Preferences.OutputHotkeyEnabled && !hotkeys.Register(1, Preferences.OutputShortcut, () => Cycle(AudioFlow.Output))) hotkeyErrors.Add("output");
+            if (Preferences.InputHotkeyEnabled && !hotkeys.Register(2, Preferences.InputShortcut, () => Cycle(AudioFlow.Input))) hotkeyErrors.Add("input");
             var id = 10; foreach (var profile in Preferences.Profiles) if (profile.Hotkey != null && !hotkeys.Register(id++, profile.Hotkey, () => ActivateProfile(profile))) hotkeyErrors.Add(profile.Name);
         }
-        trayStatus.Text = !Preferences.HotkeysEnabled ? "Shortcuts paused" : hotkeyErrors.Count > 0 ? "Shortcut needs attention" : "Shortcuts active";
+        lastShortcutRetry = DateTime.UtcNow;
+        var anyEnabled = Preferences.HotkeysEnabled && (Preferences.OutputHotkeyEnabled || Preferences.InputHotkeyEnabled || Preferences.Profiles.Any(p => p.Hotkey != null));
+        trayStatus.Text = !anyEnabled ? "Shortcuts paused" : hotkeyErrors.Count > 0 ? "Shortcut needs attention" : "Shortcuts active";
         trayStatus.Foreground = hotkeyErrors.Count > 0 ? Brush("#F0B68A") : Mint;
         if (hotkeyErrors.Count > 0) SetStatus("Shortcut conflict: " + string.Join(", ", hotkeyErrors) + ". Open Shortcuts to change it.", true);
     }
@@ -402,6 +420,7 @@ public sealed class MainWindow : Window
         {
             var signal = Path.Combine(SettingsStore.DirectoryPath, "show.signal"); if (File.Exists(signal)) { File.Delete(signal); ShowWindow(); }
             if (paused) return;
+            if (hotkeyErrors.Count > 0 && DateTime.UtcNow - lastShortcutRetry > TimeSpan.FromSeconds(5)) RegisterShortcuts();
             var before = string.Join("|", outputs.Concat(inputs).Select(d => d.Id + d.Name + d.IsDefault + d.IsCommunications));
             var newOutputs = audio.Enumerate(AudioFlow.Output); var newInputs = audio.Enumerate(AudioFlow.Input);
             var after = string.Join("|", newOutputs.Concat(newInputs).Select(d => d.Id + d.Name + d.IsDefault + d.IsCommunications));
@@ -416,8 +435,8 @@ public sealed class MainWindow : Window
     private void Save() { store.Save(Preferences); UpdateTray(); }
     private void SetStatus(string text, bool error = false) { status.Text = (error ? "!  " : "●  ") + text; status.Foreground = error ? Brush("#F0B68A") : Muted; status.ToolTip = text; }
     private static string DeviceName(string? id, IReadOnlyList<AudioDevice> devices) => id == null ? "Leave unchanged" : devices.FirstOrDefault(d => d.Id == id)?.Title ?? "Disconnected device";
-    private static bool IsStartupEnabled() { using var key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run"); return key?.GetValue("Sonora") != null; }
-    private static void SetStartup(bool value) { using var key = Registry.CurrentUser.CreateSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run"); if (value) key.SetValue("Sonora", "\"" + Environment.ProcessPath + "\" --tray"); else key.DeleteValue("Sonora", false); }
+    private static bool IsStartupEnabled() => StartupRegistration.IsEnabled();
+    private static void SetStartup(bool value) => StartupRegistration.Set(value);
     private Window Dialog(string title, int width, int height) => new() { Title = title, Owner = this, Width = width, Height = height, WindowStartupLocation = WindowStartupLocation.CenterOwner, ResizeMode = ResizeMode.NoResize, Background = Brush("#171A23"), Foreground = Brushes.White, FontFamily = FontFamily, ShowInTaskbar = true, Icon = Icon };
     private static Brush Brush(string color) => (SolidColorBrush)new BrushConverter().ConvertFromString(color)!;
     private static TextBlock Text(string value, double size, Brush? color = null, FontWeight? weight = null) => new() { Text = value, FontSize = size, Foreground = color ?? Brushes.White, FontWeight = weight ?? FontWeights.Normal };

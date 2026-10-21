@@ -22,6 +22,7 @@ The executable is unsigned; Windows may display its standard unknown-publisher w
 - Offers direct device selection and profile activation from the tray.
 - Refreshes changes to devices and defaults automatically, with an explicit Refresh button too.
 - Supports optional notifications, startup with Windows, and closing to the tray.
+- Exports readable Notepad `.txt` backups, imports saved settings, and migrates device choices and shortcuts directly from SoundSwitch.
 - Keeps preferences locally. No accounts, network requests, advertising, or telemetry in the app.
 
 ## First run
@@ -33,6 +34,20 @@ The executable is unsigned; Windows may display its standard unknown-publisher w
 5. Optionally create a **Profile** to switch a device pair together.
 
 Closing the window leaves Sonora in the tray by default; double-click the tray icon to reopen it. Use **Quit Sonora** to exit. A second launch reopens the existing instance.
+
+## Import and export settings
+
+Open **Settings → Your setup, to go**:
+
+- **Export settings .txt** saves a UTF-8 text file that opens in Notepad. It contains readable JSON with comments, all Sonora preferences, profiles, selected devices, shortcut enabled states, startup choice, and device names for matching after driver changes. You can edit it and import it again.
+- **Import settings file** accepts Sonora `.txt` exports, existing Sonora `settings.json` files, and SoundSwitch configuration files. Invalid or unsupported files leave the current settings intact.
+- **Import from SoundSwitch** finds `SoundSwitchConfiguration.json` in the current user's roaming or local application data. It migrates selected playback/recording devices, both cycle shortcuts and their enabled states, communications switching, and whether notifications are enabled. Existing Sonora profiles are kept.
+
+Every import first saves a restorable `.txt` backup under `%LOCALAPPDATA%\Sonora\Backups`. Files are checked before any settings are replaced. Disconnected devices remain selected; changed endpoint IDs are matched by exact full device name and playback/recording direction. Ambiguous names are reported instead of choosing a device arbitrarily.
+
+SoundSwitch's microphone-mute shortcut, profiles/automation, per-app rules, and banner appearance are not transferred. Its notification styles use Sonora's standard notifications. SoundSwitch's configuration file is read only. If SoundSwitch still owns the imported shortcuts, quit it or release those shortcuts there; Sonora retries registration automatically.
+
+Exports contain device names and IDs, so share your settings file only when you intend to share those details. Machine-specific startup is included in portable exports; importing an existing raw `settings.json` or SoundSwitch configuration preserves Sonora's startup registration.
 
 ## Build
 
@@ -51,7 +66,7 @@ Or use `./build.ps1`. The project uses only the Windows desktop framework and Wi
 ./build.ps1 -Test
 ```
 
-Diagnostics validate endpoint enumeration, cycle behavior, Unicode settings roundtrips, corrupt settings recovery, and native global shortcut conflict detection. To also exercise real audio switching and restore every original default role:
+Diagnostics validate endpoint enumeration, cycle behavior, Unicode settings roundtrips, corrupt settings recovery, native global shortcut conflict detection, Notepad export/import, SoundSwitch migration and device matching, invalid import rejection, and restorable pre-import backups. To also exercise real audio switching and restore every original default role:
 
 ```powershell
 ./build.ps1 -Test -AudioRoundtrip
