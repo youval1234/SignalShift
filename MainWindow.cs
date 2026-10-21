@@ -21,6 +21,7 @@ public sealed partial class MainWindow : Window
 {
     private readonly AudioService audio = new();
     private readonly SettingsStore store = new();
+    private readonly SoundCueService soundCues = new();
     public Settings Preferences { get; private set; }
     private readonly StackPanel page = new();
     private readonly StackPanel navigation = new();
@@ -47,6 +48,7 @@ public sealed partial class MainWindow : Window
     public MainWindow(bool previewMode = false)
     {
         Preferences = store.Load();
+        soundCues.PlaybackFailed += ex => SetStatus("Confirmation sound unavailable: " + ex.Message, true);
         Title = "Sonora — Your sound, one shortcut away";
         Width = 1160; Height = 900; MinWidth = 960; MinHeight = 680;
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
@@ -90,7 +92,7 @@ public sealed partial class MainWindow : Window
         bottom.Children.Add(Text("ALWAYS WITHIN REACH", 10, Muted, FontWeights.SemiBold));
         var trayLine = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 12, 0, 20) };
         trayLine.Children.Add(Text("●  ", 12, Mint)); trayLine.Children.Add(trayStatus); bottom.Children.Add(trayLine);
-        bottom.Children.Add(Text("SONORA  /  1.1", 10, Brush("#5D637B")));
+        bottom.Children.Add(Text("SONORA  /  1.2", 10, Brush("#5D637B")));
         Grid.SetRow(bottom, 2); sidebar.Children.Add(bottom); shell.Children.Add(sidebar);
         var main = new Grid(); Grid.SetColumn(main, 1);
         main.RowDefinitions.Add(new RowDefinition { Height = new GridLength(44) });
@@ -324,39 +326,45 @@ public sealed partial class MainWindow : Window
         Heading("Small details, your way", "Settle into your flow.", "Sonora stays quietly in your system tray, ready whenever you need it.");
         BuildSettingsTransfer();
         var preferences = new StackPanel();
-        void Option(string title, string description, bool value, Action<bool> change)
+        StackPanel Option(string title, string description, bool value, Action<bool> change)
         {
-            var p = new StackPanel { Margin = new Thickness(0, 0, 0, 23) }; var check = new CheckBox { Content = title, IsChecked = value }; check.Click += (_, _) => { try { change(check.IsChecked == true); Save(); } catch (Exception ex) { check.IsChecked = value; SetStatus(ex.Message, true); } }; p.Children.Add(check); p.Children.Add(new TextBlock { Text = description, Foreground = Muted, FontSize = 12, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(30, 7, 0, 0) }); preferences.Children.Add(p);
+            var p = new StackPanel { Margin = new Thickness(0, 0, 0, 23) }; var check = new CheckBox { Content = title, IsChecked = value }; check.Click += (_, _) => { try { change(check.IsChecked == true); Save(); } catch (Exception ex) { check.IsChecked = value; SetStatus(ex.Message, true); } }; p.Children.Add(check); p.Children.Add(new TextBlock { Text = description, Foreground = Muted, FontSize = 12, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(30, 7, 0, 0) }); preferences.Children.Add(p); return p;
         }
         Option("Also switch communications devices", "Keep calls and voice chat on the same device as your other audio.", Preferences.CommunicationsToo, v => Preferences.CommunicationsToo = v);
+        var sounds = Option("Play a sound after hotkey switching", "A soft chime confirms playback, recording or profile shortcuts. Separate from visual notifications.", Preferences.HotkeySounds, v => { Preferences.HotkeySounds = v; if (!v) soundCues.Cancel(); });
+        var previews = new WrapPanel { Margin = new Thickness(30, 10, 0, 0) };
+        previews.Children.Add(Button("Preview output sound", () => soundCues.Play(AudioFlow.Output)));
+        var inputPreview = Button("Preview input sound", () => soundCues.Play(AudioFlow.Input)); inputPreview.Margin = new Thickness(8, 0, 0, 0); previews.Children.Add(inputPreview); sounds.Children.Add(previews);
         Option("Show a notification after switching", "A brief confirmation with the name of your new device.", Preferences.Notifications, v => Preferences.Notifications = v);
         Option("Keep running when the window closes", "Your shortcuts keep working. Choose Quit from the tray to exit.", Preferences.CloseToTray, v => Preferences.CloseToTray = v);
         Option("Start with Windows", "Launch Sonora in your tray when you sign in.", IsStartupEnabled(), SetStartup);
         Option("Open in the tray", "Keep the main window hidden when Sonora starts.", Preferences.StartMinimized, v => Preferences.StartMinimized = v);
         page.Children.Add(Card(preferences, 25));
-        var about = new StackPanel { Margin = new Thickness(0, 25, 0, 0) }; about.Children.Add(Text("SONORA 1.1.0", 11, Purple, FontWeights.SemiBold)); about.Children.Add(new TextBlock { Text = "Native Windows audio switching. No account, no ads, no telemetry.\nYour preferences stay on this computer.", Foreground = Muted, FontSize = 13, LineHeight = 24, Margin = new Thickness(0, 10, 0, 15) });
+        var about = new StackPanel { Margin = new Thickness(0, 25, 0, 0) }; about.Children.Add(Text("SONORA 1.2.0", 11, Purple, FontWeights.SemiBold)); about.Children.Add(new TextBlock { Text = "Native Windows audio switching. No account, no ads, no telemetry.\nYour preferences stay on this computer.", Foreground = Muted, FontSize = 13, LineHeight = 24, Margin = new Thickness(0, 10, 0, 15) });
         var line = new StackPanel { Orientation = Orientation.Horizontal }; line.Children.Add(Button("Open settings folder", () => Process.Start(new ProcessStartInfo("explorer.exe", SettingsStore.DirectoryPath) { UseShellExecute = true })));
         var quit = Button("Quit Sonora", Quit); quit.Margin = new Thickness(12, 0, 0, 0); line.Children.Add(quit); about.Children.Add(line); page.Children.Add(about);
     }
-    private void Cycle(AudioFlow f)
+    private void Cycle(AudioFlow f, bool fromHotkey = false)
     {
         try
         {
+            if (fromHotkey) soundCues.Cancel();
             RefreshDevices(); var next = CyclePlanner.Next(Devices(f), Selected(f), audio.GetDefaultId(f));
             if (next == null) { SetStatus("Choose at least one connected " + (f == AudioFlow.Output ? "playback" : "recording") + " device for your cycle.", true); ShowWindow(); return; }
-            Switch(next);
+            Switch(next, fromHotkey);
         }
         catch (Exception ex) { SetStatus("Could not switch audio: " + ex.Message, true); }
     }
-    private void Switch(AudioDevice device)
+    private void Switch(AudioDevice device, bool fromHotkey = false)
     {
-        try { audio.SetDefault(device, Preferences.CommunicationsToo); RefreshDevices(); Notify(device.Flow == AudioFlow.Output ? "Output switched" : "Input switched", device.Title); SetStatus((device.Flow == AudioFlow.Output ? "Output" : "Input") + " → " + device.Title); if (currentPage == "Devices") Navigate("Devices"); }
+        try { audio.SetDefault(device, Preferences.CommunicationsToo); RefreshDevices(); if (fromHotkey && Preferences.HotkeySounds) soundCues.Play(device.Flow); Notify(device.Flow == AudioFlow.Output ? "Output switched" : "Input switched", device.Title); SetStatus((device.Flow == AudioFlow.Output ? "Output" : "Input") + " → " + device.Title); if (currentPage == "Devices") Navigate("Devices"); }
         catch (Exception ex) { RefreshDevices(); if (currentPage == "Devices") Navigate("Devices"); SetStatus("Could not switch: " + ex.Message, true); }
     }
-    private void ActivateProfile(AudioProfile profile)
+    private void ActivateProfile(AudioProfile profile, bool fromHotkey = false)
     {
         try
         {
+            if (fromHotkey) soundCues.Cancel();
             RefreshDevices(); var output = outputs.FirstOrDefault(d => d.Id == profile.OutputId); var input = inputs.FirstOrDefault(d => d.Id == profile.InputId);
             if ((profile.OutputId != null && output == null) || (profile.InputId != null && input == null)) throw new InvalidOperationException("A device in this profile is disconnected. No devices were changed.");
             var prior = SnapshotDefaults();
@@ -368,7 +376,7 @@ public sealed partial class MainWindow : Window
                 if (failures.Count > 1) throw new AggregateException("Profile switching failed and Windows could not restore every previous default.", failures);
                 throw;
             }
-            RefreshDevices(); Notify("Profile activated", profile.Name); SetStatus("Profile → " + profile.Name);
+            RefreshDevices(); if (fromHotkey && Preferences.HotkeySounds) soundCues.Play(output != null ? AudioFlow.Output : AudioFlow.Input); Notify("Profile activated", profile.Name); SetStatus("Profile → " + profile.Name);
         }
         catch (Exception ex) { SetStatus("Could not activate profile: " + ex.Message, true); }
     }
@@ -384,9 +392,9 @@ public sealed partial class MainWindow : Window
         if (hotkeys == null) return; hotkeys.Clear(); hotkeyErrors.Clear();
         if (Preferences.HotkeysEnabled)
         {
-            if (Preferences.OutputHotkeyEnabled && !hotkeys.Register(1, Preferences.OutputShortcut, () => Cycle(AudioFlow.Output))) hotkeyErrors.Add("output");
-            if (Preferences.InputHotkeyEnabled && !hotkeys.Register(2, Preferences.InputShortcut, () => Cycle(AudioFlow.Input))) hotkeyErrors.Add("input");
-            var id = 10; foreach (var profile in Preferences.Profiles) if (profile.Hotkey != null && !hotkeys.Register(id++, profile.Hotkey, () => ActivateProfile(profile))) hotkeyErrors.Add(profile.Name);
+            if (Preferences.OutputHotkeyEnabled && !hotkeys.Register(1, Preferences.OutputShortcut, () => Cycle(AudioFlow.Output, fromHotkey: true))) hotkeyErrors.Add("output");
+            if (Preferences.InputHotkeyEnabled && !hotkeys.Register(2, Preferences.InputShortcut, () => Cycle(AudioFlow.Input, fromHotkey: true))) hotkeyErrors.Add("input");
+            var id = 10; foreach (var profile in Preferences.Profiles) if (profile.Hotkey != null && !hotkeys.Register(id++, profile.Hotkey, () => ActivateProfile(profile, fromHotkey: true))) hotkeyErrors.Add(profile.Name);
         }
         lastShortcutRetry = DateTime.UtcNow;
         var anyEnabled = Preferences.HotkeysEnabled && (Preferences.OutputHotkeyEnabled || Preferences.InputHotkeyEnabled || Preferences.Profiles.Any(p => p.Hotkey != null));
@@ -430,7 +438,7 @@ public sealed partial class MainWindow : Window
     }
     private void Notify(string title, string text) { if (Preferences.Notifications && tray != null) { tray.BalloonTipTitle = title; tray.BalloonTipText = text; tray.ShowBalloonTip(1800); } }
     private void ShowWindow() { Show(); if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal; Activate(); RefreshDevices(); Navigate(currentPage); }
-    private void OnClosing(object? sender, CancelEventArgs e) { if (!quitting && Preferences.CloseToTray) { e.Cancel = true; Hide(); SetStatus("Sonora is running in your tray"); return; } timer.Stop(); hotkeys?.Dispose(); tray?.Dispose(); Application.Current.Shutdown(); }
+    private void OnClosing(object? sender, CancelEventArgs e) { if (!quitting && Preferences.CloseToTray) { e.Cancel = true; Hide(); SetStatus("Sonora is running in your tray"); return; } timer.Stop(); hotkeys?.Dispose(); soundCues.Dispose(); tray?.Dispose(); Application.Current.Shutdown(); }
     private void Quit() { quitting = true; Close(); }
     private void Save() { store.Save(Preferences); UpdateTray(); }
     private void SetStatus(string text, bool error = false) { status.Text = (error ? "!  " : "●  ") + text; status.Foreground = error ? Brush("#F0B68A") : Muted; status.ToolTip = text; }

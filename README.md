@@ -22,6 +22,7 @@ The executable is unsigned; Windows may display its standard unknown-publisher w
 - Offers direct device selection and profile activation from the tray.
 - Refreshes changes to devices and defaults automatically, with an explicit Refresh button too.
 - Supports optional notifications, startup with Windows, and closing to the tray.
+- Plays a short, soft confirmation chime after successful playback, recording and profile hotkeys, with separate sounds for input and output.
 - Exports readable Notepad `.txt` backups, imports saved settings, and migrates device choices and shortcuts directly from SoundSwitch.
 - Keeps preferences locally. No accounts, network requests, advertising, or telemetry in the app.
 
@@ -34,6 +35,8 @@ The executable is unsigned; Windows may display its standard unknown-publisher w
 5. Optionally create a **Profile** to switch a device pair together.
 
 Closing the window leaves Sonora in the tray by default; double-click the tray icon to reopen it. Use **Quit Sonora** to exit. A second launch reopens the existing instance.
+
+Confirmation sounds are enabled by default. In **Settings**, turn **Play a sound after hotkey switching** on or off, or use either preview button. The chime follows a successful shortcut action, including confirming the sole selected device; failed switches and empty cycles stay silent. Mouse and tray selections stay silent. Sound feedback is independent of visual notifications and is included in settings exports. The original 148 ms sounds are embedded in the executable; regenerate them with `python tools/make_sounds.py` (Python standard library only).
 
 ## Import and export settings
 
@@ -66,7 +69,7 @@ Or use `./build.ps1`. The project uses only the Windows desktop framework and Wi
 ./build.ps1 -Test
 ```
 
-Diagnostics validate endpoint enumeration, cycle behavior, Unicode settings roundtrips, corrupt settings recovery, native global shortcut conflict detection, Notepad export/import, SoundSwitch migration and device matching, invalid import rejection, and restorable pre-import backups. To also exercise real audio switching and restore every original default role:
+Diagnostics validate endpoint enumeration, cycle behavior, Unicode settings roundtrips, corrupt settings recovery, native global shortcut conflict detection, Notepad export/import, SoundSwitch migration and device matching, invalid import rejection, restorable pre-import backups, and embedded sound decoding, duration and peak levels. To also exercise real audio switching and restore every original default role:
 
 ```powershell
 ./build.ps1 -Test -AudioRoundtrip

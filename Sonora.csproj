@@ -8,7 +8,7 @@
     <Nullable>enable</Nullable>
     <ApplicationIcon>Assets\Sonora.ico</ApplicationIcon>
     <AssemblyName>Sonora</AssemblyName>
-    <Version>1.1.0</Version>
+    <Version>1.2.0</Version>
     <Description>A quieter way to switch your sound.</Description>
     <Company>Sonora</Company>
     <PublishSingleFile>true</PublishSingleFile>
@@ -17,5 +17,5 @@
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
     <ApplicationManifest>app.manifest</ApplicationManifest>
   </PropertyGroup>
-  <ItemGroup><Resource Include="Assets\Sonora.ico" /><Resource Include="Assets\Sonora.png" /></ItemGroup>
+  <ItemGroup><Resource Include="Assets\Sonora.ico" /><Resource Include="Assets\Sonora.png" /><Resource Include="Assets\SwitchOutput.wav" /><Resource Include="Assets\SwitchInput.wav" /></ItemGroup>
 </Project>

@@ -1,17 +1,17 @@
-Sonora 1.1 adds settings portability and SoundSwitch migration.
+Sonora 1.2 adds subtle confirmation sounds for hotkey switching.
 
-- Export and import readable Notepad `.txt` settings files from Settings.
-- Import existing Sonora JSON settings or migrate directly from SoundSwitch.
-- Preserve individual playback and recording shortcut enabled states.
-- Match changed device IDs by exact name and audio direction; keep disconnected choices.
-- Save an automatic, restorable text backup before each import; reject invalid settings before replacing preferences.
-- Retry shortcut registration automatically when another app releases an imported key combination.
+- Successful playback, recording and profile hotkeys now play a soft 148 ms chime.
+- Input and output actions have distinct sounds, played after a short delay to let Windows finish switching audio routing.
+- Sound feedback is enabled by default and can be disabled in Settings, independently of visual notifications. Preview buttons let you hear both sounds.
+- Failed switches and empty cycles do not play a success sound. A shortcut with one selected device still confirms that the device is selected.
+- The preference survives Notepad export/import; older settings files enable sounds by default.
+- Sounds are original generated PCM assets embedded in the portable executable, with no extra downloads or dependencies.
 
 Download **Sonora.exe** and launch it. The x64 executable includes its .NET runtime and needs no installer or administrator access. It is unsigned. Keep it in a permanent folder before enabling startup.
 
 Default keys: **Ctrl + Alt + F11** for output, **Ctrl + Alt + F10** for input. Change them on the Shortcuts page. Release a shortcut in SoundSwitch first if you want to reuse it in Sonora.
 
-Validation covers text roundtrips with Unicode names and profiles, startup choice, changed/ambiguous/disconnected device mapping, SoundSwitch shortcuts and flags, invalid/future-version/duplicate-shortcut rejection, and backup restoration, alongside the existing endpoint, cycle, settings recovery and hotkey diagnostics.
+Validation includes decoding both embedded audio assets, checking their duration and quiet peak levels, and preserving the sound preference through settings export/import and older files, alongside the existing diagnostics.
 
 `SHA256SUMS.txt` contains the SHA-256 of Sonora.exe. The full source, icon assets, build script, and Windows build workflow are in this repository.
 
