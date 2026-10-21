@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <ApplicationIcon>Assets\Sonora.ico</ApplicationIcon>
+    <AssemblyName>Sonora</AssemblyName>
+    <Version>1.0.0</Version>
+    <Description>A quieter way to switch your sound.</Description>
+    <Company>Sonora</Company>
+    <PublishSingleFile>true</PublishSingleFile>
+    <SelfContained>true</SelfContained>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+  </PropertyGroup>
+  <ItemGroup><Resource Include="Assets\Sonora.ico" /><Resource Include="Assets\Sonora.png" /></ItemGroup>
+</Project>

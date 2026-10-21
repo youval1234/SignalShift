@@ -1,0 +1,10 @@
+bin/
+obj/
+dist/
+.vs/
+.idea/
+*.user
+*.log
+diagnostics*.json
+settings.json
+*.tmp
