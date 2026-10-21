@@ -32,6 +32,7 @@ public sealed class Settings
     public bool InputHotkeyEnabled { get; set; } = true;
     public bool CommunicationsToo { get; set; } = true;
     public bool Notifications { get; set; } = true;
+    public bool HotkeySounds { get; set; } = true;
     public bool CloseToTray { get; set; } = true;
     public bool StartMinimized { get; set; }
     public bool Initialized { get; set; }

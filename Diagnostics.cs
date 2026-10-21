@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using System.Text.Json.Nodes;
+using System.Windows;
 using System.Windows.Interop;
 
 namespace Sonora;
@@ -64,13 +66,15 @@ public static class Diagnostics
             try
             {
                 var devices = new[] { new AudioDevice("speaker", "Speakers — שולחן", AudioFlow.Output, true, false), new AudioDevice("mic", "Microphone α", AudioFlow.Input, true, false) };
-                var original = new Settings { Outputs = new() { "speaker" }, Inputs = new() { "mic" }, OutputHotkeyEnabled = false, CommunicationsToo = false, Notifications = false, CloseToTray = false, StartMinimized = true, Initialized = true,
+                var original = new Settings { Outputs = new() { "speaker" }, Inputs = new() { "mic" }, OutputHotkeyEnabled = false, CommunicationsToo = false, Notifications = false, HotkeySounds = false, CloseToTray = false, StartMinimized = true, Initialized = true,
                     Profiles = new() { new AudioProfile { Name = "Quiet — שולחן", OutputId = "speaker", InputId = "mic", Hotkey = new(3, 0x41, "Ctrl + Alt + A") } } };
                 var path = Path.Combine(directory, "settings.txt"); SettingsTransfer.ExportFile(path, original, devices, false);
                 Require(File.ReadAllBytes(path).Take(3).SequenceEqual(new byte[] { 239, 187, 191 }), "Notepad UTF-8 marker missing");
                 var restored = SettingsTransfer.ReadFile(path, new Settings(), devices);
                 Require(JsonSerializer.Serialize(restored.Settings) == JsonSerializer.Serialize(original), "An exported preference or profile was lost");
                 Require(restored.StartWithWindows == false && restored.Warnings.Count == 0, "Startup choice or device mapping was lost");
+                var legacy = JsonNode.Parse(JsonSerializer.Serialize(original))!.AsObject(); legacy.Remove("HotkeySounds");
+                Require(SettingsTransfer.Parse(legacy.ToJsonString(), new Settings(), devices).Settings.HotkeySounds, "Existing exports must enable confirmation sounds by default");
             }
             finally { Directory.Delete(directory, true); }
         });
@@ -112,6 +116,26 @@ public static class Diagnostics
                 Require(!restored.Notifications && !restored.StartMinimized, "Backup does not restore the original preferences");
             }
             finally { Directory.Delete(directory, true); }
+        });
+        Check("Embedded confirmation chimes decode as distinct, short, quiet PCM audio", () =>
+        {
+            var waves = new List<byte[]>();
+            foreach (var filename in new[] { "SwitchOutput.wav", "SwitchInput.wav" })
+            {
+                using var resource = Application.GetResourceStream(new Uri("pack://application:,,,/Assets/" + filename)).Stream;
+                using var bytes = new MemoryStream(); resource.CopyTo(bytes); waves.Add(bytes.ToArray()); bytes.Position = 0;
+                using var reader = new BinaryReader(bytes);
+                Require(new string(reader.ReadChars(4)) == "RIFF", "Missing WAV header"); reader.ReadUInt32();
+                Require(new string(reader.ReadChars(4)) == "WAVE" && new string(reader.ReadChars(4)) == "fmt ", "Invalid WAV format");
+                Require(reader.ReadUInt32() == 16 && reader.ReadUInt16() == 1 && reader.ReadUInt16() == 1, "Expected mono PCM audio");
+                var rate = reader.ReadUInt32(); reader.ReadUInt32(); reader.ReadUInt16(); Require(reader.ReadUInt16() == 16, "Expected 16-bit samples");
+                Require(new string(reader.ReadChars(4)) == "data", "Missing audio samples"); var size = reader.ReadUInt32();
+                var duration = size / (rate * 2.0); Require(duration > 0.05 && duration < 0.3, "Confirmation sound must be brief");
+                var peak = 0; for (var i = 0; i < size / 2; i++) peak = Math.Max(peak, Math.Abs((int)reader.ReadInt16()));
+                Require(peak > 500 && peak < 0.15 * short.MaxValue, "Chime should be audible and quiet without clipping");
+            }
+            Require(!waves[0].SequenceEqual(waves[1]), "Input and output confirmations should be distinguishable");
+            using var player = new SoundCueService(); player.Preload();
         });
         if (args.Contains("--audio-roundtrip"))
         {
