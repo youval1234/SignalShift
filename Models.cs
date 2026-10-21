@@ -28,6 +28,8 @@ public sealed class Settings
     public Shortcut OutputShortcut { get; set; } = new(3, 0x7A, "Ctrl + Alt + F11");
     public Shortcut InputShortcut { get; set; } = new(3, 0x79, "Ctrl + Alt + F10");
     public bool HotkeysEnabled { get; set; } = true;
+    public bool OutputHotkeyEnabled { get; set; } = true;
+    public bool InputHotkeyEnabled { get; set; } = true;
     public bool CommunicationsToo { get; set; } = true;
     public bool Notifications { get; set; } = true;
     public bool CloseToTray { get; set; } = true;
@@ -46,7 +48,7 @@ public sealed class SettingsStore
         try
         {
             var value = JsonSerializer.Deserialize<Settings>(File.ReadAllText(FilePath)) ?? throw new InvalidDataException("Empty settings");
-            if (value.Outputs == null || value.Inputs == null || value.Profiles == null || value.OutputShortcut == null || value.InputShortcut == null) throw new InvalidDataException("Invalid settings");
+            SettingsTransfer.Validate(value);
             return value;
         }
         catch (Exception ex) when (ex is JsonException or InvalidDataException)

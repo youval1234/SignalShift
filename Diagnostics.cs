@@ -58,6 +58,61 @@ public static class Diagnostics
             a.Clear(); Require(b.Register(1, key, () => { }), "Released shortcut unavailable");
             Require(!a.Register(2, new(3, 0x7B, "F12"), () => { }), "Reserved F12 accepted");
         });
+        Check("Notepad text export restores all preferences, profiles, Unicode names and startup choice", () =>
+        {
+            var directory = Path.Combine(Path.GetTempPath(), "SonoraTransfer-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(directory);
+            try
+            {
+                var devices = new[] { new AudioDevice("speaker", "Speakers — שולחן", AudioFlow.Output, true, false), new AudioDevice("mic", "Microphone α", AudioFlow.Input, true, false) };
+                var original = new Settings { Outputs = new() { "speaker" }, Inputs = new() { "mic" }, OutputHotkeyEnabled = false, CommunicationsToo = false, Notifications = false, CloseToTray = false, StartMinimized = true, Initialized = true,
+                    Profiles = new() { new AudioProfile { Name = "Quiet — שולחן", OutputId = "speaker", InputId = "mic", Hotkey = new(3, 0x41, "Ctrl + Alt + A") } } };
+                var path = Path.Combine(directory, "settings.txt"); SettingsTransfer.ExportFile(path, original, devices, false);
+                Require(File.ReadAllBytes(path).Take(3).SequenceEqual(new byte[] { 239, 187, 191 }), "Notepad UTF-8 marker missing");
+                var restored = SettingsTransfer.ReadFile(path, new Settings(), devices);
+                Require(JsonSerializer.Serialize(restored.Settings) == JsonSerializer.Serialize(original), "An exported preference or profile was lost");
+                Require(restored.StartWithWindows == false && restored.Warnings.Count == 0, "Startup choice or device mapping was lost");
+            }
+            finally { Directory.Delete(directory, true); }
+        });
+        Check("SoundSwitch migration maps changed endpoint IDs by exact name and direction, preserving unsupported choices", () =>
+        {
+            var devices = new[] { new AudioDevice("new-output", "Sonar Gaming", AudioFlow.Output, true, false), new AudioDevice("new-input", "Sonar Microphone", AudioFlow.Input, true, false), new AudioDevice("wrong-direction", "Sonar Gaming", AudioFlow.Input, false, false) };
+            var fixture = JsonSerializer.Serialize(new { SelectedDevices = new[] { new { Id = "old-output", Name = "Sonar Gaming", Type = 0 }, new { Id = "old-input", Name = "Sonar Microphone", Type = 1 }, new { Id = "offline", Name = "Unplugged headphones", Type = 0 } },
+                PlaybackHotKey = new { Keys = 9, Modifier = 2, Enabled = true }, RecordingHotKey = new { Keys = 118, Modifier = 3, Enabled = false }, ChangeCommunications = false, SwitchDeviceNotification = 2 });
+            var current = new Settings { Profiles = new() { new AudioProfile { Name = "Keep my Sonora profile", OutputId = "new-output" } } }; var before = JsonSerializer.Serialize(current);
+            var result = SettingsTransfer.Parse(fixture, current, devices);
+            Require(result.Settings.Outputs.SetEquals(new[] { "new-output", "offline" }) && result.Settings.Inputs.SetEquals(new[] { "new-input" }), "Endpoint IDs were not remapped correctly");
+            Require(result.Settings.OutputShortcut.Label == "Ctrl + Tab" && result.Settings.InputShortcut.Label == "Ctrl + Alt + F7", "SoundSwitch shortcuts were not converted correctly");
+            Require(result.Settings.OutputHotkeyEnabled && !result.Settings.InputHotkeyEnabled && !result.Settings.CommunicationsToo && !result.Settings.Notifications, "SoundSwitch toggles were lost");
+            Require(result.Settings.Profiles.Count == 1 && result.Warnings.Any(w => w.Contains("Unplugged headphones")), "Existing profile or disconnected device was lost");
+            Require(JsonSerializer.Serialize(current) == before, "Previewing an import mutated the current settings");
+            var ambiguous = devices.Concat(new[] { new AudioDevice("another-output", "Sonar Gaming", AudioFlow.Output, false, false) }).ToArray();
+            Require(SettingsTransfer.Parse(fixture, current, ambiguous).Settings.Outputs.Contains("old-output"), "Ambiguous names must not choose a random device");
+        });
+        Check("Invalid, incomplete, future-version and duplicate-shortcut imports are rejected without data loss", () =>
+        {
+            var current = new Settings(); var before = JsonSerializer.Serialize(current);
+            var duplicate = SettingsTransfer.Clone(current); duplicate.InputShortcut = duplicate.OutputShortcut;
+            foreach (var invalid in new[] { "{broken", "{}", "null", "{\"Format\":\"Sonora settings\",\"FormatVersion\":999}", "{\"SchemaVersion\":1}", JsonSerializer.Serialize(duplicate) })
+            {
+                var rejected = false; try { SettingsTransfer.Parse(invalid, current, Array.Empty<AudioDevice>()); } catch (InvalidDataException) { rejected = true; }
+                Require(rejected, "An invalid settings file was accepted: " + invalid);
+            }
+            Require(JsonSerializer.Serialize(current) == before, "A failed import changed current settings");
+        });
+        Check("Applying an import makes a restorable text backup before replacing the settings", () =>
+        {
+            var directory = Path.Combine(Path.GetTempPath(), "SonoraBackup-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(directory);
+            try
+            {
+                var store = new SettingsStore(Path.Combine(directory, "settings.json")); var original = new Settings { Notifications = false }; store.Save(original);
+                var imported = new Settings { StartMinimized = true }; var backup = SettingsTransfer.Apply(store, new(imported, "Test", null, new()), Array.Empty<AudioDevice>());
+                Require(File.Exists(backup) && store.Load().StartMinimized, "Import was not committed with a backup");
+                var restored = SettingsTransfer.ReadFile(backup, new Settings(), Array.Empty<AudioDevice>()).Settings;
+                Require(!restored.Notifications && !restored.StartMinimized, "Backup does not restore the original preferences");
+            }
+            finally { Directory.Delete(directory, true); }
+        });
         if (args.Contains("--audio-roundtrip"))
         {
             foreach (var flow in new[] { AudioFlow.Output, AudioFlow.Input })

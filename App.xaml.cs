@@ -6,6 +6,7 @@ using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
+using System.Text.Json;
 
 namespace Sonora;
 
@@ -39,6 +40,10 @@ public partial class App : Application
             File.WriteAllText(Path.Combine(SettingsStore.DirectoryPath, "show.signal"), DateTime.UtcNow.ToString("O"));
             Shutdown(); return;
         }
+        if (e.Args.Contains("--import-soundswitch") || e.Args.Contains("--import-settings") || e.Args.Contains("--export-settings"))
+        {
+            Shutdown(RunSettingsCommand(e.Args)); return;
+        }
         DispatcherUnhandledException += (_, args) =>
         {
             Directory.CreateDirectory(SettingsStore.DirectoryPath);
@@ -56,4 +61,33 @@ public partial class App : Application
         catch (Exception ex) { MessageBox.Show(ex.Message, "Sonora could not start"); Shutdown(1); }
     }
     protected override void OnExit(ExitEventArgs e) { instance?.Dispose(); base.OnExit(e); }
+    private static int RunSettingsCommand(string[] args)
+    {
+        var reportPath = args.SkipWhile(a => a != "--report").Skip(1).FirstOrDefault() ?? Path.Combine(SettingsStore.DirectoryPath, "settings-transfer.json");
+        string Argument(string flag) => args.SkipWhile(a => a != flag).Skip(1).FirstOrDefault() is string value && !value.StartsWith("--", StringComparison.Ordinal) ? value : throw new InvalidDataException("Missing file path after " + flag);
+        object report; var exitCode = 0;
+        try
+        {
+            var store = new SettingsStore(); var settings = store.Load(); var audio = new AudioService();
+            var devices = audio.Enumerate(AudioFlow.Output).Concat(audio.Enumerate(AudioFlow.Input)).ToList();
+            SettingsImport? imported = null; string? backup = null;
+            if (args.Contains("--import-soundswitch") || args.Contains("--import-settings"))
+            {
+                var path = args.Contains("--import-soundswitch") ? SettingsTransfer.FindSoundSwitchConfiguration() ?? throw new FileNotFoundException("SoundSwitch settings were not found.") : Argument("--import-settings");
+                imported = SettingsTransfer.ReadFile(path, settings, devices); backup = SettingsTransfer.Apply(store, imported, devices); settings = imported.Settings;
+            }
+            if (args.Contains("--export-settings"))
+            {
+                var destination = Argument("--export-settings");
+                if (Path.GetFullPath(destination).Equals(Path.GetFullPath(store.FilePath), StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException("Choose a separate export file instead of the live settings file.");
+                SettingsTransfer.ExportFile(destination, settings, devices, StartupRegistration.IsEnabled());
+            }
+            report = new { success = true, source = imported?.Source, backup, outputs = settings.Outputs.Count, inputs = settings.Inputs.Count,
+                connectedOutputs = devices.Count(d => d.Flow == AudioFlow.Output && settings.Outputs.Contains(d.Id)), connectedInputs = devices.Count(d => d.Flow == AudioFlow.Input && settings.Inputs.Contains(d.Id)),
+                outputShortcut = settings.OutputShortcut.Label, inputShortcut = settings.InputShortcut.Label, warnings = imported?.Warnings };
+        }
+        catch (Exception ex) { report = new { success = false, error = ex.Message }; exitCode = 1; }
+        Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(reportPath))!);
+        File.WriteAllText(reportPath, JsonSerializer.Serialize(report, new JsonSerializerOptions { WriteIndented = true })); return exitCode;
+    }
 }
