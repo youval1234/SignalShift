@@ -10,7 +10,7 @@ Sonora is a native Windows desktop app for switching playback and recording devi
 
 ## Download
 
-Download **Sonora.exe** from the [latest release](https://github.com/youval1234/sonora/releases/latest). It is a portable, self-contained Windows x64 app: no installer, administrator access, or separate .NET installation required. Windows 10 (1809+) or Windows 11 is required.
+Download **Sonora.exe** from the [latest release](https://github.com/youval1234/Sonora/releases/latest). It is a portable, self-contained Windows x64 app: no installer, administrator access, or separate .NET installation required. Windows 10 (1809+) or Windows 11 is required.
 
 The executable is unsigned; Windows may display its standard unknown-publisher warning. Release assets include a SHA-256 checksum. Keep the executable in a permanent folder before enabling “Start with Windows.”
 
