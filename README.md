@@ -6,6 +6,8 @@ Sonora is a native Windows desktop app for switching playback and recording devi
 
 ![Sonora desktop interface](Assets/Screenshot.png)
 
+![Sonora switch popup](Assets/SwitchPopup.png)
+
 ## Download
 
 Download **Sonora.exe** from the [latest release](https://github.com/youval1234/sonora/releases/latest). It is a portable, self-contained Windows x64 app: no installer, administrator access, or separate .NET installation required. Windows 10 (1809+) or Windows 11 is required.
@@ -22,7 +24,8 @@ The executable is unsigned; Windows may display its standard unknown-publisher w
 - Offers direct device selection and profile activation from the tray.
 - Refreshes changes to devices and defaults automatically, with an explicit Refresh button too.
 - Supports optional notifications, startup with Windows, and closing to the tray.
-- Plays a short, soft confirmation chime after successful playback, recording and profile hotkeys, with separate sounds for input and output.
+- Plays a warm, soft confirmation pluck after successful playback, recording and profile hotkeys, with distinct input and output cues.
+- Shows a compact popup near the bottom of your active display. Rapid switches replace the current device immediately and restart its timeout, without queuing Windows notifications or taking focus.
 - Exports readable Notepad `.txt` backups, imports saved settings, and migrates device choices and shortcuts directly from SoundSwitch.
 - Keeps preferences locally. No accounts, network requests, advertising, or telemetry in the app.
 
@@ -36,7 +39,9 @@ The executable is unsigned; Windows may display its standard unknown-publisher w
 
 Closing the window leaves Sonora in the tray by default; double-click the tray icon to reopen it. Use **Quit Sonora** to exit. A second launch reopens the existing instance.
 
-Confirmation sounds are enabled by default. In **Settings**, turn **Play a sound after hotkey switching** on or off, or use either preview button. The chime follows a successful shortcut action, including confirming the sole selected device; failed switches and empty cycles stay silent. Mouse and tray selections stay silent. Sound feedback is independent of visual notifications and is included in settings exports. The original 148 ms sounds are embedded in the executable; regenerate them with `python tools/make_sounds.py` (Python standard library only).
+Confirmation sounds are enabled by default. In **Settings**, turn **Play a sound after hotkey switching** on or off, or use either preview button. The soft pluck follows a successful shortcut action, including confirming the sole selected device; failed switches and empty cycles stay silent. Mouse and tray selections stay silent. Sound feedback is independent of visual notifications and is included in settings exports. The original 230 ms sounds use rounded attacks, lower notes and smooth decays, and are embedded in the executable; regenerate them with `python tools/make_sounds.py` (Python standard library only). Fast hotkeys cancel pending/playing cues so stale sounds do not build up.
+
+**Show a notification after switching** controls Sonora's own popup for device and profile changes. It updates one reusable window immediately, holds the latest selection for 1.6 seconds, then fades away. It stays out of the taskbar and Alt+Tab, passes mouse clicks through, and does not activate or interrupt your current app. It appears above the taskbar on the display containing your foreground app, with per-monitor DPI scaling. Turning notifications off also dismisses a currently visible popup. The popup uses no Windows notification history or notification queue; exclusive fullscreen apps may still cover it.
 
 ## Import and export settings
 
@@ -69,7 +74,7 @@ Or use `./build.ps1`. The project uses only the Windows desktop framework and Wi
 ./build.ps1 -Test
 ```
 
-Diagnostics validate endpoint enumeration, cycle behavior, Unicode settings roundtrips, corrupt settings recovery, native global shortcut conflict detection, Notepad export/import, SoundSwitch migration and device matching, invalid import rejection, restorable pre-import backups, and embedded sound decoding, duration and peak levels. To also exercise real audio switching and restore every original default role:
+Diagnostics validate endpoint enumeration, cycle behavior, Unicode settings roundtrips, corrupt settings recovery, native global shortcut conflict detection, Notepad export/import, SoundSwitch migration and device matching, invalid import rejection, restorable pre-import backups, and embedded sound decoding, duration and peak levels. They also exercise a burst of 50 popup replacements, expiry reset, an update during fading, focus preservation, and dismissal without old messages reappearing. To also exercise real audio switching and restore every original default role:
 
 ```powershell
 ./build.ps1 -Test -AudioRoundtrip

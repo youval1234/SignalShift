@@ -6,6 +6,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Windows;
 using System.Windows.Interop;
+using System.Windows.Threading;
 
 namespace Sonora;
 
@@ -136,6 +137,41 @@ public static class Diagnostics
             }
             Require(!waves[0].SequenceEqual(waves[1]), "Input and output confirmations should be distinguishable");
             using var player = new SoundCueService(); player.Preload();
+        });
+        Check("Rapid notifications replace one popup immediately, reset expiry and never steal focus or reappear", () =>
+        {
+            void Wait(TimeSpan duration)
+            {
+                var frame = new DispatcherFrame();
+                var wait = new DispatcherTimer(DispatcherPriority.Background) { Interval = duration };
+                wait.Tick += (_, _) => { wait.Stop(); frame.Continue = false; };
+                wait.Start(); Dispatcher.PushFrame(frame);
+            }
+            using var popup = new SwitchNotification();
+            var foreground = SwitchNotification.GetForegroundWindow(); var activations = 0;
+            popup.Activated += (_, _) => activations++;
+            popup.Present("Output switched", "First device", AudioFlow.Output);
+            Require(SwitchNotification.GetForegroundWindow() == foreground, "Popup took foreground focus");
+            var handle = new WindowInteropHelper(popup).Handle;
+            Wait(SwitchNotification.HoldDuration - TimeSpan.FromMilliseconds(100));
+            for (var i = 0; i < 50; i++) popup.Present("Output switched", "Device " + i, AudioFlow.Output);
+            popup.Present("Input switched", "Latest microphone", AudioFlow.Input);
+            var foregroundAfterReplacement = SwitchNotification.GetForegroundWindow();
+            Require(popup.CurrentMessage == "Latest microphone" && popup.IsVisible, "Latest event was delayed or queued");
+            Require(new WindowInteropHelper(popup).Handle == handle, "Rapid switches created another popup");
+            Wait(TimeSpan.FromMilliseconds(350));
+            Require(popup.IsVisible && popup.Opacity == 1, "Old expiry dismissed or faded a newer notification");
+            Require(activations == 0 && !popup.ShowInTaskbar, "Popup activated or appeared in the taskbar");
+            Require(foregroundAfterReplacement != handle, "Popup took foreground focus on replacement");
+            // Replace content during the fade, too; stale fades must not dismiss it.
+            Wait(SwitchNotification.HoldDuration - TimeSpan.FromMilliseconds(280));
+            popup.Present("Profile activated", "Evening setup");
+            Wait(TimeSpan.FromMilliseconds(200));
+            Require(popup.IsVisible && popup.Opacity == 1 && popup.CurrentMessage == "Evening setup", "Update during fade was lost");
+            Wait(SwitchNotification.HoldDuration + TimeSpan.FromMilliseconds(300));
+            Require(!popup.IsVisible, "Popup did not dismiss after the most recent event");
+            Wait(TimeSpan.FromMilliseconds(250));
+            Require(!popup.IsVisible, "An old queued notification reappeared");
         });
         if (args.Contains("--audio-roundtrip"))
         {

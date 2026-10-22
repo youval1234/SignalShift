@@ -1,7 +1,9 @@
-Sonora 1.2 adds subtle confirmation sounds for hotkey switching.
+Sonora 1.3 makes switching feedback immediate and more comfortable.
 
-- Successful playback, recording and profile hotkeys now play a soft 148 ms chime.
-- Input and output actions have distinct sounds, played after a short delay to let Windows finish switching audio routing.
+- Windows tray balloons are replaced by a compact Sonora popup. Repeated hotkeys immediately replace its device name and restart the timeout instead of queuing delayed notifications.
+- The popup appears near the bottom of the active display, supports display scaling, stays out of Alt+Tab and the taskbar, and passes clicks through without stealing focus.
+- Successful playback, recording and profile hotkeys now play a warm 230 ms pluck with a rounded attack and smooth decay. Distinct input and output cues use lower notes than the previous chimes.
+- Fast hotkeys cancel pending and playing cues so sound feedback does not build up. Playback still waits briefly for Windows to finish switching audio routing.
 - Sound feedback is enabled by default and can be disabled in Settings, independently of visual notifications. Preview buttons let you hear both sounds.
 - Failed switches and empty cycles do not play a success sound. A shortcut with one selected device still confirms that the device is selected.
 - The preference survives Notepad export/import; older settings files enable sounds by default.
@@ -11,7 +13,7 @@ Download **Sonora.exe** and launch it. The x64 executable includes its .NET runt
 
 Default keys: **Ctrl + Alt + F11** for output, **Ctrl + Alt + F10** for input. Change them on the Shortcuts page. Release a shortcut in SoundSwitch first if you want to reuse it in Sonora.
 
-Validation includes decoding both embedded audio assets, checking their duration and quiet peak levels, and preserving the sound preference through settings export/import and older files, alongside the existing diagnostics.
+Validation includes a burst of 50 popup replacements, expiry reset, updates during fading, focus preservation and no stale messages reappearing. It also includes decoding both embedded audio assets, checking their duration and quiet peak levels, and preserving the sound preference through settings export/import and older files, alongside the existing diagnostics.
 
 `SHA256SUMS.txt` contains the SHA-256 of Sonora.exe. The full source, icon assets, build script, and Windows build workflow are in this repository.
 
