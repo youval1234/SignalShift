@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Json;
+using System.Threading.Tasks;
 using System.Windows.Input;
 using Microsoft.Win32;
 
@@ -24,14 +25,30 @@ public sealed record SettingsImport(Settings Settings, string Source, bool? Star
 
 public static class StartupRegistration
 {
+#if SONORA_STORE
+    private static Windows.ApplicationModel.StartupTask? startupTask;
+    public static async Task InitializeAsync() => startupTask = await Windows.ApplicationModel.StartupTask.GetAsync("SonoraStartup");
+    public static bool IsEnabled() => startupTask?.State is Windows.ApplicationModel.StartupTaskState.Enabled or Windows.ApplicationModel.StartupTaskState.EnabledByPolicy;
+    public static async Task SetAsync(bool enabled)
+    {
+        var task = startupTask ?? throw new InvalidOperationException("Sonora's Windows startup task is not available.");
+        if (!enabled) { task.Disable(); return; }
+        var state = await task.RequestEnableAsync();
+        if (state is not (Windows.ApplicationModel.StartupTaskState.Enabled or Windows.ApplicationModel.StartupTaskState.EnabledByPolicy))
+            throw new InvalidOperationException("Windows has disabled Sonora's startup task. Enable Sonora in Windows Settings > Apps > Startup.");
+    }
+#else
     private const string RegistryPath = @"Software\Microsoft\Windows\CurrentVersion\Run";
+    public static Task InitializeAsync() => Task.CompletedTask;
     public static bool IsEnabled() { using var key = Registry.CurrentUser.OpenSubKey(RegistryPath); return key?.GetValue("Sonora") != null; }
-    public static void Set(bool enabled)
+    public static Task SetAsync(bool enabled)
     {
         using var key = Registry.CurrentUser.CreateSubKey(RegistryPath);
         if (enabled) key.SetValue("Sonora", "\"" + Environment.ProcessPath + "\" --tray");
         else key.DeleteValue("Sonora", false);
+        return Task.CompletedTask;
     }
+#endif
 }
 
 public static class SettingsTransfer
@@ -207,7 +224,7 @@ public static class SettingsTransfer
             if (profile.InputId != null) profile.InputId = Map(profile.InputId, AudioFlow.Input);
         }
     }
-    public static string Apply(SettingsStore store, SettingsImport imported, IReadOnlyList<AudioDevice> devices)
+    public static async Task<string> ApplyAsync(SettingsStore store, SettingsImport imported, IReadOnlyList<AudioDevice> devices)
     {
         Validate(imported.Settings); var previous = store.Load(); var previousStartup = StartupRegistration.IsEnabled();
         var backupDirectory = Path.Combine(Path.GetDirectoryName(store.FilePath)!, "Backups"); Directory.CreateDirectory(backupDirectory);
@@ -215,12 +232,12 @@ public static class SettingsTransfer
         ExportFile(backupPath, previous, devices, previousStartup);
         try
         {
-            if (imported.StartWithWindows is bool startup) StartupRegistration.Set(startup);
+            if (imported.StartWithWindows is bool startup) await StartupRegistration.SetAsync(startup);
             store.Save(imported.Settings);
         }
         catch
         {
-            if (imported.StartWithWindows.HasValue) StartupRegistration.Set(previousStartup);
+            if (imported.StartWithWindows.HasValue && StartupRegistration.IsEnabled() != previousStartup) await StartupRegistration.SetAsync(previousStartup);
             throw;
         }
         return backupPath;

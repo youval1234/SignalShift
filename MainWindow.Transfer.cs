@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using Microsoft.Win32;
@@ -47,29 +48,31 @@ public sealed partial class MainWindow
         catch (Exception ex) { SetStatus("Could not export settings: " + ex.Message, true); }
         finally { paused = false; }
     }
-    private void ImportSettingsText()
+    private async void ImportSettingsText()
     {
         paused = true;
         try
         {
             var dialog = new OpenFileDialog { Title = "Import Sonora or SoundSwitch settings", Filter = "Settings files (*.txt;*.json)|*.txt;*.json|All files (*.*)|*.*", CheckFileExists = true };
-            if (dialog.ShowDialog(this) == true) ImportSettingsFile(dialog.FileName);
+            if (dialog.ShowDialog(this) == true) await ImportSettingsFileAsync(dialog.FileName);
         }
         catch (Exception ex) { SetStatus("Import failed: " + ex.Message, true); }
         finally { paused = false; }
     }
-    private void ImportFromSoundSwitch()
+    private async void ImportFromSoundSwitch()
     {
         var path = SettingsTransfer.FindSoundSwitchConfiguration();
         if (path == null) { SetStatus("SoundSwitch settings were not found. Use Import settings file to choose a saved configuration.", true); return; }
-        try { ImportSettingsFile(path); }
+        paused = true;
+        try { await ImportSettingsFileAsync(path); }
         catch (Exception ex) { SetStatus("Import failed: " + ex.Message, true); }
+        finally { paused = false; }
     }
-    private void ImportSettingsFile(string path)
+    private async Task ImportSettingsFileAsync(string path)
     {
         RefreshDevices(); var devices = outputs.Concat(inputs).ToList();
         var imported = SettingsTransfer.ReadFile(path, Preferences, devices);
-        var backup = SettingsTransfer.Apply(store, imported, devices);
+        var backup = await SettingsTransfer.ApplyAsync(store, imported, devices);
         Preferences = imported.Settings; RegisterShortcuts(); RefreshDevices();
         var details = new List<string>
         {

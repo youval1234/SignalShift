@@ -111,7 +111,7 @@ public static class Diagnostics
             try
             {
                 var store = new SettingsStore(Path.Combine(directory, "settings.json")); var original = new Settings { Notifications = false }; store.Save(original);
-                var imported = new Settings { StartMinimized = true }; var backup = SettingsTransfer.Apply(store, new(imported, "Test", null, new()), Array.Empty<AudioDevice>());
+                var imported = new Settings { StartMinimized = true }; var backup = SettingsTransfer.ApplyAsync(store, new(imported, "Test", null, new()), Array.Empty<AudioDevice>()).GetAwaiter().GetResult();
                 Require(File.Exists(backup) && store.Load().StartMinimized, "Import was not committed with a backup");
                 var restored = SettingsTransfer.ReadFile(backup, new Settings(), Array.Empty<AudioDevice>()).Settings;
                 Require(!restored.Notifications && !restored.StartMinimized, "Backup does not restore the original preferences");
