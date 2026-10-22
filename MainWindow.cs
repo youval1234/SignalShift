@@ -338,7 +338,18 @@ public sealed partial class MainWindow : Window
         var inputPreview = Button("Preview input sound", () => soundCues.Play(AudioFlow.Input)); inputPreview.Margin = new Thickness(8, 0, 0, 0); previews.Children.Add(inputPreview); sounds.Children.Add(previews);
         Option("Show a notification after switching", "A small popup shows the latest device immediately. Repeated switches update the same popup.", Preferences.Notifications, v => { Preferences.Notifications = v; if (!v) switchNotification?.Dismiss(); });
         Option("Keep running when the window closes", "Your shortcuts keep working. Choose Quit from the tray to exit.", Preferences.CloseToTray, v => Preferences.CloseToTray = v);
-        Option("Start with Windows", "Launch Sonora in your tray when you sign in.", IsStartupEnabled(), SetStartup);
+        var startup = new StackPanel { Margin = new Thickness(0, 0, 0, 23) };
+        var startupCheck = new CheckBox { Content = "Start with Windows", IsChecked = IsStartupEnabled() };
+        startupCheck.Click += async (_, _) =>
+        {
+            startupCheck.IsEnabled = false;
+            try { await StartupRegistration.SetAsync(startupCheck.IsChecked == true); }
+            catch (Exception ex) { SetStatus(ex.Message, true); }
+            finally { startupCheck.IsChecked = IsStartupEnabled(); startupCheck.IsEnabled = true; }
+        };
+        startup.Children.Add(startupCheck);
+        startup.Children.Add(new TextBlock { Text = "Launch Sonora in your tray when you sign in.", Foreground = Muted, FontSize = 12, Margin = new Thickness(30, 7, 0, 0) });
+        preferences.Children.Add(startup);
         Option("Open in the tray", "Keep the main window hidden when Sonora starts.", Preferences.StartMinimized, v => Preferences.StartMinimized = v);
         page.Children.Add(Card(preferences, 25));
         var about = new StackPanel { Margin = new Thickness(0, 25, 0, 0) }; about.Children.Add(Text("SONORA 1.3.0", 11, Purple, FontWeights.SemiBold)); about.Children.Add(new TextBlock { Text = "Native Windows audio switching. No account, no ads, no telemetry.\nYour preferences stay on this computer.", Foreground = Muted, FontSize = 13, LineHeight = 24, Margin = new Thickness(0, 10, 0, 15) });
@@ -450,7 +461,6 @@ public sealed partial class MainWindow : Window
     private void SetStatus(string text, bool error = false) { status.Text = (error ? "!  " : "●  ") + text; status.Foreground = error ? Brush("#F0B68A") : Muted; status.ToolTip = text; }
     private static string DeviceName(string? id, IReadOnlyList<AudioDevice> devices) => id == null ? "Leave unchanged" : devices.FirstOrDefault(d => d.Id == id)?.Title ?? "Disconnected device";
     private static bool IsStartupEnabled() => StartupRegistration.IsEnabled();
-    private static void SetStartup(bool value) => StartupRegistration.Set(value);
     private Window Dialog(string title, int width, int height) => new() { Title = title, Owner = this, Width = width, Height = height, WindowStartupLocation = WindowStartupLocation.CenterOwner, ResizeMode = ResizeMode.NoResize, Background = Brush("#171A23"), Foreground = Brushes.White, FontFamily = FontFamily, ShowInTaskbar = true, Icon = Icon };
     private static Brush Brush(string color) => (SolidColorBrush)new BrushConverter().ConvertFromString(color)!;
     private static TextBlock Text(string value, double size, Brush? color = null, FontWeight? weight = null) => new() { Text = value, FontSize = size, Foreground = color ?? Brushes.White, FontWeight = weight ?? FontWeights.Normal };
