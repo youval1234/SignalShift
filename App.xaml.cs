@@ -17,6 +17,20 @@ public partial class App : Application
     {
         base.OnStartup(e);
         if (e.Args.Contains("--diagnostics")) { Diagnostics.Run(e.Args); Shutdown(); return; }
+        if (e.Args.Contains("--export-notification-preview"))
+        {
+            var path = e.Args.SkipWhile(a => a != "--export-notification-preview").Skip(1).First();
+            using var preview = new SwitchNotification();
+            preview.SetContent("Output switched", "SteelSeries Sonar — Aux", AudioFlow.Output);
+            var surface = (FrameworkElement)preview.Content;
+            surface.Measure(new Size(preview.Width, preview.Height));
+            surface.Arrange(new Rect(0, 0, preview.Width, preview.Height)); surface.UpdateLayout();
+            var bitmap = new RenderTargetBitmap((int)preview.Width, (int)preview.Height, 96, 96, PixelFormats.Pbgra32);
+            bitmap.Render(surface); var encoder = new PngBitmapEncoder(); encoder.Frames.Add(BitmapFrame.Create(bitmap));
+            Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(path))!);
+            using (var file = File.Create(path)) encoder.Save(file);
+            Shutdown(); return;
+        }
         if (e.Args.Contains("--export-preview"))
         {
             var path = e.Args.SkipWhile(a => a != "--export-preview").Skip(1).First();

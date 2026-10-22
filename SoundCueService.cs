@@ -41,7 +41,11 @@ public sealed class SoundCueService : IDisposable
         if (disposed) return;
         timer.Stop(); pending = flow; timer.Start();
     }
-    public void Cancel() => timer.Stop();
+    public void Cancel()
+    {
+        timer.Stop();
+        foreach (var item in players.Values) item.Player.Stop();
+    }
     public void Dispose()
     {
         if (disposed) return;
