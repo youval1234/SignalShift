@@ -77,3 +77,6 @@ Reject { & $verifier -ExePath $exe -Tag $tag -ExpectedSubject $subject -Expected
 Reject { & $verifier -ExePath $exe -Tag $tag -ExpectedSubject $subject -CheckChecksum } 'checksum does not match'
 Remove-Item Function:Get-AuthenticodeSignature
 Write-Host "$passed release automation checks passed. Fixtures: $root"
+# Expected Git rejection tests leave a native exit code of 1. GitHub's pwsh
+# wrapper propagates it unless the completed test suite explicitly reports success.
+exit 0
