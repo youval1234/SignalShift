@@ -39,6 +39,8 @@ jobs:
         run: |
           dotnet publish SonarShift.csproj -c Release -r win-x64 --self-contained true -o ../optimized-output
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          dotnet publish SonarShift.csproj -c Release -r win-x64 --self-contained true -p:EnableCompressionInSingleFile=true -o ../compact-output
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           dotnet publish SonarShift.csproj -c Release -r win-x64 --self-contained false -p:PublishSingleFile=false -p:EnableCompressionInSingleFile=false -o ../framework-output
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           $files = Get-ChildItem ../framework-output -Recurse -File
@@ -70,6 +72,11 @@ jobs:
       - name: Measure footprint and verify background/UI lifecycle
         shell: pwsh
         run: ./app/tools/Test-Optimization.ps1 -OptimizedExe ./optimized-output/SonarShift.exe -BaselineExe ./baseline-output/SonarShift.exe -ReportDirectory ./performance -SampleSeconds 20
+      - name: Compare combined host and interface memory with and without bundle compression
+        shell: pwsh
+        run: |
+          ./app/tools/Measure-InterfaceFootprint.ps1 -Executable ./compact-output/SonarShift.exe -ReportPath ./performance/interface-compact.json -SampleSeconds 10
+          ./app/tools/Measure-InterfaceFootprint.ps1 -Executable ./optimized-output/SonarShift.exe -ReportPath ./performance/interface-default.json -SampleSeconds 10
       - uses: actions/upload-artifact@v7
         if: always()
         with:

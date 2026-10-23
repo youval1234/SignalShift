@@ -17,7 +17,9 @@
     <DebugType Condition="'$(Configuration)' == 'Release'">none</DebugType>
     <PublishSingleFile>true</PublishSingleFile>
     <SelfContained>true</SelfContained>
-    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <!-- Compressed assemblies are expanded into private memory in each process.
+         Prefer file-backed assemblies so the host and settings can share pages. -->
+    <EnableCompressionInSingleFile>false</EnableCompressionInSingleFile>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
     <ApplicationManifest>app.manifest</ApplicationManifest>
   </PropertyGroup>

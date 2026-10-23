@@ -10,18 +10,11 @@ SonarShift is a native Windows desktop app for switching playback and recording 
 
 ## Optimization preview (1.5 development)
 
-The `codex/optimize-1.5` branch separates background audio controls from the settings interface, releases the interface process when it closes, and uses audio-device change callbacks instead of regular device polling. Notifications reuse a native popup. The Store build uses a focused startup API projection rather than the full Windows SDK assembly.
+The `codex/optimize-1.5` branch separates background audio controls from settings, releases the settings process on close, and uses audio-device callbacks instead of regular polling. The default portable EXE now leaves bundled assemblies uncompressed to reduce private memory in both processes. `./build.ps1 -Compact` retains the smaller compressed EXE as an option.
 
-The first Windows CI measurement compared self-contained builds on one runner over 20-second sampling windows:
+A local comparison of the same 1.5 application code measured **combined private working set with settings open at 183,215,309 to 54,928,998 bytes (70.0% lower)**. Tray-only private working set fell from 55,255,040 to 9,875,456 bytes (82.1% lower). The EXE grew from 75,695,359 to 173,429,793 bytes. These are ten-sample measurements on one Windows PC; results vary by hardware, window size and usage.
 
-| Tray memory | 1.4 baseline | 1.5 preview | Reduction |
-| --- | ---: | ---: | ---: |
-| Mean working set (bytes) | 255,510,323 | 130,277,786 | 49.0% |
-| Mean private committed memory (bytes) | 125,265,715 | 57,736,602 | 53.9% |
-
-These preliminary figures apply with settings closed. Opening settings adds a separate process; they are not a promise of the same savings while the interface is open. The self-contained EXE did not shrink in that run (75,613,461 to 75,693,704 bytes). Later changes require a fresh measurement. See the [measurement workflow](https://github.com/youval1234/SonarShift/actions/workflows/optimization.yml) for diagnostics and raw results. Hosted tests do not verify switching physical audio hardware or packaged startup consent.
-
-This preview has not replaced the installed app or the 1.4 Store submission. Unsigned preview builds remain subject to Windows application-control checks.
+See the [raw measurements and tradeoffs](docs/performance-1.5.md), and the [measurement workflow](https://github.com/youval1234/SonarShift/actions/workflows/optimization.yml). The Store package already uses unpacked assemblies, so the compression change benefits the portable build. The 1.4 Store submission remains unchanged. Unsigned preview builds remain subject to Windows application-control checks.
 
 ## Download
 
@@ -85,7 +78,7 @@ dotnet build -c Release
 dotnet publish -c Release -r win-x64 --self-contained true -o dist
 ```
 
-Or use `./build.ps1`. The project uses only the Windows desktop framework and Windows APIs, with no third-party runtime libraries. `Assets/SonarShift.svg` is the original icon design. To regenerate the PNG and multi-resolution ICO, install Pillow and run `python tools/make_icon.py`.
+Or use `./build.ps1` for the default build with lower memory use, or `./build.ps1 -Compact` for a smaller EXE that uses more private RAM. The portable app uses the Windows desktop framework and Windows APIs. Store startup integration embeds a focused Microsoft C#/WinRT projection with its third-party notices. `Assets/SonarShift.svg` is the original icon design. To regenerate the PNG and multi-resolution ICO, install Pillow and run `python tools/make_icon.py`.
 
 ## Validation
 
