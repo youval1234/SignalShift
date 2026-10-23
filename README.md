@@ -1,3 +1,22 @@
+# SignalShift
+
+SignalShift is the next version of SonarShift: native Windows audio switching,
+with dark/light appearance and an optional Windows 11 webcam-switching component.
+Your existing audio cycles, profiles, shortcuts and local preferences are preserved.
+
+**2.0 is currently in development.** The virtual camera needs real webcam, call-app
+and OBS validation, plus a trusted signing/distribution path. The current desktop
+build and the pending Microsoft Store 1.4 submission have not been replaced.
+See [camera setup and limitations](Camera/README.md).
+
+New configurable actions: **Switch appearance** and **Next camera source**. These
+shortcuts default to disabled so upgrading does not reserve new global keys.
+Camera support stays off until explicitly enabled; audio-only tray operation keeps
+the separate UI process, event-driven refresh, reused popup/tray items and uncompressed
+file-backed assemblies from the earlier memory improvements.
+
+---
+
 <p align="center"><img src="Assets/SonarShift.png" width="96" alt="SonarShift icon" /></p>
 <h1 align="center">SonarShift</h1>
 <p align="center">Your sound. One shortcut away.</p>

@@ -28,7 +28,7 @@ public sealed class SwitchNotification : Window, IDisposable
 
     public SwitchNotification()
     {
-        Title = "SonarShift switch notification";
+        Title = "SignalShift switch notification";
         Width = 408; Height = 126;
         WindowStyle = WindowStyle.None; ResizeMode = ResizeMode.NoResize;
         AllowsTransparency = true; Background = Brushes.Transparent;

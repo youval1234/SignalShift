@@ -41,7 +41,7 @@ jobs:
           if ($LASTEXITCODE -ne 0 -or $run.conclusion -ne 'success' -or $run.event -ne 'push' -or $run.head_branch -ne 'main' -or $run.path -ne '.github/workflows/build.yml' -or $run.repository.full_name -cne $env:GITHUB_REPOSITORY -or $run.head_sha -notmatch '^[0-9a-f]{40}$') { throw 'Build is not a successful trusted main build.' }
           git merge-base --is-ancestor $run.head_sha origin/main
           if ($LASTEXITCODE -ne 0) { throw 'Source is not reachable from main.' }
-          [xml]$project = git show "$($run.head_sha):SonarShift.csproj"
+          [xml]$project = git show "$($run.head_sha):SignalShift.csproj"
           if ($LASTEXITCODE -ne 0 -or $project.Project.PropertyGroup.Version -ne $version) { throw 'Version differs from preview tag.' }
           $release = gh release view $env:RELEASE_TAG --repo $env:GITHUB_REPOSITORY --json isDraft,isPrerelease,targetCommitish | ConvertFrom-Json
           if ($LASTEXITCODE -ne 0 -or !$release.isDraft -or !$release.isPrerelease -or $release.targetCommitish -cne $run.head_sha) { throw 'An owner-prepared preview draft targeting the exact source is required.' }
@@ -49,7 +49,7 @@ jobs:
           "PREVIEW_VERSION=$version" >> $env:GITHUB_ENV
       - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
         with:
-          name: SonarShift-windows-x64
+          name: SignalShift-windows-x64
           path: preview
           run-id: ${{ inputs.build_run_id }}
           github-token: ${{ github.token }}
@@ -58,15 +58,15 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $files = @(Get-ChildItem preview -Recurse -File)
-          if ($files.Count -ne 2 -or (($files.Name | Sort-Object) -join ',') -cne 'SHA256SUMS.txt,SonarShift.exe') { throw 'Unexpected files in executable artifact.' }
-          $exe = Get-Item preview/SonarShift.exe
-          if ($exe.VersionInfo.FileVersion -ne "$env:PREVIEW_VERSION.0" -or $exe.VersionInfo.ProductName -ne 'SonarShift') { throw 'Unexpected executable metadata.' }
+          if ($files.Count -ne 2 -or (($files.Name | Sort-Object) -join ',') -cne 'SHA256SUMS.txt,SignalShift.exe') { throw 'Unexpected files in executable artifact.' }
+          $exe = Get-Item preview/SignalShift.exe
+          if ($exe.VersionInfo.FileVersion -ne "$env:PREVIEW_VERSION.0" -or $exe.VersionInfo.ProductName -ne 'SignalShift') { throw 'Unexpected executable metadata.' }
           $hash = (Get-FileHash $exe.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
-          if ((Get-Content preview/SHA256SUMS.txt -Raw).Trim() -cne "$hash  SonarShift.exe") { throw 'Artifact checksum mismatch.' }
-          gh release upload $env:RELEASE_TAG preview/SonarShift.exe preview/SHA256SUMS.txt --repo $env:GITHUB_REPOSITORY --clobber
+          if ((Get-Content preview/SHA256SUMS.txt -Raw).Trim() -cne "$hash  SignalShift.exe") { throw 'Artifact checksum mismatch.' }
+          gh release upload $env:RELEASE_TAG preview/SignalShift.exe preview/SHA256SUMS.txt --repo $env:GITHUB_REPOSITORY --clobber
           if ($LASTEXITCODE -ne 0) { throw 'Draft asset upload failed.' }
           $release = gh release view $env:RELEASE_TAG --repo $env:GITHUB_REPOSITORY --json isDraft,isPrerelease,assets | ConvertFrom-Json
-          $remote = @($release.assets | Where-Object name -CEQ 'SonarShift.exe')
+          $remote = @($release.assets | Where-Object name -CEQ 'SignalShift.exe')
           if ($LASTEXITCODE -ne 0 -or !$release.isDraft -or !$release.isPrerelease -or $release.assets.Count -ne 2 -or $remote.Count -ne 1 -or $remote[0].size -ne $exe.Length -or $remote[0].digest -cne "sha256:$hash") { throw 'Uploaded executable integrity check failed; draft retained.' }
           gh release edit $env:RELEASE_TAG --repo $env:GITHUB_REPOSITORY --draft=false --prerelease --latest=false
           if ($LASTEXITCODE -ne 0) { throw 'Preview publication failed.' }

@@ -8,7 +8,7 @@ param(
     [string]$MakeAppxPath
 )
 $ErrorActionPreference = 'Stop'
-[xml]$project = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'SonarShift.csproj') -Raw
+[xml]$project = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'SignalShift.csproj') -Raw
 $appVersion = [string]$project.Project.PropertyGroup.Version
 if (!$Version) { $Version = $appVersion + '.0' }
 # Store certification supplies the trusted signature. This script never installs
@@ -32,7 +32,7 @@ $packageVersion = [version]$Version
 if ($packageVersion.Revision -ne 0 -or $packageVersion.Major -lt 1 -or ($packageVersion.Major, $packageVersion.Minor, $packageVersion.Build | Where-Object { $_ -lt 0 -or $_ -gt 65535 })) {
     throw 'Use a four-part Store version such as 1.4.0.0; the final component must be zero.'
 }
-if ($Version -cne ($appVersion + '.0')) { throw 'The Store package version must match SonarShift.csproj, with a final .0 component.' }
+if ($Version -cne ($appVersion + '.0')) { throw 'The Store package version must match SignalShift.csproj, with a final .0 component.' }
 if (!$MakeAppxPath) {
     $sdkBin = Join-Path ${env:ProgramFiles(x86)} 'Windows Kits\10\bin'
     $MakeAppxPath = Get-ChildItem -Path "$sdkBin\*\x64\makeappx.exe" -ErrorAction SilentlyContinue | Sort-Object FullName -Descending | Select-Object -First 1 -ExpandProperty FullName
@@ -49,7 +49,7 @@ $stage = Join-Path $outputRoot ('staging-' + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $stage -Force | Out-Null
 Push-Location $PSScriptRoot
 try {
-    dotnet publish SonarShift.csproj -c Release -r win-x64 --self-contained true -p:SonarShiftStore=true -p:PublishSingleFile=false -p:EnableCompressionInSingleFile=false -p:DebugType=None -o $stage
+    dotnet publish SignalShift.csproj -c Release -r win-x64 --self-contained true -p:SonarShiftStore=true -p:PublishSingleFile=false -p:EnableCompressionInSingleFile=false -p:DebugType=None -o $stage
     if ($LASTEXITCODE -ne 0) { throw 'Store build failed.' }
     $manifest = Get-Content -LiteralPath 'Packaging\AppxManifest.xml' -Raw
     foreach ($entry in @{
@@ -73,7 +73,7 @@ try {
         }
     } finally { $image.Dispose() }
     $suffix = if ($Draft) { '-DRAFT-unsigned' } else { '-StoreSubmission-unsigned' }
-    $package = Join-Path $outputRoot ("SonarShift-$Version-x64$suffix.msix")
+    $package = Join-Path $outputRoot ("SignalShift-$Version-x64$suffix.msix")
     & $MakeAppxPath pack /d $stage /p $package /o
     if ($LASTEXITCODE -ne 0) { throw 'MSIX validation/packaging failed.' }
     $verification = Join-Path $outputRoot ('verification-' + [guid]::NewGuid().ToString('N'))

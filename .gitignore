@@ -8,3 +8,6 @@ dist/
 diagnostics*.json
 settings.json
 *.tmp
+
+Camera/Native/packages/
+Camera/Native/obj*/

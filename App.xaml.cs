@@ -35,7 +35,7 @@ public partial class App : Application
         if (e.Args.Contains("--export-preview"))
         {
             var path = e.Args.SkipWhile(a => a != "--export-preview").Skip(1).First();
-            var preview = new MainWindow(previewMode: true); preview.Show();
+            var preview = new MainWindow(previewMode: true, previewTheme: e.Args.SkipWhile(a => a != "--preview-theme").Skip(1).FirstOrDefault(), previewPage: e.Args.SkipWhile(a => a != "--preview-page").Skip(1).FirstOrDefault() ?? "Devices"); preview.Show();
             _ = Dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle, new Action(() =>
             {
                 preview.UpdateLayout();
@@ -58,7 +58,7 @@ public partial class App : Application
             Shutdown(); return;
         }
         try { if (Environment.GetEnvironmentVariable("SONARSHIFT_TEST_DATA") == null) await StartupRegistration.InitializeAsync(); }
-        catch (Exception ex) { MessageBox.Show(ex.Message, "SonarShift could not initialize startup settings"); Shutdown(1); return; }
+        catch (Exception ex) { MessageBox.Show(ex.Message, "SignalShift could not initialize startup settings"); Shutdown(1); return; }
         if (e.Args.Contains("--import-soundswitch") || e.Args.Contains("--import-settings") || e.Args.Contains("--export-settings"))
         {
             Shutdown(await RunSettingsCommandAsync(e.Args)); return;
@@ -67,7 +67,7 @@ public partial class App : Application
         {
             Directory.CreateDirectory(SettingsStore.DirectoryPath);
             File.AppendAllText(Path.Combine(SettingsStore.DirectoryPath, "errors.log"), DateTime.Now + " " + args.Exception + Environment.NewLine);
-            MessageBox.Show("SonarShift couldn't complete that action. Your settings are saved.\n\n" + args.Exception.Message, "SonarShift", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show("SignalShift couldn't complete that action. Your settings are saved.\n\n" + args.Exception.Message, "SignalShift", MessageBoxButton.OK, MessageBoxImage.Information);
             args.Handled = true;
         };
         try
@@ -77,7 +77,7 @@ public partial class App : Application
             window.Show();
             if (!Program.IsInterface && (e.Args.Contains("--tray") || window.Preferences.StartMinimized)) window.Hide();
         }
-        catch (Exception ex) { MessageBox.Show(ex.Message, "SonarShift could not start"); Shutdown(1); }
+        catch (Exception ex) { MessageBox.Show(ex.Message, "SignalShift could not start"); Shutdown(1); }
     }
     protected override void OnExit(ExitEventArgs e) { instance?.Dispose(); base.OnExit(e); }
     private static async Task<int> RunSettingsCommandAsync(string[] args)
