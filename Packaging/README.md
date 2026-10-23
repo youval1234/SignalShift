@@ -6,7 +6,9 @@ The historical Sonora 1.3.0 release is unsigned. SonarShift 1.4.0 is the renamed
 
 Microsoft signs MSIX submissions after certification. The repository includes `package-store.ps1` and an MSIX manifest. Store builds use the Windows StartupTask API instead of the portable build's Run registry entry. Startup remains opt-in; Windows user/policy overrides are respected. Settings import/export and the existing settings location are retained.
 
-Status: the SonarShift name is reserved in Partner Center under public publisher `youval1234`. The exact Product identity values are recorded in `Packaging/StoreIdentity.json`; they are public package metadata, not account credentials or signing keys. No Store submission or certified build exists. See [CODE_SIGNING.md](../CODE_SIGNING.md) for the separate standalone EXE signing status.
+Status as of **23 October 2026**: SonarShift **1.4.0.0 x64** has been uploaded, validated, and submitted for Microsoft Store certification under public publisher `youval1234`. Partner Center reports **In certification**. Approval and a certified Store build are still pending. Publishing is held until the owner selects **Publish now**, so passing certification will not automatically release it. The exact Product identity values are recorded in `Packaging/StoreIdentity.json`; they are public package metadata, not account credentials or signing keys. See [CODE_SIGNING.md](../CODE_SIGNING.md) for the separate standalone EXE signing status.
+
+The submission uses free pricing, an English (United States) listing, and GitHub website/support links. The generated content ratings include IARC/PEGI/Microsoft 3+ and ESRB Everyone. The listing and reviewer notes are retained in [StoreListing.en-US.md](StoreListing.en-US.md). No private contact details are included in that file or the public Store support fields.
 
 To build the actual unsigned submission package using those assigned values:
 
