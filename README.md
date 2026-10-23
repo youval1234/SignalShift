@@ -12,7 +12,7 @@ Sonora is a native Windows desktop app for switching playback and recording devi
 
 Download **Sonora.exe** from the [latest release](https://github.com/youval1234/Sonora/releases/latest). It is a portable, self-contained Windows x64 app: no installer, administrator access, or separate .NET installation required. Windows 10 (1809+) or Windows 11 is required.
 
-The executable is unsigned; Windows may display its standard unknown-publisher warning. Release assets include a SHA-256 checksum. Keep the executable in a permanent folder before enabling “Start with Windows.”
+The executable is currently unsigned. Smart App Control can block it; there is no per-app exception. Automated signing and release publication are prepared, but an approved signing provider is still required. A GitHub download or checksum alone does not establish a trusted publisher. See the [Code signing policy](CODE_SIGNING.md). Release assets include a SHA-256 checksum. Keep the executable in a permanent folder before enabling “Start with Windows.”
 
 ## What it does
 
@@ -93,3 +93,7 @@ Windows documents endpoint enumeration through [IMMDeviceEnumerator](https://lea
 ## License
 
 [MIT](LICENSE)
+
+## Code signing policy
+
+See [CODE_SIGNING.md](CODE_SIGNING.md) for signing status, setup and release approval. Version tags trigger a build → signing request → verification → GitHub Release pipeline, which stops if trusted signing is unavailable. SignPath Foundation declined the current application due to insufficient public visibility; there is no active certificate or signing sponsorship. The app's [privacy policy](PRIVACY.md) describes its local data and user-requested system changes.
