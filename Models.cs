@@ -41,7 +41,7 @@ public sealed class Settings
 public sealed class SettingsStore
 {
     // Preserve the existing Sonora data location across the product rename.
-    public static string DirectoryPath => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Sonora");
+    public static string DirectoryPath => Environment.GetEnvironmentVariable("SONARSHIFT_TEST_DATA") is string isolated ? Path.GetFullPath(isolated) : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Sonora");
     public string FilePath { get; }
     public SettingsStore(string? path = null) => FilePath = path ?? Path.Combine(DirectoryPath, "settings.json");
     public Settings Load()
