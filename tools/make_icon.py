@@ -1,4 +1,4 @@
-"""Render Sonora's original vector mark into a Windows multi-resolution icon.
+"""Render SonarShift's original vector mark into a Windows multi-resolution icon.
 Only needed to regenerate assets: python -m pip install pillow
 """
 from pathlib import Path
@@ -33,6 +33,6 @@ draw.polygon([(98*scale,162*scale),(66*scale,186*scale),(98*scale,210*scale)], f
 for x,h in [(98,26),(128,48),(158,26)]:
     draw.rounded_rectangle(((x-6)*scale,(128-h/2)*scale,(x+6)*scale,(128+h/2)*scale),radius=6*scale,fill="#F5F1FF")
 canvas = canvas.resize((256,256), Image.Resampling.LANCZOS)
-canvas.save(root / "Sonora.png")
-canvas.save(root / "Sonora.ico", sizes=[(16,16),(20,20),(24,24),(32,32),(40,40),(48,48),(64,64),(128,128),(256,256)])
-print(root / "Sonora.ico")
+canvas.save(root / "SonarShift.png")
+canvas.save(root / "SonarShift.ico", sizes=[(16,16),(20,20),(24,24),(32,32),(40,40),(48,48),(64,64),(128,128),(256,256)])
+print(root / "SonarShift.ico")

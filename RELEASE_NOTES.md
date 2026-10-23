@@ -1,3 +1,10 @@
+# SonarShift 1.4.0 — in preparation
+
+- Rename Sonora to **SonarShift** throughout the app, tray, popup, executable, build and signing workflows, documentation and GitHub repository.
+- Preserve existing Sonora settings, device choices, profiles, shortcuts and export compatibility. Carry a previous portable startup opt-in over to SonarShift.exe.
+- Prepare an MSIX package using the assigned SonarShift Product identity and public publisher `youval1234`. Store certification and installed-package tests remain pending.
+- Historical releases below retain their original Sonora names and assets. No signed 1.4.0 release is published yet.
+
 Sonora 1.3 makes switching feedback immediate and more comfortable.
 
 - Windows tray balloons are replaced by a compact Sonora popup. Repeated hotkeys immediately replace its device name and restart the timeout instead of queuing delayed notifications.

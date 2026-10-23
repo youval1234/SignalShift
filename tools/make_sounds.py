@@ -1,4 +1,4 @@
-"""Generate Sonora's original, mellow plucks using only Python's standard library."""
+"""Generate SonarShift's original, mellow plucks using only Python's standard library."""
 from pathlib import Path
 import math
 import struct

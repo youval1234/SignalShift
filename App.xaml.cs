@@ -2,18 +2,19 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using System.Text.Json;
 
-namespace Sonora;
+namespace SonarShift;
 
 public partial class App : Application
 {
     private Mutex? instance;
-    protected override void OnStartup(StartupEventArgs e)
+    protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
         if (e.Args.Contains("--diagnostics")) { Diagnostics.Run(e.Args); Shutdown(); return; }
@@ -35,7 +36,7 @@ public partial class App : Application
         {
             var path = e.Args.SkipWhile(a => a != "--export-preview").Skip(1).First();
             var preview = new MainWindow(previewMode: true); preview.Show();
-            Dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle, new Action(() =>
+            _ = Dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle, new Action(() =>
             {
                 preview.UpdateLayout();
                 var bitmap = new RenderTargetBitmap((int)preview.ActualWidth, (int)preview.ActualHeight, 96, 96, PixelFormats.Pbgra32);
@@ -46,6 +47,7 @@ public partial class App : Application
             }));
             return;
         }
+        // Share IPC with older Sonora installations to avoid competing hotkeys.
         instance = new Mutex(true, "Local\\Sonora-Desktop-v1", out var created);
         if (!created)
         {
@@ -54,15 +56,17 @@ public partial class App : Application
             File.WriteAllText(Path.Combine(SettingsStore.DirectoryPath, "show.signal"), DateTime.UtcNow.ToString("O"));
             Shutdown(); return;
         }
+        try { await StartupRegistration.InitializeAsync(); }
+        catch (Exception ex) { MessageBox.Show(ex.Message, "SonarShift could not initialize startup settings"); Shutdown(1); return; }
         if (e.Args.Contains("--import-soundswitch") || e.Args.Contains("--import-settings") || e.Args.Contains("--export-settings"))
         {
-            Shutdown(RunSettingsCommand(e.Args)); return;
+            Shutdown(await RunSettingsCommandAsync(e.Args)); return;
         }
         DispatcherUnhandledException += (_, args) =>
         {
             Directory.CreateDirectory(SettingsStore.DirectoryPath);
             File.AppendAllText(Path.Combine(SettingsStore.DirectoryPath, "errors.log"), DateTime.Now + " " + args.Exception + Environment.NewLine);
-            MessageBox.Show("Sonora couldn't complete that action. Your settings are saved.\n\n" + args.Exception.Message, "Sonora", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show("SonarShift couldn't complete that action. Your settings are saved.\n\n" + args.Exception.Message, "SonarShift", MessageBoxButton.OK, MessageBoxImage.Information);
             args.Handled = true;
         };
         try
@@ -72,10 +76,10 @@ public partial class App : Application
             window.Show();
             if (e.Args.Contains("--tray") || window.Preferences.StartMinimized) window.Hide();
         }
-        catch (Exception ex) { MessageBox.Show(ex.Message, "Sonora could not start"); Shutdown(1); }
+        catch (Exception ex) { MessageBox.Show(ex.Message, "SonarShift could not start"); Shutdown(1); }
     }
     protected override void OnExit(ExitEventArgs e) { instance?.Dispose(); base.OnExit(e); }
-    private static int RunSettingsCommand(string[] args)
+    private static async Task<int> RunSettingsCommandAsync(string[] args)
     {
         var reportPath = args.SkipWhile(a => a != "--report").Skip(1).FirstOrDefault() ?? Path.Combine(SettingsStore.DirectoryPath, "settings-transfer.json");
         string Argument(string flag) => args.SkipWhile(a => a != flag).Skip(1).FirstOrDefault() is string value && !value.StartsWith("--", StringComparison.Ordinal) ? value : throw new InvalidDataException("Missing file path after " + flag);
@@ -88,7 +92,7 @@ public partial class App : Application
             if (args.Contains("--import-soundswitch") || args.Contains("--import-settings"))
             {
                 var path = args.Contains("--import-soundswitch") ? SettingsTransfer.FindSoundSwitchConfiguration() ?? throw new FileNotFoundException("SoundSwitch settings were not found.") : Argument("--import-settings");
-                imported = SettingsTransfer.ReadFile(path, settings, devices); backup = SettingsTransfer.Apply(store, imported, devices); settings = imported.Settings;
+                imported = SettingsTransfer.ReadFile(path, settings, devices); backup = await SettingsTransfer.ApplyAsync(store, imported, devices); settings = imported.Settings;
             }
             if (args.Contains("--export-settings"))
             {
