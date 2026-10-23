@@ -2,7 +2,8 @@ param(
     [Parameter(Mandatory)][string]$OptimizedExe,
     [string]$BaselineExe,
     [string]$ReportDirectory = (Join-Path $PSScriptRoot '..\dist\performance'),
-    [int]$SampleSeconds = 20
+    [int]$SampleSeconds = 20,
+    [switch]$AllowExternalAudioEvents
 )
 $ErrorActionPreference = 'Stop'
 $OptimizedExe = (Resolve-Path -LiteralPath $OptimizedExe).Path
@@ -74,13 +75,18 @@ try {
     if (!$initial.eventDriven) { throw 'Core Audio callbacks were not registered; fallback polling is not an optimization pass.' }
     $measurements += Measure-Process $hostProcess '1.5 tray: compressed self-contained'
     $afterIdle = Command 'status' $data
-    if ($afterIdle.refreshes -ne $initial.refreshes) { throw 'Audio endpoints were re-enumerated while idle.' }
-    $checks += 'No periodic endpoint enumeration during idle sample'
+    $idleRefreshes = $afterIdle.refreshes - $initial.refreshes
+    if ($idleRefreshes -ne 0 -and !$AllowExternalAudioEvents) { throw 'Audio endpoints were re-enumerated while idle; on an active desktop, external audio events can invalidate this assertion.' }
+    if ($idleRefreshes -eq 0) { $checks += 'No endpoint enumeration during idle sample' }
+    else { $checks += "Active-desktop sample observed $idleRefreshes refreshes; no idle-enumeration assertion made" }
     $settings = Get-Content -LiteralPath (Join-Path $data 'settings.json') -Raw | ConvertFrom-Json
     $settings.HotkeysEnabled = $true
     $settings | Add-Member OutputShortcut @{Modifiers=7;Key=135;Label='Ctrl + Alt + Shift + F24'}
     $settings | Add-Member InputShortcut @{Modifiers=7;Key=134;Label='Ctrl + Alt + Shift + F23'}
-    $settings | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $data 'settings.json') -Encoding utf8
+    # Match the application's atomic save so its watcher never reads a partial JSON file.
+    $pendingSettings = Join-Path $data 'settings.json.tmp'
+    [IO.File]::WriteAllText($pendingSettings, ($settings | ConvertTo-Json -Depth 8))
+    [IO.File]::Move($pendingSettings, (Join-Path $data 'settings.json'), $true)
     Start-Sleep -Seconds 1
     $registered = Command 'status' $data
     if ($registered.conflicts.Count -ne 0) { throw 'Isolated shortcuts could not be registered.' }
@@ -115,6 +121,7 @@ try {
     $result = [ordered]@{
         success=$true; runtime=[Environment]::Version.ToString(); os=[Environment]::OSVersion.VersionString
         logicalProcessors=[Environment]::ProcessorCount; sampleSeconds=$SampleSeconds
+        externalAudioEventsAllowed=[bool]$AllowExternalAudioEvents; observedIdleRefreshes=$idleRefreshes
         baselineExeBytes=if ($BaselineExe) { (Get-Item -LiteralPath $BaselineExe).Length } else { $null }
         optimizedExeBytes=(Get-Item -LiteralPath $OptimizedExe).Length
         checks=$checks; measurements=$measurements
