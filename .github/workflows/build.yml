@@ -17,6 +17,9 @@ jobs:
       - name: Publish self-contained Windows x64 app
         run: ./build.ps1
         shell: pwsh
+      - name: Test release source and signature guards
+        run: ./tools/Test-ReleaseAutomation.ps1 -ExePath dist/Sonora.exe
+        shell: pwsh
       - uses: actions/upload-artifact@v7
         with:
           name: Sonora-windows-x64

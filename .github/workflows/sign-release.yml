@@ -1,54 +1,95 @@
-name: Sign Windows release
+name: Sign and publish Windows release
+
 on:
+  push:
+    tags: ['v*']
   workflow_dispatch:
     inputs:
       tag:
-        description: Reviewed existing release tag (for example v1.3.0)
+        description: Existing reviewed version tag (for example v1.4.0)
         required: true
         type: string
+
 permissions:
   contents: read
   actions: read
+
+concurrency:
+  group: signed-release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
 jobs:
   sign:
     runs-on: windows-latest
-    timeout-minutes: 35
-    env:
-      RELEASE_TAG: ${{ inputs.tag }}
+    timeout-minutes: 40
+    outputs:
+      tag: ${{ steps.gate.outputs.tag }}
+      commit: ${{ steps.source.outputs.commit }}
+      sha256: ${{ steps.verify.outputs.sha256 }}
     steps:
-      - name: Require main branch and configured production signing
+      - name: Require production signing configuration
+        id: gate
         shell: pwsh
         env:
+          REQUESTED_TAG: ${{ inputs.tag }}
           SIGNPATH_TOKEN: ${{ secrets.SIGNPATH_API_TOKEN }}
           SIGNPATH_ORG: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
           SIGNPATH_PROJECT: ${{ vars.SIGNPATH_PROJECT_SLUG }}
           SIGNPATH_POLICY: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG }}
+          EXPECTED_SUBJECT: ${{ vars.SIGNPATH_EXPECTED_SIGNER_SUBJECT }}
         run: |
-          if ($env:GITHUB_REF -ne 'refs/heads/main') { throw 'Dispatch signing from main only.' }
-          if ($env:RELEASE_TAG -notmatch '^v[0-9]+\.[0-9]+\.[0-9]+$') { throw 'Use an existing version tag such as v1.3.0.' }
-          if (!$env:SIGNPATH_TOKEN -or !$env:SIGNPATH_ORG -or !$env:SIGNPATH_PROJECT -or !$env:SIGNPATH_POLICY) {
-            throw 'Signing is not configured. SignPath approval and production credentials are required; no unsigned fallback is published.'
+          $ErrorActionPreference = 'Stop'
+          if ($env:GITHUB_EVENT_NAME -eq 'workflow_dispatch') {
+            if ($env:GITHUB_REF -ne 'refs/heads/main') { throw 'Dispatch releases from main only.' }
+            $tag = $env:REQUESTED_TAG
+          } elseif ($env:GITHUB_EVENT_NAME -eq 'push' -and $env:GITHUB_REF.StartsWith('refs/tags/')) {
+            $tag = $env:GITHUB_REF_NAME
+          } else { throw 'Only version tag pushes and main-branch dispatches are allowed.' }
+          if ($tag -cnotmatch '^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$') {
+            throw 'Use an existing version tag such as v1.4.0.'
           }
+          if (!$env:SIGNPATH_TOKEN -or !$env:SIGNPATH_ORG -or !$env:SIGNPATH_PROJECT -or !$env:SIGNPATH_POLICY -or !$env:EXPECTED_SUBJECT) {
+            'Signing unavailable: configure an approved provider, production policy, token and expected publisher. Nothing was built or published.' >> $env:GITHUB_STEP_SUMMARY
+            throw 'Signing is not configured. No unsigned fallback will be published.'
+          }
+          "tag=$tag" >> $env:GITHUB_OUTPUT
+      # Use the workflow commit for orchestration, including manual builds of older tags.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: refs/tags/${{ inputs.tag }}
+          ref: ${{ github.workflow_sha }}
+          path: automation
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Resolve reviewed source and check version
+        id: source
+        shell: pwsh
+        env:
+          RELEASE_TAG: ${{ steps.gate.outputs.tag }}
+          EVENT_COMMIT: ${{ github.event_name == 'push' && github.sha || '' }}
+        run: ./automation/tools/Resolve-ReleaseSource.ps1 -Tag $env:RELEASE_TAG -ExpectedCommit $env:EVENT_COMMIT
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ steps.source.outputs.commit }}
+          path: source
           persist-credentials: false
       - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
         with:
           dotnet-version: '10.0.x'
-      - name: Publish reviewed source without private debug paths
+      - name: Build tagged source without private debug paths
         shell: pwsh
+        working-directory: source
         run: |
-          dotnet publish Sonora.csproj -c Release -r win-x64 --self-contained true -p:DebugType=None -p:ContinuousIntegrationBuild=true -o dist
+          dotnet publish Sonora.csproj -c Release -r win-x64 --self-contained true -p:DebugType=None -p:ContinuousIntegrationBuild=true -o ../unsigned
           if ($LASTEXITCODE -ne 0) { throw 'Build failed.' }
-      - name: Store unsigned build for provider provenance verification
+      - name: Store build for provider provenance verification
         id: unsigned
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: Sonora-signing-input
-          path: dist/Sonora.exe
+          path: unsigned/Sonora.exe
           if-no-files-found: error
-      - name: Request production signing (requires manual SignPath approval)
+          retention-days: 7
+      - name: Request signing and wait for provider approval
         uses: signpath/github-action-submit-signing-request@f6d04783b4569d051e0c80105fe66e82819d0092 # v3
         with:
           api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
@@ -59,20 +100,56 @@ jobs:
           wait-for-completion: true
           wait-for-completion-timeout-in-seconds: 1200
           output-artifact-directory: signed
-      - name: Verify trusted Foundation signature and generate checksum
+      - name: Verify trusted publisher and calculate signed checksum
+        id: verify
         shell: pwsh
-        run: |
-          $signature = Get-AuthenticodeSignature -LiteralPath signed/Sonora.exe
-          if ($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Subject -notmatch '(?:^|,\s*)CN=SignPath Foundation(?:,|$)') {
-            throw 'The returned executable does not have the expected valid production signature.'
-          }
-          $hash = (Get-FileHash -LiteralPath signed/Sonora.exe -Algorithm SHA256).Hash.ToLowerInvariant()
-          Set-Content -LiteralPath signed/SHA256SUMS.txt -Value "$hash  Sonora.exe" -Encoding ascii
-      - name: Save signed artifact for owner review
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        env:
+          RELEASE_TAG: ${{ steps.gate.outputs.tag }}
+          EXPECTED_SUBJECT: ${{ vars.SIGNPATH_EXPECTED_SIGNER_SUBJECT }}
+        run: ./automation/tools/Verify-SignedRelease.ps1 -ExePath signed/Sonora.exe -Tag $env:RELEASE_TAG -ExpectedSubject $env:EXPECTED_SUBJECT -WriteChecksum
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: Sonora-signed-windows-x64
           path: |
             signed/Sonora.exe
             signed/SHA256SUMS.txt
           if-no-files-found: error
+          retention-days: 30
+
+  publish:
+    needs: sign
+    runs-on: windows-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: automation
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          name: Sonora-signed-windows-x64
+          path: signed
+      - name: Recheck source, signature and exact signed bytes before publication
+        shell: pwsh
+        env:
+          RELEASE_TAG: ${{ needs.sign.outputs.tag }}
+          SOURCE_COMMIT: ${{ needs.sign.outputs.commit }}
+          EXPECTED_HASH: ${{ needs.sign.outputs.sha256 }}
+          EXPECTED_SUBJECT: ${{ vars.SIGNPATH_EXPECTED_SIGNER_SUBJECT }}
+        run: |
+          ./automation/tools/Resolve-ReleaseSource.ps1 -Tag $env:RELEASE_TAG -ExpectedCommit $env:SOURCE_COMMIT
+          ./automation/tools/Verify-SignedRelease.ps1 -ExePath signed/Sonora.exe -Tag $env:RELEASE_TAG -ExpectedSubject $env:EXPECTED_SUBJECT -ExpectedHash $env:EXPECTED_HASH -CheckChecksum
+      - name: Publish verified assets through a draft release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.sign.outputs.tag }}
+          SOURCE_COMMIT: ${{ needs.sign.outputs.commit }}
+          EXPECTED_HASH: ${{ needs.sign.outputs.sha256 }}
+          EXPECTED_SUBJECT: ${{ vars.SIGNPATH_EXPECTED_SIGNER_SUBJECT }}
+        run: ./automation/tools/Publish-SignedRelease.ps1 -Tag $env:RELEASE_TAG -Commit $env:SOURCE_COMMIT -ExpectedHash $env:EXPECTED_HASH -ExpectedSubject $env:EXPECTED_SUBJECT -ExePath signed/Sonora.exe
