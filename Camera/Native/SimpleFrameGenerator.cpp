@@ -35,7 +35,17 @@ HRESULT SimpleFrameGenerator::Open(const std::wstring& id)
     RETURN_IF_FAILED(MFCreateAttributes(&attrs, 2));
     RETURN_IF_FAILED(attrs->SetGUID(MF_DEVSOURCE_ATTRIBUTE_SOURCE_TYPE, MF_DEVSOURCE_ATTRIBUTE_SOURCE_TYPE_VIDCAP_GUID));
     RETURN_IF_FAILED(attrs->SetString(MF_DEVSOURCE_ATTRIBUTE_SOURCE_TYPE_VIDCAP_SYMBOLIC_LINK, id.c_str()));
-    RETURN_IF_FAILED(MFCreateDeviceSource(attrs.get(), &m_source));
+    IMFActivate** devices=nullptr; UINT32 count=0;
+    RETURN_IF_FAILED(MFEnumDeviceSources(attrs.get(), &devices, &count));
+    auto cleanup = wil::scope_exit([&] { for (UINT32 i=0; i<count; ++i) devices[i]->Release(); CoTaskMemFree(devices); });
+    for (UINT32 i=0; i<count; ++i) {
+        UINT32 hardware=0, length=0; wil::unique_cotaskmem_string candidate;
+        if (FAILED(devices[i]->GetUINT32(MF_DEVSOURCE_ATTRIBUTE_SOURCE_TYPE_VIDCAP_HW_SOURCE, &hardware)) || !hardware) continue;
+        if (SUCCEEDED(devices[i]->GetAllocatedString(MF_DEVSOURCE_ATTRIBUTE_SOURCE_TYPE_VIDCAP_SYMBOLIC_LINK, &candidate, &length)) && _wcsicmp(candidate.get(), id.c_str())==0) {
+            RETURN_IF_FAILED(devices[i]->ActivateObject(IID_PPV_ARGS(&m_source))); break;
+        }
+    }
+    RETURN_HR_IF(MF_E_NOT_FOUND, !m_source);
     RETURN_IF_FAILED(MFCreateAttributes(&attrs, 2));
     RETURN_IF_FAILED(attrs->SetUINT32(MF_SOURCE_READER_ENABLE_ADVANCED_VIDEO_PROCESSING, TRUE));
     RETURN_IF_FAILED(attrs->SetUINT32(MF_READWRITE_ENABLE_HARDWARE_TRANSFORMS, TRUE));

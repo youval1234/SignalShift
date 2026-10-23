@@ -1,4 +1,4 @@
-LIBRARY "SignalShift.Camera"
+LIBRARY "SignalShift.Camera.dll"
 EXPORTS
     DllGetClassObject PRIVATE
     DllCanUnloadNow=WINRT_CanUnloadNow PRIVATE
