@@ -11,3 +11,4 @@ settings.json
 
 Camera/Native/packages/
 Camera/Native/obj*/
+Camera/Native/CameraExpectedHash.h

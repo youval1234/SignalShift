@@ -73,7 +73,7 @@ public sealed partial class MainWindow
         RefreshDevices(); var devices = outputs.Concat(inputs).ToList();
         var imported = SettingsTransfer.ReadFile(path, Preferences, devices);
         var backup = await SettingsTransfer.ApplyAsync(store, imported, devices);
-        Preferences = imported.Settings; RegisterShortcuts(); RefreshDevices();
+        Preferences = imported.Settings; ThemePalette.Apply(Preferences.Theme); RegisterShortcuts(); RefreshDevices();
         var details = new List<string>
         {
             "Imported from " + imported.Source + ": " + Preferences.Outputs.Count + " playback choices, " + Preferences.Inputs.Count + " recording choices.",

@@ -3,8 +3,24 @@
 #include <shlobj.h>
 #include <string>
 #include <filesystem>
+#include <vector>
+#include <bcrypt.h>
+#include "CameraExpectedHash.h"
+#pragma comment(lib,"bcrypt")
 #pragma comment(lib,"shell32")
 #pragma comment(lib,"ole32")
+bool MatchesBuild(const std::filesystem::path& path)
+{
+    HANDLE file=CreateFileW(path.c_str(),GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,FILE_ATTRIBUTE_NORMAL,nullptr);
+    if (file==INVALID_HANDLE_VALUE) return false;
+    LARGE_INTEGER size{}; bool valid=GetFileSizeEx(file,&size) && size.QuadPart>0 && size.QuadPart<=32*1024*1024;
+    std::vector<unsigned char> data(valid?static_cast<size_t>(size.QuadPart):0);
+    DWORD read=0;
+    valid=valid && ReadFile(file,data.data(),static_cast<DWORD>(data.size()),&read,nullptr) && read==data.size();
+    CloseHandle(file);
+    unsigned char hash[32]{};
+    return valid && BCryptHash(BCRYPT_SHA256_ALG_HANDLE,nullptr,0,data.data(),static_cast<ULONG>(data.size()),hash,sizeof(hash))>=0 && memcmp(hash,ExpectedCameraHash,sizeof(hash))==0;
+}
 int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR command, int)
 {
     HRESULT hr = S_OK;
@@ -18,9 +34,11 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR command, int)
         if (!uninstall) {
             wchar_t executable[32768]{}; if (!GetModuleFileNameW(nullptr,executable,ARRAYSIZE(executable))) throw HRESULT_FROM_WIN32(GetLastError());
             auto source=std::filesystem::path(executable).parent_path()/L"SignalShift.Camera.dll";
+            if (!MatchesBuild(source)) throw HRESULT_FROM_WIN32(ERROR_DATA_CHECKSUM_ERROR);
             std::filesystem::create_directories(target);
             if (!CopyFileW(source.c_str(),destination.c_str(),FALSE)) throw HRESULT_FROM_WIN32(GetLastError());
         }
+        if (!MatchesBuild(destination)) throw HRESULT_FROM_WIN32(ERROR_DATA_CHECKSUM_ERROR);
         HMODULE module=LoadLibraryExW(destination.c_str(),nullptr,LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR|LOAD_LIBRARY_SEARCH_SYSTEM32);
         if (!module) throw HRESULT_FROM_WIN32(GetLastError());
         auto registration=reinterpret_cast<HRESULT(__stdcall*)()>(GetProcAddress(module,uninstall?"DllUnregisterServer":"DllRegisterServer"));

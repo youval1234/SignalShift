@@ -66,6 +66,7 @@ jobs:
           path: |
             dist/camera/SignalShift.Camera.dll
             dist/camera/SignalShift.CameraSetup.exe
+            dist/camera/SHA256SUMS.txt
             dist/camera/MICROSOFT-LICENSE.txt
             dist/camera/THIRD-PARTY-NOTICES.md
             dist/camera/README.md
