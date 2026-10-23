@@ -3,10 +3,13 @@ param(
     [string]$IdentityName,
     [string]$Publisher,
     [string]$PublisherDisplayName,
-    [string]$Version = '1.3.0.0',
+    [string]$Version,
     [string]$MakeAppxPath
 )
 $ErrorActionPreference = 'Stop'
+[xml]$project = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'Sonora.csproj') -Raw
+$appVersion = [string]$project.Project.PropertyGroup.Version
+if (!$Version) { $Version = $appVersion + '.0' }
 # Store certification supplies the trusted signature. This script never installs
 # certificates, changes Windows protection, or installs/launches the package.
 if ($Draft) {
@@ -21,13 +24,17 @@ $packageVersion = [version]$Version
 if ($packageVersion.Revision -ne 0 -or $packageVersion.Major -lt 1 -or ($packageVersion.Major, $packageVersion.Minor, $packageVersion.Build | Where-Object { $_ -lt 0 -or $_ -gt 65535 })) {
     throw 'Use a four-part Store version such as 1.3.0.0; the final component must be zero.'
 }
+if ($Version -cne ($appVersion + '.0')) { throw 'The Store package version must match Sonora.csproj, with a final .0 component.' }
 if (!$MakeAppxPath) {
     $sdkBin = Join-Path ${env:ProgramFiles(x86)} 'Windows Kits\10\bin'
     $MakeAppxPath = Get-ChildItem -Path "$sdkBin\*\x64\makeappx.exe" -ErrorAction SilentlyContinue | Sort-Object FullName -Descending | Select-Object -First 1 -ExpandProperty FullName
 }
 if (!$MakeAppxPath -or !(Test-Path -LiteralPath $MakeAppxPath)) { throw 'Provide -MakeAppxPath pointing to the x64 MakeAppx.exe from the official Windows SDK or Microsoft.Windows.SDK.BuildTools NuGet package.' }
 $MakeAppxPath = (Resolve-Path -LiteralPath $MakeAppxPath).Path
-if ((Get-AuthenticodeSignature -LiteralPath $MakeAppxPath).Status -ne 'Valid') { throw 'The Windows SDK packaging tool must have a valid Microsoft signature.' }
+$toolSignature = Get-AuthenticodeSignature -LiteralPath $MakeAppxPath
+if ($toolSignature.Status -ne 'Valid' -or $toolSignature.SignerCertificate.Subject -notmatch '(?:^|,\s*)CN=Microsoft Corporation(?:,|$)') {
+    throw 'The Windows SDK packaging tool must have a valid Microsoft signature.'
+}
 $outputRoot = Join-Path $PSScriptRoot 'dist\store'
 # Each run gets a new staging directory, so removed build files never leak into a package.
 $stage = Join-Path $outputRoot ('staging-' + [guid]::NewGuid().ToString('N'))
@@ -61,9 +68,33 @@ try {
     $package = Join-Path $outputRoot ("Sonora-$Version-x64$suffix.msix")
     & $MakeAppxPath pack /d $stage /p $package /o
     if ($LASTEXITCODE -ne 0) { throw 'MSIX validation/packaging failed.' }
+    $verification = Join-Path $outputRoot ('verification-' + [guid]::NewGuid().ToString('N'))
+    & $MakeAppxPath unpack /p $package /d $verification /o
+    if ($LASTEXITCODE -ne 0) { throw 'MSIX unpack validation failed.' }
+    $payload = @()
+    foreach ($file in Get-ChildItem -LiteralPath $stage -File -Recurse) {
+        $relative = $file.FullName.Substring($stage.Length + 1)
+        $unpacked = Join-Path $verification $relative
+        $expected = (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+        if (!(Test-Path -LiteralPath $unpacked) -or (Get-FileHash -LiteralPath $unpacked -Algorithm SHA256).Hash.ToLowerInvariant() -cne $expected) {
+            throw "Packaged file did not survive the roundtrip: $relative"
+        }
+        if ($relative -match '(?i)(\.pdb$|\.pfx$|\.key$|(^|\\)(settings\.json|diagnostics[^\\]*\.json)$)') {
+            throw "Private or debug file must not be packaged: $relative"
+        }
+        $payload += [ordered]@{ file = $relative.Replace('\', '/'); sha256 = $expected }
+    }
     $hash = (Get-FileHash -LiteralPath $package -Algorithm SHA256).Hash.ToLowerInvariant()
     [IO.File]::WriteAllText(($package + '.sha256'), "$hash  $([IO.Path]::GetFileName($package))`n", [Text.Encoding]::ASCII)
+    $receipt = [ordered]@{
+        draft = [bool]$Draft; version = $Version; identityName = $IdentityName
+        publisher = $Publisher; publisherDisplayName = $PublisherDisplayName
+        packageSha256 = $hash; payload = $payload
+        validation = 'MakeAppx pack/unpack and staged payload hashes; not Store certification or installed runtime testing'
+    }
+    [IO.File]::WriteAllText(($package + '.build.json'), ($receipt | ConvertTo-Json -Depth 5), [Text.UTF8Encoding]::new($false))
     Write-Host "Unsigned Store submission package: $package"
+    Write-Host "Verified $($payload.Count) staged files against the unpacked MSIX."
     if ($Draft) { Write-Warning 'DRAFT identity only. Not ready for submission or installation. Rebuild with the actual Product identity after publisher verification.' }
     else { Write-Warning 'Upload to Partner Center for certification and Microsoft signing. This unsigned file does not fix Smart App Control by itself.' }
 } finally { Pop-Location }
