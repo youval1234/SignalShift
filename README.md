@@ -8,7 +8,7 @@ SonarShift is a native Windows desktop app for switching playback and recording 
 
 ![SonarShift switch popup](Assets/SwitchPopup.png)
 
-## SonarShift 1.5 preview
+## SonarShift 1.5.1 preview
 
 SonarShift 1.5 separates background audio controls from settings, releases the settings process on close, and uses audio-device callbacks instead of regular polling. The default portable EXE now leaves bundled assemblies uncompressed to reduce private memory in both processes. `./build.ps1 -Compact` retains the smaller compressed EXE as an option.
 
@@ -16,13 +16,13 @@ A local comparison of the same 1.5 application code measured **combined private 
 
 See the [raw measurements and tradeoffs](docs/performance-1.5.md), and the [measurement workflow](https://github.com/youval1234/SonarShift/actions/workflows/optimization.yml). The Store package already uses unpacked assemblies, so the compression change benefits the portable build. The 1.4 Store submission remains unchanged. Unsigned preview builds remain subject to Windows application-control checks.
 
-### Per-switch allocation fix (1.5.1 preview)
+### Per-switch allocation fix
 
 The follow-up preview reuses tray-menu items when only defaults change, caches the popup's drawing resources and clipping region, and removes a duplicate device-panel refresh. A local synthetic 2,000-switch comparison reduced temporary allocations from 100,601,616 to 3,271,464 bytes (96.7%). This measures tray/default-state updates and visual feedback, not physical audio switching or sound playback. Normal garbage-collector heap growth can still occur; this is not a promise of an unchanging Task Manager reading. See [scope and reproduction](docs/performance-switching.md).
 
 ## Download
 
-**[Download SonarShift 1.5 preview for Windows x64](https://github.com/youval1234/SonarShift/releases/tag/preview-1.5.0)** — choose **SonarShift.exe** and keep it in a permanent folder. This is the lower-memory portable build; it needs no separate .NET installation. The EXE is approximately **165 MiB**. Check `SHA256SUMS.txt` against the downloaded file if you want to verify its integrity.
+**[Download SonarShift 1.5.1 preview for Windows x64](https://github.com/youval1234/SonarShift/releases/tag/preview-1.5.1)** — choose **SonarShift.exe** and keep it in a permanent folder. This is the lower-memory portable build; it needs no separate .NET installation. The EXE is approximately **165 MiB**. Check `SHA256SUMS.txt` against the downloaded file if you want to verify its integrity.
 
 This preview is **unsigned** and Windows Smart App Control may block it. It has not received Microsoft Store certification. Its release notes link the exact source and successful build. Existing settings are retained; quit an older running instance before replacing its EXE.
 
