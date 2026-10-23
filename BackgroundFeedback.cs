@@ -47,14 +47,29 @@ internal sealed class BackgroundFeedback : IDisposable
         private readonly Font text = new("Segoe UI", 16, FontStyle.Bold, GraphicsUnit.Pixel);
         private readonly Font brand = new("Segoe UI", 9, FontStyle.Regular, GraphicsUnit.Pixel);
         private readonly Font icon = new("Segoe MDL2 Assets", 23, FontStyle.Regular, GraphicsUnit.Pixel);
+        // GDI objects are owned by this reusable popup, not allocated on every frame.
+        private readonly Pen outline = new(Color.FromArgb(59, 53, 79));
+        private readonly GraphicsPath outlinePath = Rounded(new RectangleF(0.5f, 0.5f, 383, 101), 18);
+        private readonly GraphicsPath iconPath = Rounded(new RectangleF(20, 25, 44, 44), 14);
+        private readonly SolidBrush iconBackground = new(Color.FromArgb(48, 40, 64));
+        private readonly SolidBrush accent = new(Color.FromArgb(184, 163, 255));
+        private readonly SolidBrush muted = new(Color.FromArgb(116, 120, 143));
+        private readonly SolidBrush foreground = new(Color.FromArgb(243, 240, 252));
+        private readonly SolidBrush track = new(Color.FromArgb(41, 44, 60));
+        private readonly SolidBrush mint = new(Color.FromArgb(139, 226, 197));
+        private readonly StringFormat format = new() { Trimming = StringTrimming.EllipsisCharacter, FormatFlags = StringFormatFlags.LineLimit };
+        private Size regionSize;
+        private float regionScale;
         private string title = "", message = "", glyph = "";
         internal string CurrentMessage => message;
         internal int ActivationCount { get; private set; }
         protected override bool ShowWithoutActivation => true;
-        protected override Forms.CreateParams CreateParams { get { var p = base.CreateParams; p.ExStyle |= 0x08000000 | 0x80 | 0x20; return p; } }
+        protected override Forms.CreateParams CreateParams { get { var p = base.CreateParams; p.ExStyle |= 0x08000000 | 0x80 | 0x20 | 0x8; return p; } }
         internal Popup()
         {
-            FormBorderStyle = Forms.FormBorderStyle.None; ShowInTaskbar = false; TopMost = true; DoubleBuffered = true;
+            FormBorderStyle = Forms.FormBorderStyle.None; ShowInTaskbar = false; DoubleBuffered = true;
+            // WS_EX_TOPMOST is set natively above. Form.TopMost forces focus in
+            // SetVisibleCore even when ShowWithoutActivation is true.
             BackColor = Color.FromArgb(23, 25, 35); StartPosition = Forms.FormStartPosition.Manual;
             AutoScaleMode = Forms.AutoScaleMode.None;
             Activated += (_, _) => ActivationCount++;
@@ -71,8 +86,12 @@ internal sealed class BackgroundFeedback : IDisposable
             var area = screen.WorkingArea;
             Width = Math.Min(area.Width, (int)(384 * scale)); Height = Math.Min(area.Height, (int)(102 * scale));
             Left = area.Left + (area.Width - Width) / 2; Top = Math.Max(area.Top, area.Bottom - Height - (int)(44 * scale));
-            using var path = Rounded(new RectangleF(0, 0, Width, Height), 18 * scale);
-            var old = Region; Region = new Region(path); old?.Dispose();
+            if (Region == null || regionSize != Size || regionScale != scale)
+            {
+                using var path = Rounded(new RectangleF(0, 0, Width, Height), 18 * scale);
+                var old = Region; Region = new Region(path); old?.Dispose();
+                regionSize = Size; regionScale = scale;
+            }
             if (!Visible) Show();
             Invalidate(); animation.Start();
         }
@@ -88,19 +107,14 @@ internal sealed class BackgroundFeedback : IDisposable
             base.OnPaint(e);
             var g = e.Graphics; g.SmoothingMode = SmoothingMode.AntiAlias;
             g.ScaleTransform(Width / 384f, Height / 102f);
-            using var outline = new Pen(Color.FromArgb(59, 53, 79));
-            using var path = Rounded(new RectangleF(0.5f, 0.5f, 383, 101), 18); g.DrawPath(outline, path);
-            using var iconPath = Rounded(new RectangleF(20, 25, 44, 44), 14);
-            using var iconBackground = new SolidBrush(Color.FromArgb(48, 40, 64)); g.FillPath(iconBackground, iconPath);
-            using var accent = new SolidBrush(Color.FromArgb(184, 163, 255));
+            g.DrawPath(outline, outlinePath);
+            g.FillPath(iconBackground, iconPath);
             g.DrawString(glyph, icon, accent, new PointF(29, 34));
             g.DrawString(title, heading, accent, new PointF(76, 20));
-            using var muted = new SolidBrush(Color.FromArgb(116, 120, 143)); g.DrawString("SONARSHIFT", brand, muted, new PointF(304, 20));
-            using var foreground = new SolidBrush(Color.FromArgb(243, 240, 252));
-            using var format = new StringFormat { Trimming = StringTrimming.EllipsisCharacter, FormatFlags = StringFormatFlags.LineLimit };
+            g.DrawString("SONARSHIFT", brand, muted, new PointF(304, 20));
             g.DrawString(message, text, foreground, new RectangleF(76, 39, 288, 40), format);
-            using var track = new SolidBrush(Color.FromArgb(41, 44, 60)); g.FillRectangle(track, 76, 80, 288, 2);
-            using var mint = new SolidBrush(Color.FromArgb(139, 226, 197)); g.FillRectangle(mint, 76, 80, (float)(288 * Math.Max(0, 1 - elapsed.ElapsedMilliseconds / 1600.0)), 2);
+            g.FillRectangle(track, 76, 80, 288, 2);
+            g.FillRectangle(mint, 76, 80, (float)(288 * Math.Max(0, 1 - elapsed.ElapsedMilliseconds / 1600.0)), 2);
         }
         private static GraphicsPath Rounded(RectangleF rect, float radius)
         {
@@ -109,7 +123,7 @@ internal sealed class BackgroundFeedback : IDisposable
             p.AddArc(rect.Right - diameter, rect.Bottom - diameter, diameter, diameter, 0, 90); p.AddArc(rect.Left, rect.Bottom - diameter, diameter, diameter, 90, 90); p.CloseFigure(); return p;
         }
         private static bool AnimationsEnabled() => SystemParametersInfo(0x1042, 0, out var enabled, 0) && enabled;
-        protected override void Dispose(bool disposing) { if (disposing) { animation.Dispose(); heading.Dispose(); text.Dispose(); brand.Dispose(); icon.Dispose(); } base.Dispose(disposing); }
+        protected override void Dispose(bool disposing) { if (disposing) { animation.Dispose(); heading.Dispose(); text.Dispose(); brand.Dispose(); icon.Dispose(); outline.Dispose(); outlinePath.Dispose(); iconPath.Dispose(); iconBackground.Dispose(); accent.Dispose(); muted.Dispose(); foreground.Dispose(); track.Dispose(); mint.Dispose(); format.Dispose(); } base.Dispose(disposing); }
         [DllImport("user32.dll")] private static extern IntPtr GetForegroundWindow();
         [DllImport("user32.dll")] private static extern uint GetDpiForWindow(IntPtr handle);
         [DllImport("user32.dll")] private static extern bool SystemParametersInfo(uint action, uint parameter, [MarshalAs(UnmanagedType.Bool)] out bool value, uint flags);

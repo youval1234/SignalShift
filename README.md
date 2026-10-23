@@ -16,6 +16,10 @@ A local comparison of the same 1.5 application code measured **combined private 
 
 See the [raw measurements and tradeoffs](docs/performance-1.5.md), and the [measurement workflow](https://github.com/youval1234/SonarShift/actions/workflows/optimization.yml). The Store package already uses unpacked assemblies, so the compression change benefits the portable build. The 1.4 Store submission remains unchanged. Unsigned preview builds remain subject to Windows application-control checks.
 
+### Per-switch allocation fix (1.5.1 preview)
+
+The follow-up preview reuses tray-menu items when only defaults change, caches the popup's drawing resources and clipping region, and removes a duplicate device-panel refresh. A local synthetic 2,000-switch comparison reduced temporary allocations from 100,601,616 to 3,271,464 bytes (96.7%). This measures tray/default-state updates and visual feedback, not physical audio switching or sound playback. Normal garbage-collector heap growth can still occur; this is not a promise of an unchanging Task Manager reading. See [scope and reproduction](docs/performance-switching.md).
+
 ## Download
 
 **[Download SonarShift 1.5 preview for Windows x64](https://github.com/youval1234/SonarShift/releases/tag/preview-1.5.0)** — choose **SonarShift.exe** and keep it in a permanent folder. This is the lower-memory portable build; it needs no separate .NET installation. The EXE is approximately **165 MiB**. Check `SHA256SUMS.txt` against the downloaded file if you want to verify its integrity.

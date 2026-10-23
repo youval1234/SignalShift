@@ -20,9 +20,20 @@ jobs:
       - name: Test release source and signature guards
         run: ./tools/Test-ReleaseAutomation.ps1 -ExePath dist/SonarShift.exe
         shell: pwsh
+      - name: Verify repeated switch feedback allocation and native resource reuse
+        shell: pwsh
+        run: |
+          ./tools/Test-SwitchAllocations.ps1 -Executable dist/SonarShift.exe -ReportPath dist/switch-allocation-report.json
+          ./tools/Test-SwitchAllocations.ps1 -Executable dist/SonarShift.exe -ReportPath dist/switch-allocation-long.json -LongRun
       - uses: actions/upload-artifact@v7
         with:
           name: SonarShift-windows-x64
           path: |
             dist/SonarShift.exe
             dist/SHA256SUMS.txt
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: SonarShift-switch-allocation-checks
+          path: dist/switch-allocation-*.json
+          if-no-files-found: warn
