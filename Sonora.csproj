@@ -13,6 +13,7 @@
     <Version>1.3.0</Version>
     <Description>A quieter way to switch your sound.</Description>
     <Company>Sonora</Company>
+    <DebugType Condition="'$(Configuration)' == 'Release'">none</DebugType>
     <PublishSingleFile>true</PublishSingleFile>
     <SelfContained>true</SelfContained>
     <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
