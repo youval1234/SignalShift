@@ -1,0 +1,65 @@
+name: Validate optimization and measure Windows footprint
+on:
+  workflow_dispatch:
+  push:
+    branches: [codex/optimize-1.5]
+permissions:
+  contents: read
+jobs:
+  measure:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: app
+      - uses: actions/checkout@v7
+        with:
+          ref: cc8bbc526eeda68be1f7efe0b81dbd37bb6e122f
+          path: baseline
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+      - name: Enable Windows audio services for callback integration tests
+        shell: pwsh
+        run: |
+          Start-Service AudioEndpointBuilder
+          Start-Service Audiosrv
+      - name: Build isolated 1.4 baseline without altering its audio/UI implementation
+        shell: pwsh
+        working-directory: baseline
+        run: |
+          $file = Join-Path $PWD 'Models.cs'
+          $text = [IO.File]::ReadAllText($file).Replace('public static string DirectoryPath => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Sonora");', 'public static string DirectoryPath => Environment.GetEnvironmentVariable("SONARSHIFT_TEST_DATA") ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Sonora");')
+          [IO.File]::WriteAllText($file, $text)
+          dotnet publish SonarShift.csproj -c Release -r win-x64 --self-contained true -o ../baseline-output
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Build optimized self-contained and framework-dependent variants
+        shell: pwsh
+        working-directory: app
+        run: |
+          dotnet publish SonarShift.csproj -c Release -r win-x64 --self-contained true -o ../optimized-output
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          dotnet publish SonarShift.csproj -c Release -r win-x64 --self-contained false -p:PublishSingleFile=false -p:EnableCompressionInSingleFile=false -o ../framework-output
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $files = Get-ChildItem ../framework-output -Recurse -File
+          [pscustomobject]@{ frameworkDependentBytes=($files | Measure-Object Length -Sum).Sum; files=@($files | Select-Object Name,Length) } | ConvertTo-Json -Depth 4 | Set-Content ../framework-size.json
+      - name: Run application diagnostics without claiming physical audio-device tests
+        shell: pwsh
+        run: |
+          $report = Join-Path $PWD 'diagnostics.json'
+          $process = Start-Process -FilePath optimized-output/SonarShift.exe -ArgumentList @('--diagnostics','--headless','--report',('"' + $report + '"')) -PassThru
+          if (!$process.WaitForExit(60000)) { throw 'Diagnostics timed out.' }
+          $result = Get-Content -LiteralPath $report -Raw | ConvertFrom-Json
+          $result.checks | Where-Object test | Format-Table test,passed
+          if ($process.ExitCode -ne 0 -or !$result.success) { throw ($result | ConvertTo-Json -Depth 6) }
+      - name: Measure footprint and verify background/UI lifecycle
+        shell: pwsh
+        run: ./app/tools/Test-Optimization.ps1 -OptimizedExe ./optimized-output/SonarShift.exe -BaselineExe ./baseline-output/SonarShift.exe -ReportDirectory ./performance -SampleSeconds 20
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: optimization-measurements
+          path: |
+            performance/**/*.json
+            diagnostics.json
+            framework-size.json

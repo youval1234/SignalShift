@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
+    <StartupObject>SonarShift.Program</StartupObject>
     <TargetFramework>net10.0-windows</TargetFramework>
     <TargetFramework Condition="'$(SonarShiftStore)' == 'true'">net10.0-windows10.0.19041.0</TargetFramework>
     <DefineConstants Condition="'$(SonarShiftStore)' == 'true'">$(DefineConstants);SONARSHIFT_STORE</DefineConstants>
@@ -10,7 +11,7 @@
     <Nullable>enable</Nullable>
     <ApplicationIcon>Assets\SonarShift.ico</ApplicationIcon>
     <AssemblyName>SonarShift</AssemblyName>
-    <Version>1.4.0</Version>
+    <Version>1.5.0</Version>
     <Product>SonarShift</Product>
     <Description>A quieter way to switch your sound.</Description>
     <Company>SonarShift</Company>
@@ -22,4 +23,9 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
   </PropertyGroup>
   <ItemGroup><Resource Include="Assets\SonarShift.ico" /><Resource Include="Assets\SonarShift.png" /><Resource Include="Assets\SwitchOutput.wav" /><Resource Include="Assets\SwitchInput.wav" /></ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Assets\SonarShift.ico" LogicalName="SonarShift.TrayIcon" />
+    <EmbeddedResource Include="Assets\SwitchOutput.wav" LogicalName="SonarShift.OutputSound" />
+    <EmbeddedResource Include="Assets\SwitchInput.wav" LogicalName="SonarShift.InputSound" />
+  </ItemGroup>
 </Project>

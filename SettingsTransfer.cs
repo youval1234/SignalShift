@@ -158,7 +158,7 @@ public static class SettingsTransfer
     {
         var parts = new List<string>();
         if ((key.Modifiers & 2) != 0) parts.Add("Ctrl"); if ((key.Modifiers & 1) != 0) parts.Add("Alt"); if ((key.Modifiers & 4) != 0) parts.Add("Shift");
-        parts.Add(key.Key >= 0x30 && key.Key <= 0x39 ? ((char)key.Key).ToString() : KeyInterop.KeyFromVirtualKey((int)key.Key).ToString());
+        parts.Add(key.Key >= 0x30 && key.Key <= 0x39 ? ((char)key.Key).ToString() : ((System.Windows.Forms.Keys)key.Key).ToString());
         return key with { Label = string.Join(" + ", parts) };
     }
     private static SettingsImport ImportSoundSwitch(JsonElement root, Settings current, IReadOnlyList<AudioDevice> devices)
