@@ -20,6 +20,9 @@ public sealed partial class MainWindow
         setup.Children.Add(Text("SIGNALSHIFT CAMERA", 11, Purple, FontWeights.SemiBold));
         setup.Children.Add(new TextBlock { Text = "For calls and streaming", FontSize = 22, FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 12, 0, 8) });
         setup.Children.Add(new TextBlock { Text = "The optional Windows 11 camera component supplies a 720p virtual output. It captures only while an app is using it. Apps must choose SignalShift Camera rather than the physical webcam.", TextWrapping = TextWrapping.Wrap, Foreground = Muted });
+#if SONARSHIFT_STORE
+        setup.Children.Add(new TextBlock { Text = "Camera support is not included in this Store build. The portable camera component is under development.", Foreground = Muted, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 18, 0, 8) });
+#else
         var enabled = new CheckBox { Content = "Enable SignalShift Camera", IsChecked = Preferences.CameraEnabled, IsEnabled = CameraRuntime.Supported && CameraRuntime.InstalledLibrary != null, Margin = new Thickness(0, 18, 0, 8) };
         enabled.Click += (_, _) => { Preferences.CameraEnabled = enabled.IsChecked == true; Save(); RegisterShortcuts(); };
         setup.Children.Add(enabled);
@@ -29,6 +32,7 @@ public sealed partial class MainWindow
             setup.Children.Add(new TextBlock { Text = "Install the camera component to get started. Windows asks for administrator permission to register the camera source.", Foreground = Muted, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 4, 0, 12) });
             setup.Children.Add(Button("Install camera component", InstallCamera));
         }
+#endif
         var card = Card(setup, 24); card.Margin = new Thickness(0, 0, 0, 18); page.Children.Add(card);
         var devices = new StackPanel();
         var actions = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 16) };
