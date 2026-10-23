@@ -59,7 +59,7 @@ public sealed class SwitchNotification : Window, IDisposable
         heading.ColumnDefinitions.Add(new ColumnDefinition()); heading.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         caption = new TextBlock { FontSize = 10, FontWeight = FontWeights.SemiBold, Foreground = ColorBrush("#B8A3FF") };
         heading.Children.Add(caption);
-        var brand = new TextBlock { Text = "SONARSHIFT", FontSize = 9, Foreground = ColorBrush("#74788F"), VerticalAlignment = VerticalAlignment.Center };
+        var brand = new TextBlock { Text = "SIGNALSHIFT", FontSize = 9, Foreground = ColorBrush("#74788F"), VerticalAlignment = VerticalAlignment.Center };
         Grid.SetColumn(brand, 1); heading.Children.Add(brand); copy.Children.Add(heading);
         device = new TextBlock
         {

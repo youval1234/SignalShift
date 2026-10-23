@@ -22,7 +22,7 @@ Unsigned previews can be blocked by Windows; a trusted signed release is still n
 on machines enforcing application control. Open Cameras again, enable the virtual
 camera, check physical webcams, and enable/record its shortcut under Shortcuts.
 
-Close programs using the virtual camera before upgrading. To remove it, quit
+Quit SignalShift and close programs using the virtual camera before upgrading. To remove it, quit
 SignalShift, run `SignalShift.CameraSetup.exe --uninstall` with administrator permission,
 then delete the extracted component files. Settings and audio-device choices remain.
 

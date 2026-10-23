@@ -73,6 +73,12 @@ extern "C" __declspec(dllexport) HRESULT __stdcall DllRegisterServer() noexcept
 }
 extern "C" __declspec(dllexport) HRESULT __stdcall DllUnregisterServer() noexcept
 {
+    wchar_t module[32768]{}, registered[32768]{}; DWORD size=sizeof(registered);
+    if (!GetModuleFileNameW(g_hInst, module, ARRAYSIZE(module))) return HRESULT_FROM_WIN32(GetLastError());
+    auto read = RegGetValueW(HKEY_LOCAL_MACHINE, L"SOFTWARE\\Classes\\CLSID\\{D25FA9DE-541A-4F52-A436-57A8FAEE97AE}\\InprocServer32", nullptr, RRF_RT_REG_SZ, nullptr, registered, &size);
+    if (read == ERROR_FILE_NOT_FOUND) return S_OK;
+    if (read != ERROR_SUCCESS) return HRESULT_FROM_WIN32(read);
+    if (_wcsicmp(module, registered)!=0) return HRESULT_FROM_WIN32(ERROR_REVISION_MISMATCH);
     auto error = RegDeleteTreeW(HKEY_LOCAL_MACHINE, L"SOFTWARE\\Classes\\CLSID\\{D25FA9DE-541A-4F52-A436-57A8FAEE97AE}");
     return error == ERROR_FILE_NOT_FOUND ? S_OK : HRESULT_FROM_WIN32(error);
 }
