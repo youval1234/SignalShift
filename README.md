@@ -10,7 +10,7 @@ SonarShift is a native Windows desktop app for switching playback and recording 
 
 ## Download
 
-**SonarShift 1.4 is in preparation**, renamed from Sonora. Its Microsoft Store name is reserved under publisher **youval1234**; it has not been submitted or certified yet. The [existing releases](https://github.com/youval1234/SonarShift/releases) retain their original **Sonora.exe** asset names. New builds produce **SonarShift.exe**.
+**SonarShift 1.4**, renamed from Sonora, was submitted for Microsoft Store certification on **23 October 2026** under publisher **youval1234**. It is awaiting review and is not yet available from the Store. Publication is held for a separate manual release after certification. The [existing releases](https://github.com/youval1234/SonarShift/releases) retain their original **Sonora.exe** asset names. New builds produce **SonarShift.exe**.
 
 The portable build is a self-contained Windows x64 app: no installer, administrator access, or separate .NET installation required. Windows 10 (1809+) or Windows 11 is required; the Store package targets Windows 10 version 2004 or later.
 
