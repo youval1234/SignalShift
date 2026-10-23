@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <artifact-configuration xmlns="http://signpath.io/artifact-configuration/v1">
   <zip-file>
-    <pe-file path="Sonora.exe" product-name="Sonora" company-name="Sonora" original-filename="Sonora.dll">
+    <pe-file path="SonarShift.exe" product-name="SonarShift" company-name="SonarShift" original-filename="SonarShift.dll">
       <authenticode-sign />
     </pe-file>
   </zip-file>

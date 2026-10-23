@@ -7,19 +7,19 @@
          IgnorableNamespaces="uap desktop uap10 rescap">
   <Identity Name="__IDENTITY_NAME__" Publisher="__PUBLISHER__" Version="__VERSION__" ProcessorArchitecture="x64" />
   <Properties>
-    <DisplayName>Sonora</DisplayName>
+    <DisplayName>SonarShift</DisplayName>
     <PublisherDisplayName>__PUBLISHER_DISPLAY_NAME__</PublisherDisplayName>
     <Logo>StoreAssets\StoreLogo.png</Logo>
   </Properties>
   <Resources><Resource Language="en-us" /></Resources>
   <Dependencies><TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.19041.0" MaxVersionTested="10.0.26100.0" /></Dependencies>
   <Applications>
-    <Application Id="Sonora" Executable="Sonora.exe" EntryPoint="Windows.FullTrustApplication">
-      <uap:VisualElements DisplayName="Sonora" Description="A quieter way to switch your sound." BackgroundColor="transparent"
+    <Application Id="SonarShift" Executable="SonarShift.exe" EntryPoint="Windows.FullTrustApplication">
+      <uap:VisualElements DisplayName="SonarShift" Description="A quieter way to switch your sound." BackgroundColor="transparent"
                           Square150x150Logo="StoreAssets\Square150x150Logo.png" Square44x44Logo="StoreAssets\Square44x44Logo.png" />
       <Extensions>
-        <desktop:Extension Category="windows.startupTask" Executable="Sonora.exe" EntryPoint="Windows.FullTrustApplication" uap10:Parameters="--tray">
-          <desktop:StartupTask TaskId="SonoraStartup" Enabled="false" DisplayName="Sonora" />
+        <desktop:Extension Category="windows.startupTask" Executable="SonarShift.exe" EntryPoint="Windows.FullTrustApplication" uap10:Parameters="--tray">
+          <desktop:StartupTask TaskId="SonarShiftStartup" Enabled="false" DisplayName="SonarShift" />
         </desktop:Extension>
       </Extensions>
     </Application>

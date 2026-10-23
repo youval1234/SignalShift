@@ -1,12 +1,20 @@
 # Microsoft Store preparation
 
-The portable 1.3.0 release is unsigned. A GitHub release, SHA-256 checksum, or GitHub artifact attestation is not a Windows Authenticode signature and does not resolve Smart App Control's publisher check.
+The historical Sonora 1.3.0 release is unsigned. SonarShift 1.4.0 is the renamed app now in preparation. A GitHub release, SHA-256 checksum, or GitHub artifact attestation is not a Windows Authenticode signature and does not resolve Smart App Control's publisher check.
 
 ## Microsoft Store route
 
 Microsoft signs MSIX submissions after certification. The repository includes `package-store.ps1` and an MSIX manifest. Store builds use the Windows StartupTask API instead of the portable build's Run registry entry. Startup remains opt-in; Windows user/policy overrides are respected. Settings import/export and the existing settings location are retained.
 
-Status: enrollment and public publisher identity are not yet confirmed. No Store submission or approved Store build exists. The draft below is a validation artifact only. See [CODE_SIGNING.md](../CODE_SIGNING.md) for the separate standalone EXE signing status.
+Status: the SonarShift name is reserved in Partner Center under public publisher `youval1234`. The exact Product identity values are recorded in `Packaging/StoreIdentity.json`; they are public package metadata, not account credentials or signing keys. No Store submission or certified build exists. See [CODE_SIGNING.md](../CODE_SIGNING.md) for the separate standalone EXE signing status.
+
+To build the actual unsigned submission package using those assigned values:
+
+```powershell
+./package-store.ps1 -UseStoreIdentity -MakeAppxPath 'C:\path\to\WindowsSDK\x64\MakeAppx.exe'
+```
+
+This creates `SonarShift-1.4.0.0-x64-StoreSubmission-unsigned.msix`. Packaging does not upload the file or publish the app. Confirm the final customer-facing listing and contact fields before submission. Public publisher identity is `youval1234`, not a personal legal name.
 
 ## Enrollment and privacy check
 
@@ -26,7 +34,7 @@ For a packaging validation build:
 
 The draft identity is deliberately marked as unverified. Do not install or submit the draft. A successful MakeAppx build validates package structure, not Store approval or runtime compatibility. Runtime testing on the protected development computer is pending trusted signing; do not disable protection or install a local root certificate to bypass that requirement.
 
-The version is read from `Sonora.csproj` and gains a final `.0` for the Store. An explicit `-Version` must match it. The script unpacks the resulting MSIX and checks every staged file's SHA-256, rejects private/debug files, and produces `.sha256` and `.build.json` receipts alongside it. Receipts contain package identity and relative payload names, not local build paths. The **Build Store validation package** GitHub workflow builds only a draft identity and never submits or publishes it.
+The version is read from `SonarShift.csproj` and gains a final `.0` for the Store. An explicit `-Version` must match it. The script unpacks the resulting MSIX and checks every staged file's SHA-256, rejects private/debug files, and produces `.sha256` and `.build.json` receipts alongside it. Receipts contain package identity and relative payload names, not local build paths. The **Build Store validation package** GitHub workflow builds only a draft identity and never submits or publishes it.
 
 After the owner completes Microsoft developer enrollment and reserves an app, copy the exact values from Partner Center > Product identity:
 
@@ -36,21 +44,21 @@ After the owner completes Microsoft developer enrollment and reserves an app, co
 
 Only the resulting non-draft package is for Store submission. Microsoft must certify and sign it before distribution through the Store. There is no purchased or generated signing identity in this repository.
 
-Windows SDK MakeAppx is available in the official Windows SDK or the Microsoft.Windows.SDK.BuildTools NuGet package. The local draft was validated with package version 10.0.26100.4948. `package-store.ps1` verifies that the tool has a valid signature before running it and does not install or execute Sonora.
+Windows SDK MakeAppx is available in the official Windows SDK or the Microsoft.Windows.SDK.BuildTools NuGet package. The local draft was validated with package version 10.0.26100.4948. `package-store.ps1` verifies that the tool has a valid signature before running it and does not install or execute SonarShift.
 
 ## Before the first submission
 
 - Validate the actual account/product identity and public listing details.
 - Run Windows App Certification Kit checks and test the installed package on an authorized test system: device switching, shortcuts, sounds, popup, tray, startup, import/export, update retention and uninstall behavior.
-- Sonora switches default audio through `IPolicyConfig`, an undocumented Windows interface. Packaging validation does not establish that Microsoft will accept this behavior under Store policy; describe it accurately in certification notes and resolve any reviewer concerns before publishing.
-- Moving from portable Sonora to Store Sonora is a separate installation. Export settings to a `.txt` backup first. Test import and single-instance behavior so two installations do not compete for shortcuts.
+- SonarShift switches default audio through `IPolicyConfig`, an undocumented Windows interface. Packaging validation does not establish that Microsoft will accept this behavior under Store policy; describe it accurately in certification notes and resolve any reviewer concerns before publishing.
+- Moving from portable SonarShift to Store SonarShift is a separate installation. Export settings to a `.txt` backup first. Test import and single-instance behavior so two installations do not compete for shortcuts.
 - For later updates, increase the source version and submit a new package through Partner Center. Store submission automation needs additional account setup and is not enabled by the draft packaging workflow.
 
 ## GitHub distribution route
 
-GitHub Actions can build Sonora, submit a build artifact to a signing provider, and publish the signed executable in GitHub Releases. A trusted signing provider and its approval are still required.
+GitHub Actions can build SonarShift, submit a build artifact to a signing provider, and publish the signed executable in GitHub Releases. A trusted signing provider and its approval are still required.
 
-[SignPath Foundation](https://signpath.org/) declined the current application because Sonora lacks established public visibility. No provider credentials are configured. The public GitHub repository and its checksums do not make its standalone EXE signed. The separate signed-release workflow stops until an approved provider is configured.
+[SignPath Foundation](https://signpath.org/) declined the current application because SonarShift lacks established public visibility. No provider credentials are configured. The public GitHub repository and its checksums do not make its standalone EXE signed. The separate signed-release workflow stops until an approved provider is configured.
 
 Official references:
 

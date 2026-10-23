@@ -15,7 +15,7 @@ using System.Windows.Threading;
 using Microsoft.Win32;
 using Forms = System.Windows.Forms;
 
-namespace Sonora;
+namespace SonarShift;
 
 public sealed partial class MainWindow : Window
 {
@@ -50,13 +50,13 @@ public sealed partial class MainWindow : Window
     {
         Preferences = store.Load();
         soundCues.PlaybackFailed += ex => SetStatus("Confirmation sound unavailable: " + ex.Message, true);
-        Title = "Sonora — Your sound, one shortcut away";
+        Title = "SonarShift — Your sound, one shortcut away";
         Width = 1160; Height = 900; MinWidth = 960; MinHeight = 680;
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
         Background = Brush("#0D0F15"); Foreground = Brushes.White;
         FontFamily = new FontFamily("Segoe UI Variable Text, Segoe UI");
         WindowStyle = WindowStyle.None; ResizeMode = ResizeMode.CanResize;
-        Icon = BitmapFrame.Create(new Uri("pack://application:,,,/Assets/Sonora.png"));
+        Icon = BitmapFrame.Create(new Uri("pack://application:,,,/Assets/SonarShift.png"));
         WindowChrome.SetWindowChrome(this, new WindowChrome { CaptionHeight = 44, CornerRadius = new CornerRadius(12), GlassFrameThickness = new Thickness(0), ResizeBorderThickness = new Thickness(6) });
         BuildShell();
         SourceInitialized += (_, _) =>
@@ -86,14 +86,14 @@ public sealed partial class MainWindow : Window
         sidebar.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         var brand = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(26, 38, 0, 0), VerticalAlignment = VerticalAlignment.Top };
         var logo = new Image { Source = Icon, Width = 36, Height = 36, Margin = new Thickness(0, 0, 11, 0) };
-        brand.Children.Add(logo); brand.Children.Add(Text("sonora", 25, null, FontWeights.SemiBold));
+        brand.Children.Add(logo); brand.Children.Add(Text("SonarShift", 23, null, FontWeights.SemiBold));
         sidebar.Children.Add(brand);
         navigation.Margin = new Thickness(16, 0, 16, 0); Grid.SetRow(navigation, 1); sidebar.Children.Add(navigation);
         var bottom = new StackPanel { Margin = new Thickness(24, 20, 24, 24) };
         bottom.Children.Add(Text("ALWAYS WITHIN REACH", 10, Muted, FontWeights.SemiBold));
         var trayLine = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 12, 0, 20) };
         trayLine.Children.Add(Text("●  ", 12, Mint)); trayLine.Children.Add(trayStatus); bottom.Children.Add(trayLine);
-        bottom.Children.Add(Text("SONORA  /  1.3", 10, Brush("#5D637B")));
+        bottom.Children.Add(Text("SONARSHIFT  /  1.4", 10, Brush("#5D637B")));
         Grid.SetRow(bottom, 2); sidebar.Children.Add(bottom); shell.Children.Add(sidebar);
         var main = new Grid(); Grid.SetColumn(main, 1);
         main.RowDefinitions.Add(new RowDefinition { Height = new GridLength(44) });
@@ -233,7 +233,7 @@ public sealed partial class MainWindow : Window
         var previous = f == AudioFlow.Output ? Preferences.OutputShortcut : Preferences.InputShortcut;
         var shortcut = CaptureShortcut(previous);
         if (shortcut == null) return;
-        if (IsDuplicateShortcut(shortcut, f == AudioFlow.Output ? "output" : "input", null)) { SetStatus("That shortcut is already assigned in Sonora.", true); return; }
+        if (IsDuplicateShortcut(shortcut, f == AudioFlow.Output ? "output" : "input", null)) { SetStatus("That shortcut is already assigned in SonarShift.", true); return; }
         hotkeys!.Clear();
         if (!hotkeys.Register(500, shortcut, () => { })) { RegisterShortcuts(); SetStatus("That shortcut is used by another app. Your previous shortcut is kept.", true); return; }
         hotkeys.Clear();
@@ -313,7 +313,7 @@ public sealed partial class MainWindow : Window
         {
             var outputId = output.SelectedValue as string; var inputId = input.SelectedValue as string;
             if (string.IsNullOrWhiteSpace(name.Text) || (string.IsNullOrEmpty(outputId) && string.IsNullOrEmpty(inputId))) { error.Text = "Give your profile a name and choose at least one device."; return; }
-            if (shortcut != null && IsDuplicateShortcut(shortcut, null, original?.Id)) { error.Text = "That shortcut is already assigned in Sonora."; return; }
+            if (shortcut != null && IsDuplicateShortcut(shortcut, null, original?.Id)) { error.Text = "That shortcut is already assigned in SonarShift."; return; }
             hotkeys!.Clear();
             if (shortcut != null && !hotkeys.Register(500, shortcut, () => { })) { RegisterShortcuts(); error.Text = "Another app uses that shortcut. Choose a different one."; return; }
             hotkeys.Clear();
@@ -324,7 +324,7 @@ public sealed partial class MainWindow : Window
     }
     private void BuildSettings()
     {
-        Heading("Small details, your way", "Settle into your flow.", "Sonora stays quietly in your system tray, ready whenever you need it.");
+        Heading("Small details, your way", "Settle into your flow.", "SonarShift stays quietly in your system tray, ready whenever you need it.");
         BuildSettingsTransfer();
         var preferences = new StackPanel();
         StackPanel Option(string title, string description, bool value, Action<bool> change)
@@ -348,13 +348,13 @@ public sealed partial class MainWindow : Window
             finally { startupCheck.IsChecked = IsStartupEnabled(); startupCheck.IsEnabled = true; }
         };
         startup.Children.Add(startupCheck);
-        startup.Children.Add(new TextBlock { Text = "Launch Sonora in your tray when you sign in.", Foreground = Muted, FontSize = 12, Margin = new Thickness(30, 7, 0, 0) });
+        startup.Children.Add(new TextBlock { Text = "Launch SonarShift in your tray when you sign in.", Foreground = Muted, FontSize = 12, Margin = new Thickness(30, 7, 0, 0) });
         preferences.Children.Add(startup);
-        Option("Open in the tray", "Keep the main window hidden when Sonora starts.", Preferences.StartMinimized, v => Preferences.StartMinimized = v);
+        Option("Open in the tray", "Keep the main window hidden when SonarShift starts.", Preferences.StartMinimized, v => Preferences.StartMinimized = v);
         page.Children.Add(Card(preferences, 25));
-        var about = new StackPanel { Margin = new Thickness(0, 25, 0, 0) }; about.Children.Add(Text("SONORA 1.3.0", 11, Purple, FontWeights.SemiBold)); about.Children.Add(new TextBlock { Text = "Native Windows audio switching. No account, no ads, no telemetry.\nYour preferences stay on this computer.", Foreground = Muted, FontSize = 13, LineHeight = 24, Margin = new Thickness(0, 10, 0, 15) });
+        var about = new StackPanel { Margin = new Thickness(0, 25, 0, 0) }; about.Children.Add(Text("SONARSHIFT 1.4.0", 11, Purple, FontWeights.SemiBold)); about.Children.Add(new TextBlock { Text = "Native Windows audio switching. No account, no ads, no telemetry.\nYour preferences stay on this computer.", Foreground = Muted, FontSize = 13, LineHeight = 24, Margin = new Thickness(0, 10, 0, 15) });
         var line = new StackPanel { Orientation = Orientation.Horizontal }; line.Children.Add(Button("Open settings folder", () => Process.Start(new ProcessStartInfo("explorer.exe", SettingsStore.DirectoryPath) { UseShellExecute = true })));
-        var quit = Button("Quit Sonora", Quit); quit.Margin = new Thickness(12, 0, 0, 0); line.Children.Add(quit); about.Children.Add(line); page.Children.Add(about);
+        var quit = Button("Quit SonarShift", Quit); quit.Margin = new Thickness(12, 0, 0, 0); line.Children.Add(quit); about.Children.Add(line); page.Children.Add(about);
     }
     private void Cycle(AudioFlow f, bool fromHotkey = false)
     {
@@ -416,14 +416,14 @@ public sealed partial class MainWindow : Window
     }
     private void SetupTray()
     {
-        using var stream = Application.GetResourceStream(new Uri("pack://application:,,,/Assets/Sonora.ico")).Stream;
-        tray = new Forms.NotifyIcon { Icon = new System.Drawing.Icon(stream), Text = "Sonora · Your sound, one shortcut away", Visible = true };
+        using var stream = Application.GetResourceStream(new Uri("pack://application:,,,/Assets/SonarShift.ico")).Stream;
+        tray = new Forms.NotifyIcon { Icon = new System.Drawing.Icon(stream), Text = "SonarShift · Your sound, one shortcut away", Visible = true };
         tray.DoubleClick += (_, _) => Dispatcher.Invoke(ShowWindow); UpdateTray();
     }
     private void UpdateTray()
     {
         if (tray == null) return;
-        var menu = new Forms.ContextMenuStrip(); menu.Items.Add("Open Sonora", null, (_, _) => Dispatcher.Invoke(ShowWindow)); menu.Items.Add(new Forms.ToolStripSeparator());
+        var menu = new Forms.ContextMenuStrip(); menu.Items.Add("Open SonarShift", null, (_, _) => Dispatcher.Invoke(ShowWindow)); menu.Items.Add(new Forms.ToolStripSeparator());
         foreach (var f in new[] { AudioFlow.Output, AudioFlow.Input })
         {
             var group = new Forms.ToolStripMenuItem(f == AudioFlow.Output ? "Playback" : "Recording");
@@ -432,7 +432,7 @@ public sealed partial class MainWindow : Window
         }
         menu.Items.Add("Next output", null, (_, _) => Dispatcher.Invoke(() => Cycle(AudioFlow.Output))); menu.Items.Add("Next input", null, (_, _) => Dispatcher.Invoke(() => Cycle(AudioFlow.Input)));
         if (Preferences.Profiles.Count > 0) { var profiles = new Forms.ToolStripMenuItem("Profiles"); foreach (var profile in Preferences.Profiles) profiles.DropDownItems.Add(profile.Name, null, (_, _) => Dispatcher.Invoke(() => ActivateProfile(profile))); menu.Items.Add(profiles); }
-        menu.Items.Add(new Forms.ToolStripSeparator()); menu.Items.Add("Quit Sonora", null, (_, _) => Dispatcher.Invoke(Quit)); var old = tray.ContextMenuStrip; tray.ContextMenuStrip = menu; old?.Dispose();
+        menu.Items.Add(new Forms.ToolStripSeparator()); menu.Items.Add("Quit SonarShift", null, (_, _) => Dispatcher.Invoke(Quit)); var old = tray.ContextMenuStrip; tray.ContextMenuStrip = menu; old?.Dispose();
     }
     private void Tick()
     {
@@ -455,7 +455,7 @@ public sealed partial class MainWindow : Window
         catch (Exception ex) { SetStatus("Switch confirmation unavailable: " + ex.Message, true); }
     }
     private void ShowWindow() { Show(); if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal; Activate(); RefreshDevices(); Navigate(currentPage); }
-    private void OnClosing(object? sender, CancelEventArgs e) { if (!quitting && Preferences.CloseToTray) { e.Cancel = true; Hide(); SetStatus("Sonora is running in your tray"); return; } timer.Stop(); hotkeys?.Dispose(); soundCues.Dispose(); switchNotification?.Dispose(); tray?.Dispose(); Application.Current.Shutdown(); }
+    private void OnClosing(object? sender, CancelEventArgs e) { if (!quitting && Preferences.CloseToTray) { e.Cancel = true; Hide(); SetStatus("SonarShift is running in your tray"); return; } timer.Stop(); hotkeys?.Dispose(); soundCues.Dispose(); switchNotification?.Dispose(); tray?.Dispose(); Application.Current.Shutdown(); }
     private void Quit() { quitting = true; Close(); }
     private void Save() { store.Save(Preferences); UpdateTray(); }
     private void SetStatus(string text, bool error = false) { status.Text = (error ? "!  " : "●  ") + text; status.Foreground = error ? Brush("#F0B68A") : Muted; status.ToolTip = text; }

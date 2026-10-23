@@ -9,11 +9,11 @@ using System.Threading.Tasks;
 using System.Windows.Input;
 using Microsoft.Win32;
 
-namespace Sonora;
+namespace SonarShift;
 
 public sealed class SettingsDocument
 {
-    public string Format { get; set; } = "Sonora settings";
+    public string Format { get; set; } = "SonarShift settings";
     public int FormatVersion { get; set; } = 1;
     public DateTimeOffset ExportedAt { get; set; } = DateTimeOffset.UtcNow;
     public Settings Settings { get; set; } = new();
@@ -25,27 +25,34 @@ public sealed record SettingsImport(Settings Settings, string Source, bool? Star
 
 public static class StartupRegistration
 {
-#if SONORA_STORE
+#if SONARSHIFT_STORE
     private static Windows.ApplicationModel.StartupTask? startupTask;
-    public static async Task InitializeAsync() => startupTask = await Windows.ApplicationModel.StartupTask.GetAsync("SonoraStartup");
+    public static async Task InitializeAsync() => startupTask = await Windows.ApplicationModel.StartupTask.GetAsync("SonarShiftStartup");
     public static bool IsEnabled() => startupTask?.State is Windows.ApplicationModel.StartupTaskState.Enabled or Windows.ApplicationModel.StartupTaskState.EnabledByPolicy;
     public static async Task SetAsync(bool enabled)
     {
-        var task = startupTask ?? throw new InvalidOperationException("Sonora's Windows startup task is not available.");
+        var task = startupTask ?? throw new InvalidOperationException("SonarShift's Windows startup task is not available.");
         if (!enabled) { task.Disable(); return; }
         var state = await task.RequestEnableAsync();
         if (state is not (Windows.ApplicationModel.StartupTaskState.Enabled or Windows.ApplicationModel.StartupTaskState.EnabledByPolicy))
-            throw new InvalidOperationException("Windows has disabled Sonora's startup task. Enable Sonora in Windows Settings > Apps > Startup.");
+            throw new InvalidOperationException("Windows has disabled SonarShift's startup task. Enable SonarShift in Windows Settings > Apps > Startup.");
     }
 #else
     private const string RegistryPath = @"Software\Microsoft\Windows\CurrentVersion\Run";
-    public static Task InitializeAsync() => Task.CompletedTask;
-    public static bool IsEnabled() { using var key = Registry.CurrentUser.OpenSubKey(RegistryPath); return key?.GetValue("Sonora") != null; }
+    public static Task InitializeAsync()
+    {
+        // Retain a previous startup opt-in, updating its executable after rename.
+        using var key = Registry.CurrentUser.OpenSubKey(RegistryPath);
+        if (key?.GetValue("Sonora") != null) return SetAsync(true);
+        return Task.CompletedTask;
+    }
+    public static bool IsEnabled() { using var key = Registry.CurrentUser.OpenSubKey(RegistryPath); return key?.GetValue("SonarShift") != null || key?.GetValue("Sonora") != null; }
     public static Task SetAsync(bool enabled)
     {
         using var key = Registry.CurrentUser.CreateSubKey(RegistryPath);
-        if (enabled) key.SetValue("Sonora", "\"" + Environment.ProcessPath + "\" --tray");
-        else key.DeleteValue("Sonora", false);
+        if (enabled) key.SetValue("SonarShift", "\"" + Environment.ProcessPath + "\" --tray");
+        else key.DeleteValue("SonarShift", false);
+        key.DeleteValue("Sonora", false);
         return Task.CompletedTask;
     }
 #endif
@@ -68,7 +75,7 @@ public static class SettingsTransfer
             Settings = Clone(settings), StartWithWindows = startWithWindows,
             Devices = devices.Select(d => new DeviceReference(d.Id, d.Name, d.Flow)).ToList()
         };
-        return "// Sonora settings — edit this UTF-8 text file in Notepad, then import it in Settings.\n" +
+        return "// SonarShift settings — edit this UTF-8 text file in Notepad, then import it in Settings.\n" +
                "// Device names are used to reconnect saved choices when Windows changes their IDs.\n" +
                JsonSerializer.Serialize(document, JsonOptions) + Environment.NewLine;
     }
@@ -88,29 +95,29 @@ public static class SettingsTransfer
         {
             using var json = JsonDocument.Parse(text.TrimStart('\uFEFF'), new JsonDocumentOptions { CommentHandling = JsonCommentHandling.Skip, AllowTrailingCommas = true });
             var root = json.RootElement;
-            if (root.ValueKind != JsonValueKind.Object) throw new InvalidDataException("Choose a Sonora settings export or a SoundSwitch configuration file.");
+            if (root.ValueKind != JsonValueKind.Object) throw new InvalidDataException("Choose a SonarShift settings export or a SoundSwitch configuration file.");
             if (root.TryGetProperty("Format", out _))
             {
                 var document = root.Deserialize<SettingsDocument>(JsonOptions)!;
-                if (document.Format != "Sonora settings" || document.FormatVersion != 1) throw new InvalidDataException("This settings export uses an unsupported format or version.");
+                if (document.Format is not ("SonarShift settings" or "Sonora settings") || document.FormatVersion != 1) throw new InvalidDataException("This settings export uses an unsupported format or version.");
                 if (!root.TryGetProperty("Settings", out var settingsJson)) throw new InvalidDataException("The export is missing its settings.");
                 RequireNativeFields(settingsJson);
                 Validate(document.Settings);
                 if (document.Devices == null || document.Devices.Any(d => d == null || string.IsNullOrWhiteSpace(d.Id) || string.IsNullOrWhiteSpace(d.Name) || (d.Flow != AudioFlow.Output && d.Flow != AudioFlow.Input))) throw new InvalidDataException("The export contains an invalid device reference.");
                 var warnings = new List<string>();
                 Remap(document.Settings, document.Devices, devices, warnings);
-                return new(document.Settings, "Sonora", document.StartWithWindows, warnings);
+                return new(document.Settings, "SonarShift", document.StartWithWindows, warnings);
             }
-            // Also accept an existing Sonora settings.json copied or renamed as .txt.
+            // Also accept an existing SonarShift settings.json copied or renamed as .txt.
             if (root.TryGetProperty("SchemaVersion", out _))
             {
                 RequireNativeFields(root);
                 var settings = root.Deserialize<Settings>(JsonOptions)!; Validate(settings);
-                return new(settings, "Sonora", null, new());
+                return new(settings, "SonarShift", null, new());
             }
             if ((root.TryGetProperty("SelectedDevices", out _) || root.TryGetProperty("SelectedPlaybackDeviceListId", out _) || root.TryGetProperty("SelectedRecordingDeviceListId", out _)) &&
                 (root.TryGetProperty("PlaybackHotKey", out _) || root.TryGetProperty("RecordingHotKey", out _))) return ImportSoundSwitch(root, current, devices);
-            throw new InvalidDataException("This file is not a recognized Sonora or SoundSwitch settings file.");
+            throw new InvalidDataException("This file is not a recognized SonarShift or SoundSwitch settings file.");
         }
         catch (Exception ex) when (ex is JsonException or InvalidOperationException or FormatException or OverflowException or KeyNotFoundException)
         {
@@ -184,8 +191,8 @@ public static class SettingsTransfer
             if (flow == AudioFlow.Output) settings.OutputHotkeyEnabled = enabled; else settings.InputHotkeyEnabled = enabled;
             if (key == 0 || key > 254 || key == 0x7B || modifiers == 0 || (modifiers & ~7u) != 0)
             {
-                if (enabled) throw new InvalidDataException(name + " uses a shortcut Sonora cannot register. Change it in SoundSwitch first.");
-                return; // Disabled, unassigned combinations retain a usable Sonora combination.
+                if (enabled) throw new InvalidDataException(name + " uses a shortcut SonarShift cannot register. Change it in SoundSwitch first.");
+                return; // Disabled, unassigned combinations retain a usable SonarShift combination.
             }
             var shortcut = NormalizeShortcut(new(modifiers, key, ""));
             if (flow == AudioFlow.Output) settings.OutputShortcut = shortcut; else settings.InputShortcut = shortcut;
@@ -193,12 +200,12 @@ public static class SettingsTransfer
         ReadShortcut("PlaybackHotKey", AudioFlow.Output); ReadShortcut("RecordingHotKey", AudioFlow.Input);
         settings.HotkeysEnabled = true;
         if (root.TryGetProperty("ChangeCommunications", out var communications)) settings.CommunicationsToo = communications.GetBoolean();
-        // SoundSwitch NotificationType: NoNotification=2. Other styles become Sonora notifications.
+        // SoundSwitch NotificationType: NoNotification=2. Other styles become SonarShift notifications.
         if (root.TryGetProperty("SwitchDeviceNotification", out var notification)) settings.Notifications = notification.GetInt32() != 2;
-        if (root.TryGetProperty("Profiles", out var profiles) && profiles.ValueKind == JsonValueKind.Array && profiles.GetArrayLength() > 0) warnings.Add("SoundSwitch profiles and automation are not transferred. Existing Sonora profiles are kept.");
-        if (root.TryGetProperty("ProfileSettings", out var profileSettings) && profileSettings.ValueKind == JsonValueKind.Array && profileSettings.GetArrayLength() > 0) warnings.Add("SoundSwitch profile settings are not transferred. Existing Sonora profiles are kept.");
-        if (root.TryGetProperty("MuteRecordingHotKey", out var mute) && mute.TryGetProperty("Enabled", out var muteEnabled) && muteEnabled.GetBoolean()) warnings.Add("SoundSwitch's microphone-mute shortcut is not supported in Sonora.");
-        if (root.TryGetProperty("SwitchDeviceNotification", out var style) && style.GetInt32() is not 0 and not 2) warnings.Add("SoundSwitch's notification style is replaced by Sonora's standard notification.");
+        if (root.TryGetProperty("Profiles", out var profiles) && profiles.ValueKind == JsonValueKind.Array && profiles.GetArrayLength() > 0) warnings.Add("SoundSwitch profiles and automation are not transferred. Existing SonarShift profiles are kept.");
+        if (root.TryGetProperty("ProfileSettings", out var profileSettings) && profileSettings.ValueKind == JsonValueKind.Array && profileSettings.GetArrayLength() > 0) warnings.Add("SoundSwitch profile settings are not transferred. Existing SonarShift profiles are kept.");
+        if (root.TryGetProperty("MuteRecordingHotKey", out var mute) && mute.TryGetProperty("Enabled", out var muteEnabled) && muteEnabled.GetBoolean()) warnings.Add("SoundSwitch's microphone-mute shortcut is not supported in SonarShift.");
+        if (root.TryGetProperty("SwitchDeviceNotification", out var style) && style.GetInt32() is not 0 and not 2) warnings.Add("SoundSwitch's notification style is replaced by SonarShift's standard notification.");
         if (root.TryGetProperty("AppSoundRules", out var rules) && rules.ValueKind == JsonValueKind.Array && rules.GetArrayLength() > 0) warnings.Add("SoundSwitch per-app rules are not transferred.");
         settings.Initialized = true; Validate(settings); Remap(settings, references, devices, warnings);
         return new(settings, "SoundSwitch", null, warnings.Distinct().ToList());
@@ -228,7 +235,7 @@ public static class SettingsTransfer
     {
         Validate(imported.Settings); var previous = store.Load(); var previousStartup = StartupRegistration.IsEnabled();
         var backupDirectory = Path.Combine(Path.GetDirectoryName(store.FilePath)!, "Backups"); Directory.CreateDirectory(backupDirectory);
-        var backupPath = Path.Combine(backupDirectory, "Sonora-before-import-" + DateTime.Now.ToString("yyyyMMdd-HHmmss-fffffff") + ".txt");
+        var backupPath = Path.Combine(backupDirectory, "SonarShift-before-import-" + DateTime.Now.ToString("yyyyMMdd-HHmmss-fffffff") + ".txt");
         ExportFile(backupPath, previous, devices, previousStartup);
         try
         {
