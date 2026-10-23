@@ -31,6 +31,7 @@ internal sealed class BackgroundHost : Forms.ApplicationContext
     private readonly BackgroundFeedback feedback = new();
     private readonly List<string> conflicts = new();
     private string menuIdentity = "";
+    private readonly Dictionary<(AudioFlow Flow, string Id), Forms.ToolStripMenuItem> trayDevices = new();
     private bool closing;
     internal int RefreshCount { get; private set; }
 
@@ -99,9 +100,35 @@ internal sealed class BackgroundHost : Forms.ApplicationContext
             case "reload": settings = store.Load(); RegisterKeys(); Refresh(); break;
             case "resume": RegisterKeys(); break;
             case "close-interface": if (ui != null && !ui.HasExited) { ui.Refresh(); Native.PostMessage(ui.MainWindowHandle, 0x8003, IntPtr.Zero, IntPtr.Zero); } break;
+            case "test-switch-stress-long": if (Environment.GetEnvironmentVariable("SONARSHIFT_TEST_DATA") != null) _ = Task.Delay(100).ContinueWith(_ => Post(() => File.WriteAllText(Path.Combine(SettingsStore.DirectoryPath, "stress-report.json"), SwitchAllocationProbe(10000)))); break;
+            case "test-switch-stress": if (Environment.GetEnvironmentVariable("SONARSHIFT_TEST_DATA") != null) _ = Task.Delay(100).ContinueWith(_ => Post(() => File.WriteAllText(Path.Combine(SettingsStore.DirectoryPath, "stress-report.json"), SwitchAllocationProbe()))); break;
             case "test-notification": if (Environment.GetEnvironmentVariable("SONARSHIFT_TEST_DATA") != null) feedback.Present("Output switched", "Diagnostic speaker", AudioFlow.Output); break;
         }
         return JsonSerializer.Serialize(new { pid = Environment.ProcessId, interfaceRunning = ui != null && !ui.HasExited, interfacePid = ui != null && !ui.HasExited ? ui.Id : 0, conflicts, refreshes = RefreshCount, eventDriven = notifications != null });
+    }
+    // Synthetic allocation probe: never changes Windows defaults or reads user settings.
+    // Available only to an isolated test instance, not the normal desktop host.
+    private string SwitchAllocationProbe(int measuredSwitches = 2000)
+    {
+        var priorOutputs = outputs; var priorInputs = inputs;
+        var first = new[] { new AudioDevice("probe-a", "Probe speaker A", AudioFlow.Output, true, false), new AudioDevice("probe-b", "Probe speaker B", AudioFlow.Output, false, false) };
+        var second = new[] { first[0] with { IsDefault = false }, first[1] with { IsDefault = true } };
+        var checkpoints = new List<object>();
+        object Snapshot(int switches) { using var process = Process.GetCurrentProcess(); return new { switches, allocatedBytes = GC.GetTotalAllocatedBytes(false), managedHeapBytes = GC.GetTotalMemory(false), workingSetBytes = process.WorkingSet64, privateCommittedBytes = process.PrivateMemorySize64, handles = process.HandleCount, gdiObjects = Native.GetGuiResources(process.Handle, 0), userObjects = Native.GetGuiResources(process.Handle, 1), gen0 = GC.CollectionCount(0), gen1 = GC.CollectionCount(1), gen2 = GC.CollectionCount(2), notificationHandle = feedback.NotificationHandle.ToInt64(), activationCount = feedback.ActivationCount, trayChecksCorrect = outputs.All(d => trayDevices.TryGetValue((d.Flow, d.Id), out var item) && item.Checked == d.IsDefault) }; }
+        try
+        {
+            inputs = Array.Empty<AudioDevice>();
+            for (var index = 0; index < measuredSwitches + 200; index++)
+            {
+                outputs = index % 2 == 0 ? first : second; UpdateTray();
+                feedback.Present("Output switched", outputs[index % 2].Name, AudioFlow.Output);
+                Forms.Application.DoEvents(); Thread.Sleep(5);
+                if (index == 199 || (index >= 200 && (index + 1) % 200 == 0)) checkpoints.Add(Snapshot(index + 1 - 200));
+            }
+            feedback.Dismiss();
+            return JsonSerializer.Serialize(new { scenario = $"200 warmup plus {measuredSwitches} synthetic default/notification changes; no audio default writes, no sound playback, no forced GC", checkpoints });
+        }
+        finally { outputs = priorOutputs; inputs = priorInputs; UpdateTray(); }
     }
     private void ShowInterface()
     {
@@ -148,14 +175,20 @@ internal sealed class BackgroundHost : Forms.ApplicationContext
     }
     private void UpdateTray()
     {
-        var identity = string.Join("|", outputs.Concat(inputs).Select(d => d.Id + d.Name + d.IsDefault)) + JsonSerializer.Serialize(settings.Profiles);
-        if (identity == menuIdentity) return;
+        var identity = string.Join("|", outputs.Concat(inputs).Select(d => d.Flow + d.Id + d.Name)) + JsonSerializer.Serialize(settings.Profiles);
+        if (identity == menuIdentity)
+        {
+            foreach (var device in outputs.Concat(inputs))
+                if (trayDevices.TryGetValue((device.Flow, device.Id), out var item)) item.Checked = device.IsDefault;
+            return;
+        }
         menuIdentity = identity;
+        trayDevices.Clear();
         var menu = new Forms.ContextMenuStrip(); menu.Items.Add("Open SonarShift", null, (_, _) => ShowInterface()); menu.Items.Add(new Forms.ToolStripSeparator());
         foreach (var flow in new[] { AudioFlow.Output, AudioFlow.Input })
         {
             var group = new Forms.ToolStripMenuItem(flow == AudioFlow.Output ? "Playback" : "Recording");
-            foreach (var device in Devices(flow)) { var item = new Forms.ToolStripMenuItem(device.Title) { Checked = device.IsDefault }; item.Click += (_, _) => Switch(device, false); group.DropDownItems.Add(item); }
+            foreach (var device in Devices(flow)) { var item = new Forms.ToolStripMenuItem(device.Title) { Checked = device.IsDefault }; item.Click += (_, _) => Switch(device, false); group.DropDownItems.Add(item); trayDevices[(device.Flow, device.Id)] = item; }
             menu.Items.Add(group);
         }
         menu.Items.Add("Next output", null, (_, _) => Cycle(AudioFlow.Output, false)); menu.Items.Add("Next input", null, (_, _) => Cycle(AudioFlow.Input, false));
@@ -229,6 +262,7 @@ internal sealed class BackgroundHost : Forms.ApplicationContext
     }
     private static class Native
     {
+        [DllImport("user32.dll")] internal static extern uint GetGuiResources(IntPtr process, uint flags);
         [DllImport("user32.dll")] internal static extern bool RegisterHotKey(IntPtr hwnd, int id, uint modifiers, uint key);
         [DllImport("user32.dll")] internal static extern bool UnregisterHotKey(IntPtr hwnd, int id);
         [DllImport("user32.dll")] internal static extern bool PostMessage(IntPtr hwnd, int message, IntPtr wParam, IntPtr lParam);

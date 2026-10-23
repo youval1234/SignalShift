@@ -422,7 +422,7 @@ public sealed partial class MainWindow : Window
     }
     private void Switch(AudioDevice device, bool fromHotkey = false)
     {
-        try { audio.SetDefault(device, Preferences.CommunicationsToo); RefreshDevices(); if (currentPage == "Devices") RefreshDeviceVisuals(); if (fromHotkey && Preferences.HotkeySounds) soundCues.Play(device.Flow); Notify(device.Flow == AudioFlow.Output ? "Output switched" : "Input switched", device.Title, device.Flow); SetStatus((device.Flow == AudioFlow.Output ? "Output" : "Input") + " → " + device.Title); if (currentPage == "Devices") RefreshDeviceVisuals(); }
+        try { audio.SetDefault(device, Preferences.CommunicationsToo); RefreshDevices(); if (currentPage == "Devices") RefreshDeviceVisuals(); if (fromHotkey && Preferences.HotkeySounds) soundCues.Play(device.Flow); Notify(device.Flow == AudioFlow.Output ? "Output switched" : "Input switched", device.Title, device.Flow); SetStatus((device.Flow == AudioFlow.Output ? "Output" : "Input") + " → " + device.Title); }
         catch (Exception ex) { RefreshDevices(); if (currentPage == "Devices") RefreshDeviceVisuals(); SetStatus("Could not switch: " + ex.Message, true); }
     }
     private void ActivateProfile(AudioProfile profile, bool fromHotkey = false)
