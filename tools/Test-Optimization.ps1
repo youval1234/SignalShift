@@ -73,7 +73,7 @@ try {
     Start-Sleep -Seconds 5
     $initial = Command 'status' $data
     if (!$initial.eventDriven) { throw 'Core Audio callbacks were not registered; fallback polling is not an optimization pass.' }
-    $measurements += Measure-Process $hostProcess '1.5 tray: compressed self-contained'
+    $measurements += Measure-Process $hostProcess '1.5 tray: self-contained'
     $afterIdle = Command 'status' $data
     $idleRefreshes = $afterIdle.refreshes - $initial.refreshes
     if ($idleRefreshes -ne 0 -and !$AllowExternalAudioEvents) { throw 'Audio endpoints were re-enumerated while idle; on an active desktop, external audio events can invalidate this assertion.' }
