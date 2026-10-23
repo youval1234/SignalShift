@@ -15,6 +15,10 @@ public static class Program
     {
         try
         {
+            if (args.Contains("--export-background-preview"))
+            {
+                BackgroundFeedback.ExportPreview(args.SkipWhile(a => a != "--export-background-preview").Skip(1).First()); return;
+            }
             if (args.Contains("--host-command"))
             {
                 var command = args.SkipWhile(a => a != "--host-command").Skip(1).First();

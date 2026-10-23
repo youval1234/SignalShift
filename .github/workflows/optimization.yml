@@ -43,6 +43,21 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           $files = Get-ChildItem ../framework-output -Recurse -File
           [pscustomobject]@{ frameworkDependentBytes=($files | Measure-Object Length -Sum).Sum; files=@($files | Select-Object Name,Length) } | ConvertTo-Json -Depth 4 | Set-Content ../framework-size.json
+      - name: Compare narrow and full SDK startup activation outside a package
+        shell: pwsh
+        working-directory: app
+        run: |
+          dotnet publish tests/StartupProbe/StartupProbe.csproj -c Release -r win-x64 --self-contained true -o ../startup-narrow
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          dotnet publish tests/StartupProbe/StartupProbe.csproj -c Release -r win-x64 --self-contained true -p:FullSdk=true -o ../startup-full
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & ../startup-narrow/StartupProbe.exe ../startup-narrow.json
+          & ../startup-full/StartupProbe.exe ../startup-full.json
+          $narrow = Get-Content ../startup-narrow.json -Raw | ConvertFrom-Json
+          $full = Get-Content ../startup-full.json -Raw | ConvertFrom-Json
+          $narrow, $full | ConvertTo-Json
+          if ($narrow.hresult -ne $full.hresult -or $narrow.errorType -match 'TypeLoad|MissingMethod|FileNotFound') { throw 'Narrow startup projection differs from the full SDK.' }
+          Write-Host 'Packaged startup consent still requires validation in the signed Store package.'
       - name: Run application diagnostics without claiming physical audio-device tests
         shell: pwsh
         run: |
@@ -63,3 +78,4 @@ jobs:
             performance/**/*.json
             diagnostics.json
             framework-size.json
+            startup-*.json
