@@ -10,6 +10,12 @@ Version 2.0 adds dark/light appearance and an optional Windows 11 virtual camera
 OBS testing is still required. The existing desktop app and pending Store 1.4
 submission have not been replaced. [Review the update](https://github.com/youval1234/SignalShift/pull/4).
 
+| Dark | Light |
+| --- | --- |
+| ![SignalShift dark appearance](Assets/SignalShift-Dark.png) | ![SignalShift light appearance](Assets/SignalShift-Light.png) |
+
+These are rendered UI previews from a CI machine with no audio hardware attached.
+
 ## New in 2.0
 
 - **Dark and light mode:** choose a look in Settings, or record a global appearance

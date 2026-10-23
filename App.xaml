@@ -1,5 +1,6 @@
 <Application x:Class="SonarShift.App" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" ShutdownMode="OnExplicitShutdown">
   <Application.Resources>
+    <Style TargetType="ToolTip"><Setter Property="Background" Value="{DynamicResource Theme_171A23}"/><Setter Property="Foreground" Value="{DynamicResource Theme_F4F4FA}"/><Setter Property="BorderBrush" Value="{DynamicResource Theme_292D3A}"/><Setter Property="Padding" Value="10,7"/></Style>
     <Style TargetType="TextBlock"><Setter Property="Foreground" Value="{DynamicResource Theme_F4F4FA}"/><Setter Property="FontFamily" Value="Segoe UI Variable Text, Segoe UI"/><Setter Property="FontSize" Value="14"/></Style>
     <Style TargetType="Button">
       <Setter Property="Foreground" Value="{DynamicResource Theme_E6E4F0}"/><Setter Property="Background" Value="{DynamicResource Theme_222632}"/><Setter Property="BorderBrush" Value="{DynamicResource Theme_35394A}"/><Setter Property="BorderThickness" Value="1"/><Setter Property="Padding" Value="16,10"/><Setter Property="Cursor" Value="Hand"/><Setter Property="FontSize" Value="13"/><Setter Property="FontFamily" Value="Segoe UI Variable Text, Segoe UI"/>
