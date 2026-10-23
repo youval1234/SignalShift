@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Windows.Interop;
 
-namespace Sonora;
+namespace SonarShift;
 
 public sealed class HotkeyService : IDisposable
 {

@@ -2,15 +2,18 @@
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net10.0-windows</TargetFramework>
+    <TargetFramework Condition="'$(SonarShiftStore)' == 'true'">net10.0-windows10.0.19041.0</TargetFramework>
+    <DefineConstants Condition="'$(SonarShiftStore)' == 'true'">$(DefineConstants);SONARSHIFT_STORE</DefineConstants>
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>disable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <ApplicationIcon>Assets\Sonora.ico</ApplicationIcon>
-    <AssemblyName>Sonora</AssemblyName>
-    <Version>1.3.0</Version>
+    <ApplicationIcon>Assets\SonarShift.ico</ApplicationIcon>
+    <AssemblyName>SonarShift</AssemblyName>
+    <Version>1.4.0</Version>
+    <Product>SonarShift</Product>
     <Description>A quieter way to switch your sound.</Description>
-    <Company>Sonora</Company>
+    <Company>SonarShift</Company>
     <DebugType Condition="'$(Configuration)' == 'Release'">none</DebugType>
     <PublishSingleFile>true</PublishSingleFile>
     <SelfContained>true</SelfContained>
@@ -18,5 +21,5 @@
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
     <ApplicationManifest>app.manifest</ApplicationManifest>
   </PropertyGroup>
-  <ItemGroup><Resource Include="Assets\Sonora.ico" /><Resource Include="Assets\Sonora.png" /><Resource Include="Assets\SwitchOutput.wav" /><Resource Include="Assets\SwitchInput.wav" /></ItemGroup>
+  <ItemGroup><Resource Include="Assets\SonarShift.ico" /><Resource Include="Assets\SonarShift.png" /><Resource Include="Assets\SwitchOutput.wav" /><Resource Include="Assets\SwitchInput.wav" /></ItemGroup>
 </Project>

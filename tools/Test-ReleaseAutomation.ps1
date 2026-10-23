@@ -1,6 +1,6 @@
 param([Parameter(Mandatory)][string]$ExePath)
 $ErrorActionPreference = 'Stop'
-$root = Join-Path ([IO.Path]::GetTempPath()) "Sonora-release-tests-$([guid]::NewGuid())"
+$root = Join-Path ([IO.Path]::GetTempPath()) "SonarShift-release-tests-$([guid]::NewGuid())"
 $null = New-Item -ItemType Directory -Path $root
 $passed = 0
 function Reject([scriptblock]$Action, [string]$Message) {
@@ -24,13 +24,13 @@ Invoke-FixtureGit @('init', '--quiet', '--initial-branch=main', $source)
 Invoke-FixtureGit @('-C', $source, 'config', 'user.name', 'Release tests')
 Invoke-FixtureGit @('-C', $source, 'config', 'user.email', 'tests@example.invalid')
 Invoke-FixtureGit @('-C', $source, 'remote', 'add', 'origin', $remote)
-'<Project><PropertyGroup><Version>1.3.0</Version></PropertyGroup></Project>' | Set-Content (Join-Path $source 'Sonora.csproj')
-Invoke-FixtureGit @('-C', $source, 'add', 'Sonora.csproj')
+'<Project><PropertyGroup><Version>1.3.0</Version></PropertyGroup></Project>' | Set-Content (Join-Path $source 'SonarShift.csproj')
+Invoke-FixtureGit @('-C', $source, 'add', 'SonarShift.csproj')
 Invoke-FixtureGit @('-C', $source, 'commit', '--quiet', '-m', 'Reviewed source fixture')
 Invoke-FixtureGit @('-C', $source, 'tag', 'v1.3.0')
 Invoke-FixtureGit @('-C', $source, 'tag', 'v9.0.0')
 Invoke-FixtureGit @('-C', $source, 'checkout', '--quiet', '-b', 'unreviewed')
-'<Project><PropertyGroup><Version>8.0.0</Version></PropertyGroup></Project>' | Set-Content (Join-Path $source 'Sonora.csproj')
+'<Project><PropertyGroup><Version>8.0.0</Version></PropertyGroup></Project>' | Set-Content (Join-Path $source 'SonarShift.csproj')
 Invoke-FixtureGit @('-C', $source, 'commit', '--quiet', '-am', 'Unreviewed source fixture')
 Invoke-FixtureGit @('-C', $source, 'tag', 'v8.0.0')
 Invoke-FixtureGit @('-C', $source, 'push', '--quiet', 'origin', 'main', '--tags')
@@ -41,9 +41,9 @@ Reject { & "$PSScriptRoot/Resolve-ReleaseSource.ps1" -RepositoryPath $source -Ta
 Reject { & "$PSScriptRoot/Resolve-ReleaseSource.ps1" -RepositoryPath $source -Tag v9.0.0 } 'project version must match'
 Reject { & "$PSScriptRoot/Resolve-ReleaseSource.ps1" -RepositoryPath $source -Tag v8.0.0 } 'reachable from reviewed main'
 
-$exe = Join-Path $root 'Sonora.exe'
+$exe = Join-Path $root 'SonarShift.exe'
 Copy-Item -LiteralPath $ExePath -Destination $exe
-[xml]$project = Get-Content (Join-Path (Split-Path $PSScriptRoot -Parent) 'Sonora.csproj') -Raw
+[xml]$project = Get-Content (Join-Path (Split-Path $PSScriptRoot -Parent) 'SonarShift.csproj') -Raw
 $tag = 'v' + $project.Project.PropertyGroup.Version
 $verifier = "$PSScriptRoot/Verify-SignedRelease.ps1"
 $subject = 'CN=Release test fixture, O=Not a real signing publisher'
