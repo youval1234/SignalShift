@@ -29,7 +29,12 @@ internal sealed class BackgroundFeedback : IDisposable
         PlaySound(pinned.AddrOfPinnedObject(), IntPtr.Zero, 0x0001 | 0x0002 | 0x0004);
     }
     internal void CancelSound() { soundDelay.Stop(); PlaySound(IntPtr.Zero, IntPtr.Zero, 0); }
-    internal void Present(string title, string message, AudioFlow flow) => (popup ??= new Popup()).Present(title, message, flow);
+    internal void Present(string title, string message, AudioFlow? flow) => (popup ??= new Popup()).Present(title, message, flow);
+    internal bool IsNotificationVisible => popup?.Visible == true;
+    internal string? CurrentMessage => popup?.CurrentMessage;
+    internal IntPtr NotificationHandle => popup?.Handle ?? IntPtr.Zero;
+    internal int ActivationCount => popup?.ActivationCount ?? 0;
+    internal static void ExportPreview(string path) { using var preview = new Popup(); preview.Export(path); }
     internal void Dismiss() => popup?.Dismiss();
     public void Dispose() { CancelSound(); soundDelay.Dispose(); popup?.Dispose(); foreach (var wave in waves.Values) wave.Free(); waves.Clear(); }
     [DllImport("winmm.dll")] private static extern bool PlaySound(IntPtr sound, IntPtr module, uint flags);
@@ -38,11 +43,13 @@ internal sealed class BackgroundFeedback : IDisposable
     {
         private readonly Forms.Timer animation = new() { Interval = 16 };
         private readonly Stopwatch elapsed = new();
-        private readonly Font heading = new("Segoe UI", 7.5f, FontStyle.Bold);
-        private readonly Font text = new("Segoe UI", 12, FontStyle.Bold);
-        private readonly Font brand = new("Segoe UI", 6.75f);
-        private readonly Font icon = new("Segoe MDL2 Assets", 17);
+        private readonly Font heading = new("Segoe UI", 10, FontStyle.Bold, GraphicsUnit.Pixel);
+        private readonly Font text = new("Segoe UI", 16, FontStyle.Bold, GraphicsUnit.Pixel);
+        private readonly Font brand = new("Segoe UI", 9, FontStyle.Regular, GraphicsUnit.Pixel);
+        private readonly Font icon = new("Segoe MDL2 Assets", 23, FontStyle.Regular, GraphicsUnit.Pixel);
         private string title = "", message = "", glyph = "";
+        internal string CurrentMessage => message;
+        internal int ActivationCount { get; private set; }
         protected override bool ShowWithoutActivation => true;
         protected override Forms.CreateParams CreateParams { get { var p = base.CreateParams; p.ExStyle |= 0x08000000 | 0x80 | 0x20; return p; } }
         internal Popup()
@@ -50,11 +57,12 @@ internal sealed class BackgroundFeedback : IDisposable
             FormBorderStyle = Forms.FormBorderStyle.None; ShowInTaskbar = false; TopMost = true; DoubleBuffered = true;
             BackColor = Color.FromArgb(23, 25, 35); StartPosition = Forms.FormStartPosition.Manual;
             AutoScaleMode = Forms.AutoScaleMode.None;
+            Activated += (_, _) => ActivationCount++;
             animation.Tick += (_, _) => { if (elapsed.ElapsedMilliseconds >= 1760) Dismiss(); else { if (elapsed.ElapsedMilliseconds > 1600 && AnimationsEnabled()) Opacity = Math.Max(0, 1 - (elapsed.ElapsedMilliseconds - 1600) / 160.0); Invalidate(); } };
         }
-        internal void Present(string caption, string device, AudioFlow flow)
+        internal void Present(string caption, string device, AudioFlow? flow)
         {
-            title = caption.ToUpperInvariant(); message = device; glyph = flow == AudioFlow.Output ? "\uE7F5" : "\uE720";
+            title = caption.ToUpperInvariant(); message = device; glyph = flow == AudioFlow.Output ? "\uE7F5" : flow == AudioFlow.Input ? "\uE720" : "\uE8A9";
             AccessibleName = caption + ": " + device;
             elapsed.Restart(); Opacity = 1;
             var foreground = GetForegroundWindow();
@@ -69,6 +77,12 @@ internal sealed class BackgroundFeedback : IDisposable
             Invalidate(); animation.Start();
         }
         internal void Dismiss() { animation.Stop(); Hide(); elapsed.Reset(); Opacity = 1; }
+        internal void Export(string path)
+        {
+            title = "OUTPUT SWITCHED"; message = "SteelSeries Sonar — Aux"; glyph = "\uE7F5"; Size = new Size(384, 102);
+            using var image = new Bitmap(Width, Height); DrawToBitmap(image, new Rectangle(0, 0, Width, Height));
+            image.Save(path, System.Drawing.Imaging.ImageFormat.Png);
+        }
         protected override void OnPaint(Forms.PaintEventArgs e)
         {
             base.OnPaint(e);

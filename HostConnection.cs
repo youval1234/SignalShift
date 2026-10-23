@@ -15,6 +15,7 @@ internal static class HostConnection
     internal static string InstanceMutex => Environment.GetEnvironmentVariable("SONARSHIFT_TEST_DATA") == null ? "Local\\Sonora-Desktop-v1" : "Local\\SonarShift-test-" + Suffix;
     internal static string UiMutex => "Local\\SonarShift-interface-" + Suffix;
     private static string PipeName => "SonarShift-" + Suffix;
+    internal static void Notify(string title, string message, AudioFlow? flow) => Send(JsonSerializer.Serialize(new { action = "notification", title = title[..Math.Min(120, title.Length)], message = message[..Math.Min(2048, message.Length)], flow }));
     internal static string Send(string command)
     {
         using var pipe = new NamedPipeClientStream(".", PipeName, PipeDirection.InOut, PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly);
@@ -35,8 +36,8 @@ internal static class HostConnection
                 await pipe.WaitForConnectionAsync(stop).ConfigureAwait(false);
                 using var requestTimeout = CancellationTokenSource.CreateLinkedTokenSource(stop);
                 requestTimeout.CancelAfter(3000);
-                // Bounded protocol: accept a short command, never paths or arbitrary code.
-                var data = new byte[64]; var count = 0;
+                // Bounded local protocol: commands/display text only, never paths or arbitrary code.
+                var data = new byte[16384]; var count = 0;
                 while (count < data.Length)
                 {
                     var read = await pipe.ReadAsync(data.AsMemory(count, 1), requestTimeout.Token).ConfigureAwait(false);

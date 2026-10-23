@@ -8,6 +8,21 @@ SonarShift is a native Windows desktop app for switching playback and recording 
 
 ![SonarShift switch popup](Assets/SwitchPopup.png)
 
+## Optimization preview (1.5 development)
+
+The `codex/optimize-1.5` branch separates background audio controls from the settings interface, releases the interface process when it closes, and uses audio-device change callbacks instead of regular device polling. Notifications reuse a native popup. The Store build uses a focused startup API projection rather than the full Windows SDK assembly.
+
+The first Windows CI measurement compared self-contained builds on one runner over 20-second sampling windows:
+
+| Tray memory | 1.4 baseline | 1.5 preview | Reduction |
+| --- | ---: | ---: | ---: |
+| Mean working set (bytes) | 255,510,323 | 130,277,786 | 49.0% |
+| Mean private committed memory (bytes) | 125,265,715 | 57,736,602 | 53.9% |
+
+These preliminary figures apply with settings closed. Opening settings adds a separate process; they are not a promise of the same savings while the interface is open. The self-contained EXE did not shrink in that run (75,613,461 to 75,693,704 bytes). Later changes require a fresh measurement. See the [measurement workflow](https://github.com/youval1234/SonarShift/actions/workflows/optimization.yml) for diagnostics and raw results. Hosted tests do not verify switching physical audio hardware or packaged startup consent.
+
+This preview has not replaced the installed app or the 1.4 Store submission. Unsigned preview builds remain subject to Windows application-control checks.
+
 ## Download
 
 **SonarShift 1.4**, renamed from Sonora, was submitted for Microsoft Store certification on **23 October 2026** under publisher **youval1234**. It is awaiting review and is not yet available from the Store. Publication is held for a separate manual release after certification. The [existing releases](https://github.com/youval1234/SonarShift/releases) retain their original **Sonora.exe** asset names. New builds produce **SonarShift.exe**.

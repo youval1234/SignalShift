@@ -422,7 +422,7 @@ public sealed partial class MainWindow : Window
     }
     private void Switch(AudioDevice device, bool fromHotkey = false)
     {
-        try { audio.SetDefault(device, Preferences.CommunicationsToo); RefreshDevices(); if (fromHotkey && Preferences.HotkeySounds) soundCues.Play(device.Flow); Notify(device.Flow == AudioFlow.Output ? "Output switched" : "Input switched", device.Title, device.Flow); SetStatus((device.Flow == AudioFlow.Output ? "Output" : "Input") + " → " + device.Title); if (currentPage == "Devices") RefreshDeviceVisuals(); }
+        try { audio.SetDefault(device, Preferences.CommunicationsToo); RefreshDevices(); if (currentPage == "Devices") RefreshDeviceVisuals(); if (fromHotkey && Preferences.HotkeySounds) soundCues.Play(device.Flow); Notify(device.Flow == AudioFlow.Output ? "Output switched" : "Input switched", device.Title, device.Flow); SetStatus((device.Flow == AudioFlow.Output ? "Output" : "Input") + " → " + device.Title); if (currentPage == "Devices") RefreshDeviceVisuals(); }
         catch (Exception ex) { RefreshDevices(); if (currentPage == "Devices") RefreshDeviceVisuals(); SetStatus("Could not switch: " + ex.Message, true); }
     }
     private void ActivateProfile(AudioProfile profile, bool fromHotkey = false)
@@ -441,7 +441,7 @@ public sealed partial class MainWindow : Window
                 if (failures.Count > 1) throw new AggregateException("Profile switching failed and Windows could not restore every previous default.", failures);
                 throw;
             }
-            RefreshDevices(); if (fromHotkey && Preferences.HotkeySounds) soundCues.Play(output != null ? AudioFlow.Output : AudioFlow.Input); Notify("Profile activated", profile.Name); SetStatus("Profile → " + profile.Name);
+            RefreshDevices(); if (currentPage == "Devices") RefreshDeviceVisuals(); if (fromHotkey && Preferences.HotkeySounds) soundCues.Play(output != null ? AudioFlow.Output : AudioFlow.Input); Notify("Profile activated", profile.Name); SetStatus("Profile → " + profile.Name);
         }
         catch (Exception ex) { SetStatus("Could not activate profile: " + ex.Message, true); }
     }
@@ -502,6 +502,12 @@ public sealed partial class MainWindow : Window
     private void Notify(string title, string text, AudioFlow? flow = null)
     {
         if (!Preferences.Notifications || (!Program.IsInterface && tray == null)) return;
+        if (Program.IsInterface)
+        {
+            try { HostConnection.Notify(title, text, flow); }
+            catch (Exception ex) { SetStatus("Switch confirmation unavailable: " + ex.Message, true); }
+            return;
+        }
         try { (switchNotification ??= new SwitchNotification()).Present(title, text, flow); }
         catch (Exception ex) { SetStatus("Switch confirmation unavailable: " + ex.Message, true); }
     }
@@ -536,7 +542,7 @@ public sealed partial class MainWindow : Window
         catch (Exception ex) { SetStatus("Waiting for Windows audio: " + ex.Message, true); }
     }
     private void Quit() { quitting = true; Close(); }
-    private void Save() { store.Save(Preferences); UpdateTray(); }
+    private void Save() { store.Save(Preferences); if (Program.IsInterface) HostConnection.TrySend("reload"); UpdateTray(); }
     private void SetStatus(string text, bool error = false) { status.Text = (error ? "!  " : "●  ") + text; status.Foreground = error ? Brush("#F0B68A") : Muted; status.ToolTip = text; }
     private static string DeviceName(string? id, IReadOnlyList<AudioDevice> devices) => id == null ? "Leave unchanged" : devices.FirstOrDefault(d => d.Id == id)?.Title ?? "Disconnected device";
     private static bool IsStartupEnabled() => StartupRegistration.IsEnabled();

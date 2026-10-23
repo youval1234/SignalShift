@@ -80,6 +80,18 @@ internal sealed class BackgroundHost : Forms.ApplicationContext
     }
     private string Command(string command)
     {
+        if (command.StartsWith('{'))
+        {
+            using var request = JsonDocument.Parse(command);
+            var root = request.RootElement;
+            if (root.GetProperty("action").GetString() == "notification" && settings.Notifications)
+            {
+                var title = root.GetProperty("title").GetString() ?? "SonarShift";
+                var message = root.GetProperty("message").GetString() ?? "";
+                var value = root.GetProperty("flow");
+                feedback.Present(title[..Math.Min(120, title.Length)], message[..Math.Min(2048, message.Length)], value.ValueKind == JsonValueKind.Null ? null : (AudioFlow)value.GetInt32());
+            }
+        }
         switch (command)
         {
             case "show": ShowInterface(); break;
@@ -191,7 +203,7 @@ internal sealed class BackgroundHost : Forms.ApplicationContext
     private void Confirm(string title, string message, AudioFlow flow, bool hotkey)
     {
         if (hotkey && settings.HotkeySounds) feedback.Play(flow);
-        if (settings.Notifications) feedback.Present(title, message, flow);
+        if (settings.Notifications) feedback.Present(title, message, title == "Profile activated" ? null : flow);
     }
     private void Error(Exception ex) { feedback.Present("Could not switch audio", ex.Message, AudioFlow.Output); }
     protected override void ExitThreadCore()

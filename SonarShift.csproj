@@ -3,7 +3,6 @@
     <OutputType>WinExe</OutputType>
     <StartupObject>SonarShift.Program</StartupObject>
     <TargetFramework>net10.0-windows</TargetFramework>
-    <TargetFramework Condition="'$(SonarShiftStore)' == 'true'">net10.0-windows10.0.19041.0</TargetFramework>
     <DefineConstants Condition="'$(SonarShiftStore)' == 'true'">$(DefineConstants);SONARSHIFT_STORE</DefineConstants>
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
@@ -24,8 +23,14 @@
   </PropertyGroup>
   <ItemGroup><Resource Include="Assets\SonarShift.ico" /><Resource Include="Assets\SonarShift.png" /><Resource Include="Assets\SwitchOutput.wav" /><Resource Include="Assets\SwitchInput.wav" /></ItemGroup>
   <ItemGroup>
+    <Compile Remove="Packaging\StartupProjection\**\*.cs" />
+    <Compile Remove="tests\**\*.cs" />
     <EmbeddedResource Include="Assets\SonarShift.ico" LogicalName="SonarShift.TrayIcon" />
     <EmbeddedResource Include="Assets\SwitchOutput.wav" LogicalName="SonarShift.OutputSound" />
     <EmbeddedResource Include="Assets\SwitchInput.wav" LogicalName="SonarShift.InputSound" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(SonarShiftStore)' == 'true'">
+    <ProjectReference Include="Packaging\StartupProjection\StartupProjection.csproj" />
+    <Content Include="Packaging\StartupProjection\THIRD-PARTY-NOTICES.txt" Link="THIRD-PARTY-NOTICES.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>
