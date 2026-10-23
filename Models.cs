@@ -70,9 +70,13 @@ public sealed class SettingsStore
     public void Save(Settings settings)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(FilePath)!);
-        var temporary = FilePath + ".tmp";
-        File.WriteAllText(temporary, JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true }));
-        File.Move(temporary, FilePath, true);
+        var temporary = FilePath + "." + Guid.NewGuid().ToString("N") + ".tmp";
+        try
+        {
+            File.WriteAllText(temporary, JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true }));
+            File.Move(temporary, FilePath, true);
+        }
+        finally { if (File.Exists(temporary)) File.Delete(temporary); }
     }
 }
 public static class CyclePlanner

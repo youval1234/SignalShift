@@ -23,8 +23,8 @@ public sealed partial class MainWindow
 #if SONARSHIFT_STORE
         setup.Children.Add(new TextBlock { Text = "Camera support is not included in this Store build. The portable camera component is under development.", Foreground = Muted, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 18, 0, 8) });
 #else
-        var enabled = new CheckBox { Content = "Enable SignalShift Camera", IsChecked = Preferences.CameraEnabled, IsEnabled = CameraRuntime.Supported && CameraRuntime.InstalledLibrary != null, Margin = new Thickness(0, 18, 0, 8) };
-        enabled.Click += (_, _) => { Preferences.CameraEnabled = enabled.IsChecked == true; Save(); RegisterShortcuts(); };
+        var enabled = new CheckBox { Content = "Enable SignalShift Camera", IsChecked = Preferences.CameraEnabled, IsEnabled = Preferences.CameraEnabled || (CameraRuntime.Supported && CameraRuntime.InstalledLibrary != null), Margin = new Thickness(0, 18, 0, 8) };
+        enabled.Click += (_, _) => { Preferences.CameraEnabled = enabled.IsChecked == true; Save(); RegisterShortcuts(); Navigate("Cameras"); };
         setup.Children.Add(enabled);
         if (!CameraRuntime.Supported) setup.Children.Add(Text("Audio switching remains available. Cameras require 64-bit Windows 11.", 12, Muted));
         else if (CameraRuntime.InstalledLibrary == null)
@@ -57,16 +57,40 @@ public sealed partial class MainWindow
                 var use = Button(device.Id == Preferences.CurrentCameraId ? "Selected" : "Use camera", () => { Preferences.CurrentCameraId = device.Id; Save(); Navigate("Cameras"); });
                 DockPanel.SetDock(use, Dock.Right); row.Children.Add(use);
                 var check = new CheckBox { Content = device.Name, IsChecked = Preferences.Cameras.Contains(device.Id), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 16, 0) };
-                check.Click += (_, _) => { if (check.IsChecked == true) Preferences.Cameras.Add(device.Id); else Preferences.Cameras.Remove(device.Id); Save(); };
+                check.Click += (_, _) => { if (check.IsChecked == true) { Preferences.Cameras.Add(device.Id); Preferences.CurrentCameraId ??= device.Id; } else Preferences.Cameras.Remove(device.Id); Save(); };
                 row.Children.Add(check); var card = Card(row, 16); card.Margin = new Thickness(0, 0, 0, 8); target.Children.Add(card);
             }
         }
         catch (Exception ex) { if (currentPage == "Cameras" && revision == cameraPageRevision) { target.Children.Clear(); target.Children.Add(new TextBlock { Text = ex.Message, TextWrapping = TextWrapping.Wrap, Foreground = Muted }); } }
     }
-    private void NextCamera()
+    private bool changingCamera;
+    private int pendingCameraSteps;
+    private async void NextCamera()
     {
-        try { if (!Preferences.CameraEnabled) throw new InvalidOperationException("Enable SignalShift Camera first."); HostConnection.Send("camera-next"); SetStatus("Camera selection requested"); }
-        catch (Exception ex) { SetStatus(ex.Message, true); }
+        if (!Preferences.CameraEnabled) { SetStatus("Enable SignalShift Camera first.", true); return; }
+        pendingCameraSteps++;
+        if (changingCamera) return;
+        changingCamera = true;
+        try
+        {
+            while (pendingCameraSteps > 0)
+            {
+                var devices = await cameraList.DevicesAsync();
+                var steps = pendingCameraSteps; pendingCameraSteps = 0;
+                CameraDevice? selected = null;
+                for (var i=0; i<steps; i++)
+                {
+                    selected = CameraSelection.Next(devices, Preferences);
+                    if (selected == null) throw new InvalidOperationException("Check at least one connected webcam on the Cameras page.");
+                    Preferences.CurrentCameraId = selected.Id;
+                }
+                Save();
+                if (selected != null) { Notify("Camera selected", selected.Name); SetStatus("Camera selected · " + selected.Name); }
+                if (currentPage == "Cameras") Navigate("Cameras");
+            }
+        }
+        catch (Exception ex) { pendingCameraSteps = 0; SetStatus(ex.Message, true); }
+        finally { changingCamera = false; }
     }
     private void InstallCamera()
     {

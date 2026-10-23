@@ -128,7 +128,7 @@ internal sealed class BackgroundFeedback : IDisposable
             g.FillPath(iconBackground, iconPath);
             g.DrawString(glyph, icon, accent, new PointF(29, 34));
             g.DrawString(title, heading, accent, new PointF(76, 20));
-            g.DrawString("SONARSHIFT", brand, muted, new PointF(304, 20));
+            g.DrawString("SIGNALSHIFT", brand, muted, new PointF(304, 20));
             g.DrawString(message, text, foreground, new RectangleF(76, 39, 288, 40), format);
             g.FillRectangle(track, 76, 80, 288, 2);
             g.FillRectangle(mint, 76, 80, (float)(288 * Math.Max(0, 1 - elapsed.ElapsedMilliseconds / 1600.0)), 2);
