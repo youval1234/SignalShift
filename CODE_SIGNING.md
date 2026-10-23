@@ -19,6 +19,12 @@ The workflow supports an approved production policy through [SignPath.io](https:
 
 See the [privacy policy](PRIVACY.md). No local settings, exported backups, diagnostics, signing keys, tokens, or personal build paths belong in source or release artifacts. Release builds omit debug symbols to avoid embedding local debug paths.
 
+## Owner-authorized preview releases
+
+The owner may explicitly request a manual unsigned **prerelease** for testing before signing is available. Such previews use `preview-*` tags, remain marked as prereleases, and do not replace GitHub's latest stable release. They include the Windows CI-built executable, a SHA-256 checksum, exact source/build links, and an explicit warning that the EXE is unsigned and may be blocked by Windows. They contain no local settings, backups, or debug symbols.
+
+This preview route does not invoke, bypass, or weaken the signed stable-release workflow. `v*` stable tags still require the production signing gates above; there is no unsigned fallback from a failed signing run.
+
 ## Setup after provider approval
 
 1. Complete the provider's eligibility review, account verification, MFA and terms acceptance.
