@@ -65,9 +65,9 @@ jobs:
           if ((Get-Content preview/SHA256SUMS.txt -Raw).Trim() -cne "$hash  SonarShift.exe") { throw 'Artifact checksum mismatch.' }
           gh release upload $env:RELEASE_TAG preview/SonarShift.exe preview/SHA256SUMS.txt --repo $env:GITHUB_REPOSITORY --clobber
           if ($LASTEXITCODE -ne 0) { throw 'Draft asset upload failed.' }
-          $release = gh api "repos/$env:GITHUB_REPOSITORY/releases/tags/$env:RELEASE_TAG" | ConvertFrom-Json
+          $release = gh release view $env:RELEASE_TAG --repo $env:GITHUB_REPOSITORY --json isDraft,isPrerelease,assets | ConvertFrom-Json
           $remote = @($release.assets | Where-Object name -CEQ 'SonarShift.exe')
-          if ($LASTEXITCODE -ne 0 -or !$release.draft -or !$release.prerelease -or $release.assets.Count -ne 2 -or $remote.Count -ne 1 -or $remote[0].size -ne $exe.Length -or $remote[0].digest -cne "sha256:$hash") { throw 'Uploaded executable integrity check failed; draft retained.' }
+          if ($LASTEXITCODE -ne 0 -or !$release.isDraft -or !$release.isPrerelease -or $release.assets.Count -ne 2 -or $remote.Count -ne 1 -or $remote[0].size -ne $exe.Length -or $remote[0].digest -cne "sha256:$hash") { throw 'Uploaded executable integrity check failed; draft retained.' }
           gh release edit $env:RELEASE_TAG --repo $env:GITHUB_REPOSITORY --draft=false --prerelease --latest=false
           if ($LASTEXITCODE -ne 0) { throw 'Preview publication failed.' }
           "Published unsigned preview $env:RELEASE_TAG from $env:PREVIEW_SOURCE; SHA-256 $hash. This is not a signed stable release." >> $env:GITHUB_STEP_SUMMARY
