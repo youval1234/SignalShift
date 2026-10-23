@@ -237,6 +237,8 @@ namespace winrt::WindowsSample::implementation
             {
                 return MF_E_INVALID_STATE_TRANSITION;
             }
+            m_spFrameGenerator.reset();
+            if (m_spSampleAllocator) m_spSampleAllocator->UninitializeSampleAllocator();
             m_streamState = MF_STREAM_STATE_PAUSED;
             break;
 

@@ -118,7 +118,7 @@ public static class Diagnostics
                 var oldExport = File.ReadAllText(path).Replace("SignalShift settings", "Sonora settings", StringComparison.Ordinal);
                 var oldRestored = SettingsTransfer.Parse(oldExport, new Settings(), devices);
                 Require(JsonSerializer.Serialize(oldRestored.Settings) == JsonSerializer.Serialize(original), "Legacy Sonora exports must preserve every setting after rebranding");
-                Require(SettingsStore.DirectoryPath == Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Sonora"), "Rebranding must not strand the existing settings folder");
+                Require(SettingsStore.DirectoryPath == (Environment.GetEnvironmentVariable("SONARSHIFT_TEST_DATA") is string isolated ? Path.GetFullPath(isolated) : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Sonora")), "Rebranding must preserve legacy data and explicit test isolation");
                 var legacy = JsonNode.Parse(JsonSerializer.Serialize(original))!.AsObject(); legacy.Remove("HotkeySounds");
                 Require(SettingsTransfer.Parse(legacy.ToJsonString(), new Settings(), devices).Settings.HotkeySounds, "Existing exports must enable confirmation sounds by default");
             }

@@ -47,6 +47,7 @@ namespace winrt::WindowsSample::implementation
         RETURN_IF_FAILED(MFCreatePresentationDescriptor((DWORD)m_streamList.size(), streamDescriptorList.get(), &m_spPresentationDescriptor));
 
         m_sourceState = SourceState::Stopped;
+        m_initalized = true;
 
         return S_OK;
     }
