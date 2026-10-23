@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
 
-namespace Sonora;
+namespace SonarShift;
 
 // Core Audio runs on the application's STA dispatcher. COM objects never cross threads.
 public sealed class AudioService

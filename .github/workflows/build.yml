@@ -18,11 +18,11 @@ jobs:
         run: ./build.ps1
         shell: pwsh
       - name: Test release source and signature guards
-        run: ./tools/Test-ReleaseAutomation.ps1 -ExePath dist/Sonora.exe
+        run: ./tools/Test-ReleaseAutomation.ps1 -ExePath dist/SonarShift.exe
         shell: pwsh
       - uses: actions/upload-artifact@v7
         with:
-          name: Sonora-windows-x64
+          name: SonarShift-windows-x64
           path: |
-            dist/Sonora.exe
+            dist/SonarShift.exe
             dist/SHA256SUMS.txt

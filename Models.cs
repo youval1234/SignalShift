@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
 
-namespace Sonora;
+namespace SonarShift;
 
 public enum AudioFlow { Output = 0, Input = 1 }
 public sealed record AudioDevice(string Id, string Name, AudioFlow Flow, bool IsDefault, bool IsCommunications)
@@ -40,6 +40,7 @@ public sealed class Settings
 }
 public sealed class SettingsStore
 {
+    // Preserve the existing Sonora data location across the product rename.
     public static string DirectoryPath => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Sonora");
     public string FilePath { get; }
     public SettingsStore(string? path = null) => FilePath = path ?? Path.Combine(DirectoryPath, "settings.json");

@@ -9,7 +9,7 @@ using System.Windows.Media.Effects;
 using System.Windows.Threading;
 using Forms = System.Windows.Forms;
 
-namespace Sonora;
+namespace SonarShift;
 
 // One reusable, non-activating window. Every switch replaces its content and expiry;
 // there is no notification queue or delayed animation callback to show an old device.
@@ -28,7 +28,7 @@ public sealed class SwitchNotification : Window, IDisposable
 
     public SwitchNotification()
     {
-        Title = "Sonora switch notification";
+        Title = "SonarShift switch notification";
         Width = 408; Height = 126;
         WindowStyle = WindowStyle.None; ResizeMode = ResizeMode.NoResize;
         AllowsTransparency = true; Background = Brushes.Transparent;
@@ -59,7 +59,7 @@ public sealed class SwitchNotification : Window, IDisposable
         heading.ColumnDefinitions.Add(new ColumnDefinition()); heading.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         caption = new TextBlock { FontSize = 10, FontWeight = FontWeights.SemiBold, Foreground = ColorBrush("#B8A3FF") };
         heading.Children.Add(caption);
-        var brand = new TextBlock { Text = "SONORA", FontSize = 9, Foreground = ColorBrush("#74788F"), VerticalAlignment = VerticalAlignment.Center };
+        var brand = new TextBlock { Text = "SONARSHIFT", FontSize = 9, Foreground = ColorBrush("#74788F"), VerticalAlignment = VerticalAlignment.Center };
         Grid.SetColumn(brand, 1); heading.Children.Add(brand); copy.Children.Add(heading);
         device = new TextBlock
         {

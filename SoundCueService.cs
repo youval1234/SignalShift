@@ -5,7 +5,7 @@ using System.Media;
 using System.Windows;
 using System.Windows.Threading;
 
-namespace Sonora;
+namespace SonarShift;
 
 // A short delay lets Windows finish routing audio before opening the confirmation stream.
 // All calls are made on the application's dispatcher; playback itself is asynchronous.
