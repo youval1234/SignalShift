@@ -26,17 +26,9 @@ public sealed record SettingsImport(Settings Settings, string Source, bool? Star
 public static class StartupRegistration
 {
 #if SONARSHIFT_STORE
-    private static Windows.ApplicationModel.StartupTask? startupTask;
-    public static async Task InitializeAsync() => startupTask = await Windows.ApplicationModel.StartupTask.GetAsync("SonarShiftStartup");
-    public static bool IsEnabled() => startupTask?.State is Windows.ApplicationModel.StartupTaskState.Enabled or Windows.ApplicationModel.StartupTaskState.EnabledByPolicy;
-    public static async Task SetAsync(bool enabled)
-    {
-        var task = startupTask ?? throw new InvalidOperationException("SonarShift's Windows startup task is not available.");
-        if (!enabled) { task.Disable(); return; }
-        var state = await task.RequestEnableAsync();
-        if (state is not (Windows.ApplicationModel.StartupTaskState.Enabled or Windows.ApplicationModel.StartupTaskState.EnabledByPolicy))
-            throw new InvalidOperationException("Windows has disabled SonarShift's startup task. Enable SonarShift in Windows Settings > Apps > Startup.");
-    }
+    public static Task InitializeAsync() => OperatingSystem.IsWindowsVersionAtLeast(10, 0, 19041) ? StoreIntegration.StoreStartup.InitializeAsync() : throw new PlatformNotSupportedException("SonarShift requires Windows 10 version 2004 or later.");
+    public static bool IsEnabled() => OperatingSystem.IsWindowsVersionAtLeast(10, 0, 19041) && StoreIntegration.StoreStartup.IsEnabled();
+    public static Task SetAsync(bool enabled) => OperatingSystem.IsWindowsVersionAtLeast(10, 0, 19041) ? StoreIntegration.StoreStartup.SetAsync(enabled) : throw new PlatformNotSupportedException("SonarShift requires Windows 10 version 2004 or later.");
 #else
     private const string RegistryPath = @"Software\Microsoft\Windows\CurrentVersion\Run";
     public static Task InitializeAsync()
@@ -158,7 +150,7 @@ public static class SettingsTransfer
     {
         var parts = new List<string>();
         if ((key.Modifiers & 2) != 0) parts.Add("Ctrl"); if ((key.Modifiers & 1) != 0) parts.Add("Alt"); if ((key.Modifiers & 4) != 0) parts.Add("Shift");
-        parts.Add(key.Key >= 0x30 && key.Key <= 0x39 ? ((char)key.Key).ToString() : KeyInterop.KeyFromVirtualKey((int)key.Key).ToString());
+        parts.Add(key.Key >= 0x30 && key.Key <= 0x39 ? ((char)key.Key).ToString() : ((System.Windows.Forms.Keys)key.Key).ToString());
         return key with { Label = string.Join(" + ", parts) };
     }
     private static SettingsImport ImportSoundSwitch(JsonElement root, Settings current, IReadOnlyList<AudioDevice> devices)

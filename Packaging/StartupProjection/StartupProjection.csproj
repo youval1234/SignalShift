@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <!-- The embedded vendor runtime supplies annotations but is not nullable-warning clean on .NET 10. -->
+    <Nullable>annotations</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <DebugType Condition="'$(Configuration)' == 'Release'">none</DebugType>
+    <!-- These warnings originate in the embedded 2.3.1 vendor sources, not application code. -->
+    <NoWarn>$(NoWarn);CS0618;CS9191</NoWarn>
+    <CsWinRTEmbedded>true</CsWinRTEmbedded>
+    <CsWinRTWindowsMetadata>$(NuGetPackageRoot)microsoft.windows.sdk.net.ref\10.0.19041.57\winmd</CsWinRTWindowsMetadata>
+    <CsWinRTIncludes>Windows.ApplicationModel.StartupTask;Windows.ApplicationModel.IStartupTask;Windows.Foundation.IAsync;Windows.Foundation.Async;Windows.Foundation.FoundationContract;Windows.Foundation.UniversalApiContract;Windows.Foundation.Metadata</CsWinRTIncludes>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Windows.CsWinRT" Version="2.3.1" PrivateAssets="all" ExcludeAssets="compile;runtime" />
+    <PackageDownload Include="Microsoft.Windows.SDK.NET.Ref" Version="[10.0.19041.57]" />
+  </ItemGroup>
+</Project>

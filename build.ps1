@@ -1,8 +1,9 @@
-param([switch]$Test, [switch]$AudioRoundtrip)
+param([switch]$Test, [switch]$AudioRoundtrip, [switch]$Compact)
 $ErrorActionPreference = 'Stop'
 Push-Location $PSScriptRoot
 try {
-    dotnet publish SonarShift.csproj -c Release -r win-x64 --self-contained true -o dist
+    $compression = $Compact.IsPresent.ToString().ToLowerInvariant()
+    dotnet publish SonarShift.csproj -c Release -r win-x64 --self-contained true -p:EnableCompressionInSingleFile=$compression -o dist
     if ($LASTEXITCODE -ne 0) { throw 'Publish failed' }
     if ($Test -or $AudioRoundtrip) {
         $report = Join-Path $PSScriptRoot ("dist\diagnostics-$([guid]::NewGuid().ToString('N')).json")

@@ -8,7 +8,19 @@ SonarShift is a native Windows desktop app for switching playback and recording 
 
 ![SonarShift switch popup](Assets/SwitchPopup.png)
 
+## SonarShift 1.5 preview
+
+SonarShift 1.5 separates background audio controls from settings, releases the settings process on close, and uses audio-device callbacks instead of regular polling. The default portable EXE now leaves bundled assemblies uncompressed to reduce private memory in both processes. `./build.ps1 -Compact` retains the smaller compressed EXE as an option.
+
+A local comparison of the same 1.5 application code measured **combined private working set with settings open at 183,215,309 to 54,928,998 bytes (70.0% lower)**. Tray-only private working set fell from 55,255,040 to 9,875,456 bytes (82.1% lower). The EXE grew from 75,695,359 to 173,429,793 bytes. These are ten-sample measurements on one Windows PC; results vary by hardware, window size and usage.
+
+See the [raw measurements and tradeoffs](docs/performance-1.5.md), and the [measurement workflow](https://github.com/youval1234/SonarShift/actions/workflows/optimization.yml). The Store package already uses unpacked assemblies, so the compression change benefits the portable build. The 1.4 Store submission remains unchanged. Unsigned preview builds remain subject to Windows application-control checks.
+
 ## Download
+
+**[Download SonarShift 1.5 preview for Windows x64](https://github.com/youval1234/SonarShift/releases/tag/preview-1.5.0)** — choose **SonarShift.exe** and keep it in a permanent folder. This is the lower-memory portable build; it needs no separate .NET installation. The EXE is approximately **165 MiB**. Check `SHA256SUMS.txt` against the downloaded file if you want to verify its integrity.
+
+This preview is **unsigned** and Windows Smart App Control may block it. It has not received Microsoft Store certification. Its release notes link the exact source and successful build. Existing settings are retained; quit an older running instance before replacing its EXE.
 
 **SonarShift 1.4**, renamed from Sonora, was submitted for Microsoft Store certification on **23 October 2026** under publisher **youval1234**. It is awaiting review and is not yet available from the Store. Publication is held for a separate manual release after certification. The [existing releases](https://github.com/youval1234/SonarShift/releases) retain their original **Sonora.exe** asset names. New builds produce **SonarShift.exe**.
 
@@ -70,7 +82,7 @@ dotnet build -c Release
 dotnet publish -c Release -r win-x64 --self-contained true -o dist
 ```
 
-Or use `./build.ps1`. The project uses only the Windows desktop framework and Windows APIs, with no third-party runtime libraries. `Assets/SonarShift.svg` is the original icon design. To regenerate the PNG and multi-resolution ICO, install Pillow and run `python tools/make_icon.py`.
+Or use `./build.ps1` for the default build with lower memory use, or `./build.ps1 -Compact` for a smaller EXE that uses more private RAM. The portable app uses the Windows desktop framework and Windows APIs. Store startup integration embeds a focused Microsoft C#/WinRT projection with its third-party notices. `Assets/SonarShift.svg` is the original icon design. To regenerate the PNG and multi-resolution ICO, install Pillow and run `python tools/make_icon.py`.
 
 ## Validation
 

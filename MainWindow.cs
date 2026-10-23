@@ -28,7 +28,14 @@ public sealed partial class MainWindow : Window
     private readonly StackPanel navigation = new();
     private readonly TextBlock status = Text("Ready when you are", 12, Muted);
     private readonly TextBlock trayStatus = Text("Shortcuts active", 12, Mint);
-    private readonly DispatcherTimer timer = new() { Interval = TimeSpan.FromSeconds(2) };
+    private readonly DispatcherTimer timer = new() { Interval = TimeSpan.FromSeconds(5) };
+    private readonly Dictionary<AudioFlow, (TextBlock Title, TextBlock Detail)> activeLabels = new();
+    private readonly Dictionary<string, (Border Card, Button Button, Border Badge)> deviceRows = new();
+    private string deviceTopology = "";
+    private AudioDeviceNotifications? deviceNotifications;
+    private System.IO.FileSystemWatcher? signalWatcher;
+    private bool refreshPending;
+    private bool hostExiting;
     private Forms.NotifyIcon? tray;
     private HotkeyService? hotkeys;
     private readonly List<string> hotkeyErrors = new();
@@ -42,6 +49,7 @@ public sealed partial class MainWindow : Window
     private bool quitting;
     private bool paused;
     private DateTime lastShortcutRetry = DateTime.MinValue;
+    private static readonly Dictionary<string, Brush> palette = new();
     private static readonly Brush Muted = Brush("#9297AC");
     private static readonly Brush Mint = Brush("#8BE2C5");
     private static readonly Brush Purple = Brush("#B8A3FF");
@@ -69,11 +77,33 @@ public sealed partial class MainWindow : Window
                 foreach (var d in inputs.Where(d => d.IsDefault)) Preferences.Inputs.Add(d.Id);
                 Preferences.Initialized = true; Save();
             }
-            if (!previewMode) { SetupTray(); RegisterShortcuts(); timer.Tick += (_, _) => Tick(); timer.Start(); }
+            if (!previewMode)
+            {
+                if (!Program.IsInterface) SetupTray();
+                RegisterShortcuts();
+                var source = HwndSource.FromHwnd(new WindowInteropHelper(this).Handle)!;
+                source.AddHook((IntPtr hwnd, int message, IntPtr wParam, IntPtr lParam, ref bool handled) =>
+                {
+                    if (message == 0x8001) { ShowWindow(); handled = true; }
+                    if (message == 0x8002) { hostExiting = true; quitting = true; Close(); handled = true; }
+                    if (message == 0x8003) { backgroundClose = true; Close(); handled = true; }
+                    return IntPtr.Zero;
+                });
+                try { deviceNotifications = new AudioDeviceNotifications(QueueDeviceRefresh); }
+                catch { timer.Interval = TimeSpan.FromSeconds(30); }
+                timer.Tick += (_, _) => Tick();
+                // The timer is only needed when audio callbacks are unavailable or a shortcut conflicts.
+                if (deviceNotifications == null || hotkeyErrors.Count > 0) timer.Start();
+                if (!Program.IsInterface)
+                {
+                    signalWatcher = new FileSystemWatcher(SettingsStore.DirectoryPath, "show.signal") { EnableRaisingEvents = true };
+                    signalWatcher.Created += (_, _) => Dispatcher.BeginInvoke(new Action(ShowWindow));
+                }
+            }
             Navigate("Devices");
         };
         Closing += OnClosing;
-        StateChanged += (_, _) => { if (WindowState == WindowState.Minimized) Hide(); };
+        StateChanged += (_, _) => { if (WindowState == WindowState.Minimized) MinimizeToTray(); };
     }
     private void BuildShell()
     {
@@ -93,14 +123,14 @@ public sealed partial class MainWindow : Window
         bottom.Children.Add(Text("ALWAYS WITHIN REACH", 10, Muted, FontWeights.SemiBold));
         var trayLine = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 12, 0, 20) };
         trayLine.Children.Add(Text("●  ", 12, Mint)); trayLine.Children.Add(trayStatus); bottom.Children.Add(trayLine);
-        bottom.Children.Add(Text("SONARSHIFT  /  1.4", 10, Brush("#5D637B")));
+        bottom.Children.Add(Text("SONARSHIFT  /  1.5", 10, Brush("#5D637B")));
         Grid.SetRow(bottom, 2); sidebar.Children.Add(bottom); shell.Children.Add(sidebar);
         var main = new Grid(); Grid.SetColumn(main, 1);
         main.RowDefinitions.Add(new RowDefinition { Height = new GridLength(44) });
         main.RowDefinitions.Add(new RowDefinition());
         main.RowDefinitions.Add(new RowDefinition { Height = new GridLength(40) });
         var chrome = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 4, 10, 0) };
-        var minimize = Button("—", () => Hide()); minimize.Padding = new Thickness(14, 4, 14, 4); minimize.Background = Brushes.Transparent; minimize.BorderThickness = new Thickness(0); minimize.ToolTip = "Minimize to tray";
+        var minimize = Button("—", MinimizeToTray); minimize.Padding = new Thickness(14, 4, 14, 4); minimize.Background = Brushes.Transparent; minimize.BorderThickness = new Thickness(0); minimize.ToolTip = "Minimize to tray";
         var maximize = Button("□", () => WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized); maximize.Padding = minimize.Padding; maximize.Background = Brushes.Transparent; maximize.BorderThickness = new Thickness(0); maximize.ToolTip = "Maximize / restore";
         var close = Button("×", Close); close.Padding = minimize.Padding; close.Background = Brushes.Transparent; close.BorderThickness = new Thickness(0); close.FontSize = 20; close.ToolTip = "Close to tray";
         foreach (var b in new[] { minimize, maximize, close }) { WindowChrome.SetIsHitTestVisibleInChrome(b, true); chrome.Children.Add(b); }
@@ -132,6 +162,8 @@ public sealed partial class MainWindow : Window
     }
     private void BuildDevices()
     {
+        activeLabels.Clear();
+        deviceTopology = Topology();
         var header = new DockPanel { Margin = new Thickness(0, 0, 0, 16) };
         var refresh = Button("↻   Refresh", () => { RefreshDevices(); Navigate("Devices"); SetStatus("Audio devices refreshed"); }); DockPanel.SetDock(refresh, Dock.Right); header.Children.Add(refresh);
         var title = new StackPanel(); title.Children.Add(Text("YOUR AUDIO, SIMPLIFIED", 10, Purple, FontWeights.SemiBold)); title.Children.Add(new TextBlock { Text = "Make yourself heard.", FontSize = 28, FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 5, 0, 0) }); header.Children.Add(title); page.Children.Add(header);
@@ -153,8 +185,9 @@ public sealed partial class MainWindow : Window
         {
             var device = Devices(f).FirstOrDefault(d => d.IsDefault);
             var p = new StackPanel(); p.Children.Add(Text(f == AudioFlow.Output ? "↗  CURRENT OUTPUT" : "↙  CURRENT INPUT", 10, f == AudioFlow.Output ? Mint : Purple, FontWeights.SemiBold));
-            p.Children.Add(new TextBlock { Text = device?.Title ?? "No device connected", FontSize = 15, FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 9, 0, 4), TextTrimming = TextTrimming.CharacterEllipsis, ToolTip = device?.Name });
-            p.Children.Add(new TextBlock { Text = device?.Detail ?? "Connect an audio device to begin", Foreground = Muted, FontSize = 11, TextTrimming = TextTrimming.CharacterEllipsis });
+            var activeTitle = new TextBlock { Text = device?.Title ?? "No device connected", FontSize = 15, FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 9, 0, 4), TextTrimming = TextTrimming.CharacterEllipsis, ToolTip = device?.Name };
+            var activeDetail = new TextBlock { Text = device?.Detail ?? "Connect an audio device to begin", Foreground = Muted, FontSize = 11, TextTrimming = TextTrimming.CharacterEllipsis };
+            p.Children.Add(activeTitle); p.Children.Add(activeDetail); activeLabels[f] = (activeTitle, activeDetail);
             var card = Card(p, 16); card.Margin = f == AudioFlow.Output ? new Thickness(0, 0, 7, 16) : new Thickness(7, 0, 0, 16); Grid.SetColumn(card, (int)f); active.Children.Add(card);
         }
         page.Children.Add(active);
@@ -175,7 +208,7 @@ public sealed partial class MainWindow : Window
     private void PopulateRows()
     {
         if (rows == null) return;
-        rows.Children.Clear(); UpdateCycleCount();
+        rows.Children.Clear(); deviceRows.Clear(); UpdateCycleCount();
         var list = Devices(flow).Where(d => d.Name.Contains(search, StringComparison.OrdinalIgnoreCase)).OrderByDescending(d => Selected(flow).Contains(d.Id)).ThenBy(d => d.Name, StringComparer.OrdinalIgnoreCase).ToList();
         if (list.Count == 0) { rows.Children.Add(Card(Text(Devices(flow).Count == 0 ? "No active devices. Connect a device, then refresh." : "No devices match your search.", 13, Muted), 24)); return; }
         foreach (var device in list)
@@ -186,12 +219,32 @@ public sealed partial class MainWindow : Window
             var info = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 12, 0) };
             info.Children.Add(new TextBlock { Text = device.Title, FontSize = 13, FontWeight = FontWeights.SemiBold, TextTrimming = TextTrimming.CharacterEllipsis, ToolTip = device.Name });
             info.Children.Add(new TextBlock { Text = device.Detail, FontSize = 11, Foreground = Muted, Margin = new Thickness(0, 4, 0, 0), TextTrimming = TextTrimming.CharacterEllipsis }); Grid.SetColumn(info, 1); row.Children.Add(info);
-            if (device.IsDefault)
-            {
-                var badge = new Border { Child = Text("●  DEFAULT", 9, Mint, FontWeights.SemiBold), Background = Brush("#1D3531"), CornerRadius = new CornerRadius(5), Padding = new Thickness(9, 5, 9, 5), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 16, 0) }; Grid.SetColumn(badge, 2); row.Children.Add(badge);
-            }
+            var badge = new Border { Child = Text("●  DEFAULT", 9, Mint, FontWeights.SemiBold), Background = Brush("#1D3531"), CornerRadius = new CornerRadius(5), Padding = new Thickness(9, 5, 9, 5), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 16, 0), Visibility = device.IsDefault ? Visibility.Visible : Visibility.Collapsed }; Grid.SetColumn(badge, 2); row.Children.Add(badge);
             var use = Button(device.IsDefault ? "Active" : "Switch  ↗", () => Switch(device)); use.IsEnabled = !device.IsDefault; use.Padding = new Thickness(12, 7, 12, 7); use.VerticalAlignment = VerticalAlignment.Center; use.MinWidth = 78; Grid.SetColumn(use, 3); row.Children.Add(use);
             var card = Card(row, 15); card.Margin = new Thickness(0, 0, 0, 8); if (device.IsDefault) { card.BorderBrush = Brush("#3C4950"); card.Background = Brush("#192126"); } rows.Children.Add(card);
+            deviceRows[device.Id] = (card, use, badge);
+        }
+    }
+    private string Topology() => string.Join("|", outputs.Concat(inputs).Select(d => d.Flow + d.Id + d.Name));
+    private void RefreshDeviceVisuals()
+    {
+        if (currentPage != "Devices" || !IsVisible) return;
+        if (deviceTopology != Topology()) { Navigate("Devices"); return; }
+        foreach (var flow in new[] { AudioFlow.Output, AudioFlow.Input })
+        {
+            var current = Devices(flow).FirstOrDefault(d => d.IsDefault);
+            if (activeLabels.TryGetValue(flow, out var labels))
+            {
+                labels.Title.Text = current?.Title ?? "No device connected"; labels.Title.ToolTip = current?.Name;
+                labels.Detail.Text = current?.Detail ?? "Connect an audio device to begin";
+            }
+        }
+        foreach (var device in Devices(flow)) if (deviceRows.TryGetValue(device.Id, out var view))
+        {
+            view.Button.IsEnabled = !device.IsDefault; view.Button.Content = device.IsDefault ? "Active" : "Switch  ↗";
+            view.Badge.Visibility = device.IsDefault ? Visibility.Visible : Visibility.Collapsed;
+            view.Card.BorderBrush = Brush(device.IsDefault ? "#3C4950" : "#292D3A");
+            view.Card.Background = Brush(device.IsDefault ? "#192126" : "#171A23");
         }
     }
     private void UpdateCycleCount() { if (cycleCount != null) cycleCount.Text = Devices(flow).Count(d => Selected(flow).Contains(d.Id)) + " in cycle"; }
@@ -352,7 +405,7 @@ public sealed partial class MainWindow : Window
         preferences.Children.Add(startup);
         Option("Open in the tray", "Keep the main window hidden when SonarShift starts.", Preferences.StartMinimized, v => Preferences.StartMinimized = v);
         page.Children.Add(Card(preferences, 25));
-        var about = new StackPanel { Margin = new Thickness(0, 25, 0, 0) }; about.Children.Add(Text("SONARSHIFT 1.4.0", 11, Purple, FontWeights.SemiBold)); about.Children.Add(new TextBlock { Text = "Native Windows audio switching. No account, no ads, no telemetry.\nYour preferences stay on this computer.", Foreground = Muted, FontSize = 13, LineHeight = 24, Margin = new Thickness(0, 10, 0, 15) });
+        var about = new StackPanel { Margin = new Thickness(0, 25, 0, 0) }; about.Children.Add(Text("SONARSHIFT 1.5.0", 11, Purple, FontWeights.SemiBold)); about.Children.Add(new TextBlock { Text = "Native Windows audio switching. No account, no ads, no telemetry.\nYour preferences stay on this computer.", Foreground = Muted, FontSize = 13, LineHeight = 24, Margin = new Thickness(0, 10, 0, 15) });
         var line = new StackPanel { Orientation = Orientation.Horizontal }; line.Children.Add(Button("Open settings folder", () => Process.Start(new ProcessStartInfo("explorer.exe", SettingsStore.DirectoryPath) { UseShellExecute = true })));
         var quit = Button("Quit SonarShift", Quit); quit.Margin = new Thickness(12, 0, 0, 0); line.Children.Add(quit); about.Children.Add(line); page.Children.Add(about);
     }
@@ -369,8 +422,8 @@ public sealed partial class MainWindow : Window
     }
     private void Switch(AudioDevice device, bool fromHotkey = false)
     {
-        try { audio.SetDefault(device, Preferences.CommunicationsToo); RefreshDevices(); if (fromHotkey && Preferences.HotkeySounds) soundCues.Play(device.Flow); Notify(device.Flow == AudioFlow.Output ? "Output switched" : "Input switched", device.Title, device.Flow); SetStatus((device.Flow == AudioFlow.Output ? "Output" : "Input") + " → " + device.Title); if (currentPage == "Devices") Navigate("Devices"); }
-        catch (Exception ex) { RefreshDevices(); if (currentPage == "Devices") Navigate("Devices"); SetStatus("Could not switch: " + ex.Message, true); }
+        try { audio.SetDefault(device, Preferences.CommunicationsToo); RefreshDevices(); if (currentPage == "Devices") RefreshDeviceVisuals(); if (fromHotkey && Preferences.HotkeySounds) soundCues.Play(device.Flow); Notify(device.Flow == AudioFlow.Output ? "Output switched" : "Input switched", device.Title, device.Flow); SetStatus((device.Flow == AudioFlow.Output ? "Output" : "Input") + " → " + device.Title); if (currentPage == "Devices") RefreshDeviceVisuals(); }
+        catch (Exception ex) { RefreshDevices(); if (currentPage == "Devices") RefreshDeviceVisuals(); SetStatus("Could not switch: " + ex.Message, true); }
     }
     private void ActivateProfile(AudioProfile profile, bool fromHotkey = false)
     {
@@ -388,7 +441,7 @@ public sealed partial class MainWindow : Window
                 if (failures.Count > 1) throw new AggregateException("Profile switching failed and Windows could not restore every previous default.", failures);
                 throw;
             }
-            RefreshDevices(); if (fromHotkey && Preferences.HotkeySounds) soundCues.Play(output != null ? AudioFlow.Output : AudioFlow.Input); Notify("Profile activated", profile.Name); SetStatus("Profile → " + profile.Name);
+            RefreshDevices(); if (currentPage == "Devices") RefreshDeviceVisuals(); if (fromHotkey && Preferences.HotkeySounds) soundCues.Play(output != null ? AudioFlow.Output : AudioFlow.Input); Notify("Profile activated", profile.Name); SetStatus("Profile → " + profile.Name);
         }
         catch (Exception ex) { SetStatus("Could not activate profile: " + ex.Message, true); }
     }
@@ -413,6 +466,7 @@ public sealed partial class MainWindow : Window
         trayStatus.Text = !anyEnabled ? "Shortcuts paused" : hotkeyErrors.Count > 0 ? "Shortcut needs attention" : "Shortcuts active";
         trayStatus.Foreground = hotkeyErrors.Count > 0 ? Brush("#F0B68A") : Mint;
         if (hotkeyErrors.Count > 0) SetStatus("Shortcut conflict: " + string.Join(", ", hotkeyErrors) + ". Open Shortcuts to change it.", true);
+        if (deviceNotifications != null) { if (hotkeyErrors.Count > 0) timer.Start(); else timer.Stop(); }
     }
     private void SetupTray()
     {
@@ -441,28 +495,63 @@ public sealed partial class MainWindow : Window
             var signal = Path.Combine(SettingsStore.DirectoryPath, "show.signal"); if (File.Exists(signal)) { File.Delete(signal); ShowWindow(); }
             if (paused) return;
             if (hotkeyErrors.Count > 0 && DateTime.UtcNow - lastShortcutRetry > TimeSpan.FromSeconds(5)) RegisterShortcuts();
-            var before = string.Join("|", outputs.Concat(inputs).Select(d => d.Id + d.Name + d.IsDefault + d.IsCommunications));
-            var newOutputs = audio.Enumerate(AudioFlow.Output); var newInputs = audio.Enumerate(AudioFlow.Input);
-            var after = string.Join("|", newOutputs.Concat(newInputs).Select(d => d.Id + d.Name + d.IsDefault + d.IsCommunications));
-            if (before != after) { outputs = newOutputs; inputs = newInputs; UpdateTray(); if (IsVisible && currentPage == "Devices") Navigate("Devices"); }
+            if (deviceNotifications == null) ApplyDeviceRefresh();
         }
         catch (Exception ex) { SetStatus("Waiting for Windows audio: " + ex.Message, true); }
     }
     private void Notify(string title, string text, AudioFlow? flow = null)
     {
-        if (!Preferences.Notifications || tray == null) return;
+        if (!Preferences.Notifications || (!Program.IsInterface && tray == null)) return;
+        if (Program.IsInterface)
+        {
+            try { HostConnection.Notify(title, text, flow); }
+            catch (Exception ex) { SetStatus("Switch confirmation unavailable: " + ex.Message, true); }
+            return;
+        }
         try { (switchNotification ??= new SwitchNotification()).Present(title, text, flow); }
         catch (Exception ex) { SetStatus("Switch confirmation unavailable: " + ex.Message, true); }
     }
     private void ShowWindow() { Show(); if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal; Activate(); RefreshDevices(); Navigate(currentPage); }
-    private void OnClosing(object? sender, CancelEventArgs e) { if (!quitting && Preferences.CloseToTray) { e.Cancel = true; Hide(); SetStatus("SonarShift is running in your tray"); return; } timer.Stop(); hotkeys?.Dispose(); soundCues.Dispose(); switchNotification?.Dispose(); tray?.Dispose(); Application.Current.Shutdown(); }
+    private void MinimizeToTray() { if (Program.IsInterface) { backgroundClose = true; Close(); } else Hide(); }
+    private bool backgroundClose;
+    private void OnClosing(object? sender, CancelEventArgs e)
+    {
+        if (!Program.IsInterface && !quitting && Preferences.CloseToTray) { e.Cancel = true; Hide(); SetStatus("SonarShift is running in your tray"); return; }
+        if (Program.IsInterface && !hostExiting && (quitting || (!backgroundClose && !Preferences.CloseToTray))) HostConnection.TrySend("quit");
+        timer.Stop(); deviceNotifications?.Dispose(); signalWatcher?.Dispose(); hotkeys?.Dispose(); soundCues.Dispose(); switchNotification?.Dispose(); tray?.Dispose(); Application.Current.Shutdown();
+    }
+    private void QueueDeviceRefresh()
+    {
+        if (Dispatcher.HasShutdownStarted) return;
+        _ = Dispatcher.BeginInvoke(new Action(() =>
+        {
+            if (refreshPending) return;
+            refreshPending = true;
+            _ = Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() => { refreshPending = false; if (!paused) ApplyDeviceRefresh(); }));
+        }));
+    }
+    private void ApplyDeviceRefresh()
+    {
+        try
+        {
+            var nextOutputs = audio.Enumerate(AudioFlow.Output); var nextInputs = audio.Enumerate(AudioFlow.Input);
+            if (outputs.SequenceEqual(nextOutputs) && inputs.SequenceEqual(nextInputs)) return;
+            outputs = nextOutputs; inputs = nextInputs; UpdateTray();
+            if (IsVisible && currentPage == "Devices") RefreshDeviceVisuals();
+        }
+        catch (Exception ex) { SetStatus("Waiting for Windows audio: " + ex.Message, true); }
+    }
     private void Quit() { quitting = true; Close(); }
-    private void Save() { store.Save(Preferences); UpdateTray(); }
+    private void Save() { store.Save(Preferences); if (Program.IsInterface) HostConnection.TrySend("reload"); UpdateTray(); }
     private void SetStatus(string text, bool error = false) { status.Text = (error ? "!  " : "●  ") + text; status.Foreground = error ? Brush("#F0B68A") : Muted; status.ToolTip = text; }
     private static string DeviceName(string? id, IReadOnlyList<AudioDevice> devices) => id == null ? "Leave unchanged" : devices.FirstOrDefault(d => d.Id == id)?.Title ?? "Disconnected device";
     private static bool IsStartupEnabled() => StartupRegistration.IsEnabled();
     private Window Dialog(string title, int width, int height) => new() { Title = title, Owner = this, Width = width, Height = height, WindowStartupLocation = WindowStartupLocation.CenterOwner, ResizeMode = ResizeMode.NoResize, Background = Brush("#171A23"), Foreground = Brushes.White, FontFamily = FontFamily, ShowInTaskbar = true, Icon = Icon };
-    private static Brush Brush(string color) => (SolidColorBrush)new BrushConverter().ConvertFromString(color)!;
+    private static Brush Brush(string color)
+    {
+        if (!palette.TryGetValue(color, out var brush)) { var value = (SolidColorBrush)new BrushConverter().ConvertFromString(color)!; value.Freeze(); palette.Add(color, value); brush = value; }
+        return brush;
+    }
     private static TextBlock Text(string value, double size, Brush? color = null, FontWeight? weight = null) => new() { Text = value, FontSize = size, Foreground = color ?? Brushes.White, FontWeight = weight ?? FontWeights.Normal };
     private static TextBlock Glyph(string value, double size, Brush color) => new() { Text = value, FontFamily = new FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets"), FontSize = size, Foreground = color, VerticalAlignment = VerticalAlignment.Center };
     private static Border Card(UIElement content, double padding) => new() { Child = content, Padding = new Thickness(padding), Background = Brush("#171A23"), BorderBrush = Brush("#292D3A"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(13) };
