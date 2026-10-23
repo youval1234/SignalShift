@@ -79,14 +79,14 @@ jobs:
         shell: pwsh
         working-directory: source
         run: |
-          dotnet publish SonarShift.csproj -c Release -r win-x64 --self-contained true -p:DebugType=None -p:ContinuousIntegrationBuild=true -o ../unsigned
+          dotnet publish SignalShift.csproj -c Release -r win-x64 --self-contained true -p:DebugType=None -p:ContinuousIntegrationBuild=true -o ../unsigned
           if ($LASTEXITCODE -ne 0) { throw 'Build failed.' }
       - name: Store build for provider provenance verification
         id: unsigned
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: SonarShift-signing-input
-          path: unsigned/SonarShift.exe
+          path: unsigned/SignalShift.exe
           if-no-files-found: error
           retention-days: 7
       - name: Request signing and wait for provider approval
@@ -106,12 +106,12 @@ jobs:
         env:
           RELEASE_TAG: ${{ steps.gate.outputs.tag }}
           EXPECTED_SUBJECT: ${{ vars.SIGNPATH_EXPECTED_SIGNER_SUBJECT }}
-        run: ./automation/tools/Verify-SignedRelease.ps1 -ExePath signed/SonarShift.exe -Tag $env:RELEASE_TAG -ExpectedSubject $env:EXPECTED_SUBJECT -WriteChecksum
+        run: ./automation/tools/Verify-SignedRelease.ps1 -ExePath signed/SignalShift.exe -Tag $env:RELEASE_TAG -ExpectedSubject $env:EXPECTED_SUBJECT -WriteChecksum
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: SonarShift-signed-windows-x64
           path: |
-            signed/SonarShift.exe
+            signed/SignalShift.exe
             signed/SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 30
@@ -143,7 +143,7 @@ jobs:
           EXPECTED_SUBJECT: ${{ vars.SIGNPATH_EXPECTED_SIGNER_SUBJECT }}
         run: |
           ./automation/tools/Resolve-ReleaseSource.ps1 -Tag $env:RELEASE_TAG -ExpectedCommit $env:SOURCE_COMMIT
-          ./automation/tools/Verify-SignedRelease.ps1 -ExePath signed/SonarShift.exe -Tag $env:RELEASE_TAG -ExpectedSubject $env:EXPECTED_SUBJECT -ExpectedHash $env:EXPECTED_HASH -CheckChecksum
+          ./automation/tools/Verify-SignedRelease.ps1 -ExePath signed/SignalShift.exe -Tag $env:RELEASE_TAG -ExpectedSubject $env:EXPECTED_SUBJECT -ExpectedHash $env:EXPECTED_HASH -CheckChecksum
       - name: Publish verified assets through a draft release
         shell: pwsh
         env:
@@ -152,4 +152,4 @@ jobs:
           SOURCE_COMMIT: ${{ needs.sign.outputs.commit }}
           EXPECTED_HASH: ${{ needs.sign.outputs.sha256 }}
           EXPECTED_SUBJECT: ${{ vars.SIGNPATH_EXPECTED_SIGNER_SUBJECT }}
-        run: ./automation/tools/Publish-SignedRelease.ps1 -Tag $env:RELEASE_TAG -Commit $env:SOURCE_COMMIT -ExpectedHash $env:EXPECTED_HASH -ExpectedSubject $env:EXPECTED_SUBJECT -ExePath signed/SonarShift.exe
+        run: ./automation/tools/Publish-SignedRelease.ps1 -Tag $env:RELEASE_TAG -Commit $env:SOURCE_COMMIT -ExpectedHash $env:EXPECTED_HASH -ExpectedSubject $env:EXPECTED_SUBJECT -ExePath signed/SignalShift.exe

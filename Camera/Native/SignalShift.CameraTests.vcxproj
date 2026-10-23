@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations"><ProjectConfiguration Include="Release|x64"><Configuration>Release</Configuration><Platform>x64</Platform></ProjectConfiguration></ItemGroup>
+  <PropertyGroup Label="Globals"><ProjectGuid>{05D8B487-905D-4413-AB1D-124640E50079}</ProjectGuid><WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion></PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Label="Configuration"><ConfigurationType>Application</ConfigurationType><PlatformToolset>v143</PlatformToolset><CharacterSet>Unicode</CharacterSet><UseDebugLibraries>false</UseDebugLibraries></PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <PropertyGroup><OutDir>$(MSBuildThisFileDirectory)..\..\dist\camera\</OutDir><IntDir>$(MSBuildThisFileDirectory)obj-tests\</IntDir><TargetName>SignalShift.CameraTests</TargetName></PropertyGroup>
+  <ItemDefinitionGroup><ClCompile><LanguageStandard>stdcpp20</LanguageStandard><RuntimeLibrary>MultiThreaded</RuntimeLibrary><Optimization>MaxSpeed</Optimization><WarningLevel>Level4</WarningLevel><PrecompiledHeader>NotUsing</PrecompiledHeader><PreprocessorDefinitions>WIN32_LEAN_AND_MEAN;NOMINMAX;UNICODE;_UNICODE;_WIN32_WINNT=0x0A00;%(PreprocessorDefinitions)</PreprocessorDefinitions><AdditionalIncludeDirectories>$(MSBuildThisFileDirectory)packages\Microsoft.Windows.CppWinRT.3.0.260520.1\include;$(MSBuildThisFileDirectory)packages\Microsoft.Windows.ImplementationLibrary.1.0.260126.7\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories></ClCompile><Link><SubSystem>Console</SubSystem><AdditionalDependencies>mfreadwrite.lib;mfplat.lib;mf.lib;mfuuid.lib;mfsensorgroup.lib;windowsapp.lib;ole32.lib;advapi32.lib;shell32.lib;strmiids.lib;%(AdditionalDependencies)</AdditionalDependencies><GenerateDebugInformation>false</GenerateDebugInformation></Link></ItemDefinitionGroup>
+  <ItemGroup><ClCompile Include="Tests.cpp"/><ClCompile Include="SimpleFrameGenerator.cpp"/></ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+</Project>

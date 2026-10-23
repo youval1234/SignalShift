@@ -19,7 +19,7 @@ if ($ExpectedCommit -and $commit -cne $ExpectedCommit.ToLowerInvariant()) {
 }
 git -C $RepositoryPath merge-base --is-ancestor $commit refs/remotes/origin/main
 if ($LASTEXITCODE -ne 0) { throw 'Release source must be reachable from reviewed main.' }
-$projectText = git -C $RepositoryPath show "${commit}:SonarShift.csproj"
+$projectText = git -C $RepositoryPath show "${commit}:SignalShift.csproj"
 if ($LASTEXITCODE -ne 0) { throw 'Tagged source has no SonarShift project.' }
 [xml]$project = $projectText -join "`n"
 $versions = @($project.Project.PropertyGroup.Version | Where-Object { $_ })

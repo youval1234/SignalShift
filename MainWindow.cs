@@ -49,19 +49,20 @@ public sealed partial class MainWindow : Window
     private bool quitting;
     private bool paused;
     private DateTime lastShortcutRetry = DateTime.MinValue;
-    private static readonly Dictionary<string, Brush> palette = new();
     private static readonly Brush Muted = Brush("#9297AC");
     private static readonly Brush Mint = Brush("#8BE2C5");
     private static readonly Brush Purple = Brush("#B8A3FF");
 
-    public MainWindow(bool previewMode = false)
+    public MainWindow(bool previewMode = false, string? previewTheme = null, string previewPage = "Devices")
     {
         Preferences = store.Load();
+        if (previewMode && previewTheme is "Dark" or "Light") Preferences.Theme = previewTheme;
         soundCues.PlaybackFailed += ex => SetStatus("Confirmation sound unavailable: " + ex.Message, true);
-        Title = "SonarShift — Your sound, one shortcut away";
+        Title = "SignalShift — Your sound, one shortcut away";
         Width = 1160; Height = 900; MinWidth = 960; MinHeight = 680;
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
-        Background = Brush("#0D0F15"); Foreground = Brushes.White;
+        ThemePalette.Apply(Preferences.Theme);
+        Background = Brush("#0D0F15"); Foreground = Brush("#F4F4FA");
         FontFamily = new FontFamily("Segoe UI Variable Text, Segoe UI");
         WindowStyle = WindowStyle.None; ResizeMode = ResizeMode.CanResize;
         Icon = BitmapFrame.Create(new Uri("pack://application:,,,/Assets/SonarShift.png"));
@@ -100,7 +101,7 @@ public sealed partial class MainWindow : Window
                     signalWatcher.Created += (_, _) => Dispatcher.BeginInvoke(new Action(ShowWindow));
                 }
             }
-            Navigate("Devices");
+            Navigate(previewMode ? previewPage : "Devices");
         };
         Closing += OnClosing;
         StateChanged += (_, _) => { if (WindowState == WindowState.Minimized) MinimizeToTray(); };
@@ -116,14 +117,14 @@ public sealed partial class MainWindow : Window
         sidebar.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         var brand = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(26, 38, 0, 0), VerticalAlignment = VerticalAlignment.Top };
         var logo = new Image { Source = Icon, Width = 36, Height = 36, Margin = new Thickness(0, 0, 11, 0) };
-        brand.Children.Add(logo); brand.Children.Add(Text("SonarShift", 23, null, FontWeights.SemiBold));
+        brand.Children.Add(logo); brand.Children.Add(Text("SignalShift", 23, null, FontWeights.SemiBold));
         sidebar.Children.Add(brand);
         navigation.Margin = new Thickness(16, 0, 16, 0); Grid.SetRow(navigation, 1); sidebar.Children.Add(navigation);
         var bottom = new StackPanel { Margin = new Thickness(24, 20, 24, 24) };
         bottom.Children.Add(Text("ALWAYS WITHIN REACH", 10, Muted, FontWeights.SemiBold));
         var trayLine = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 12, 0, 20) };
         trayLine.Children.Add(Text("●  ", 12, Mint)); trayLine.Children.Add(trayStatus); bottom.Children.Add(trayLine);
-        bottom.Children.Add(Text("SONARSHIFT  /  1.5", 10, Brush("#5D637B")));
+        bottom.Children.Add(Text("SIGNALSHIFT  /  2.0", 10, Brush("#5D637B")));
         Grid.SetRow(bottom, 2); sidebar.Children.Add(bottom); shell.Children.Add(sidebar);
         var main = new Grid(); Grid.SetColumn(main, 1);
         main.RowDefinitions.Add(new RowDefinition { Height = new GridLength(44) });
@@ -143,7 +144,7 @@ public sealed partial class MainWindow : Window
     {
         currentPage = name; rows = null; page.Children.Clear(); navigation.Children.Clear();
         navigation.Children.Add(Text("WORKSPACE", 10, Muted, FontWeights.SemiBold));
-        foreach (var item in new[] { ("Devices", "\uE7F4"), ("Shortcuts", "\uE765"), ("Profiles", "\uE8A9"), ("Settings", "\uE713") })
+        foreach (var item in new[] { ("Devices", "\uE7F4"), ("Cameras", "\uE714"), ("Shortcuts", "\uE765"), ("Profiles", "\uE8A9"), ("Settings", "\uE713") })
         {
             var content = new StackPanel { Orientation = Orientation.Horizontal };
             content.Children.Add(Glyph(item.Item2, 17, item.Item1 == name ? Purple : Muted));
@@ -152,7 +153,7 @@ public sealed partial class MainWindow : Window
             // The template centers its presenter; fixed width content keeps navigation aligned.
             content.Width = 135; navigation.Children.Add(b);
         }
-        switch (name) { case "Devices": BuildDevices(); break; case "Shortcuts": BuildShortcuts(); break; case "Profiles": BuildProfiles(); break; default: BuildSettings(); break; }
+        switch (name) { case "Devices": BuildDevices(); break; case "Cameras": BuildCameras(); break; case "Shortcuts": BuildShortcuts(); break; case "Profiles": BuildProfiles(); break; default: BuildSettings(); break; }
     }
     private void Heading(string eyebrow, string title, string subtitle)
     {
@@ -179,7 +180,7 @@ public sealed partial class MainWindow : Window
         foreach (var h in new[] { 14, 29, 46, 65, 38, 56, 70, 46, 31, 50, 22, 12 }) bars.Children.Add(new Border { Width = 7, Height = h, CornerRadius = new CornerRadius(4), Margin = new Thickness(3, 0, 3, 0), VerticalAlignment = VerticalAlignment.Center, Background = new LinearGradientBrush(Color.FromRgb(168, 148, 251), Color.FromRgb(125, 226, 195), 90) });
         visual.Children.Add(bars); visual.Children.Add(Text("GOOD SOUND. ZERO DETOURS.", 9, Brush("#B7ABCF"), FontWeights.SemiBold));
         Grid.SetColumn(visual, 1); hero.Children.Add(visual);
-        var heroCard = Card(hero, 22); heroCard.Background = new LinearGradientBrush(Color.FromRgb(46, 33, 70), Color.FromRgb(26, 31, 46), 20); heroCard.BorderBrush = Brush("#493760"); heroCard.Margin = new Thickness(0, 0, 0, 16); page.Children.Add(heroCard);
+        var heroCard = Card(hero, 22); heroCard.Background = new LinearGradientBrush(ThemePalette.Color("#2E2146"), ThemePalette.Color("#1A1F2E"), 20); heroCard.BorderBrush = Brush("#493760"); heroCard.Margin = new Thickness(0, 0, 0, 16); page.Children.Add(heroCard);
         var active = new Grid(); active.ColumnDefinitions.Add(new ColumnDefinition()); active.ColumnDefinitions.Add(new ColumnDefinition());
         foreach (var f in new[] { AudioFlow.Output, AudioFlow.Input })
         {
@@ -271,6 +272,8 @@ public sealed partial class MainWindow : Window
             p.Children.Add(active);
             var card = Card(p, 24); card.Margin = new Thickness(0, 0, 0, 16); page.Children.Add(card);
         }
+        BuildCameraShortcut();
+        BuildThemeShortcut();
         var enabled = new CheckBox { Content = "Enable global shortcuts", IsChecked = Preferences.HotkeysEnabled, Margin = new Thickness(2, 8, 0, 15) };
         enabled.Click += (_, _) =>
         {
@@ -286,7 +289,7 @@ public sealed partial class MainWindow : Window
         var previous = f == AudioFlow.Output ? Preferences.OutputShortcut : Preferences.InputShortcut;
         var shortcut = CaptureShortcut(previous);
         if (shortcut == null) return;
-        if (IsDuplicateShortcut(shortcut, f == AudioFlow.Output ? "output" : "input", null)) { SetStatus("That shortcut is already assigned in SonarShift.", true); return; }
+        if (IsDuplicateShortcut(shortcut, f == AudioFlow.Output ? "output" : "input", null)) { SetStatus("That shortcut is already assigned in SignalShift.", true); return; }
         hotkeys!.Clear();
         if (!hotkeys.Register(500, shortcut, () => { })) { RegisterShortcuts(); SetStatus("That shortcut is used by another app. Your previous shortcut is kept.", true); return; }
         hotkeys.Clear();
@@ -320,7 +323,7 @@ public sealed partial class MainWindow : Window
         return result;
     }
     private bool IsDuplicateShortcut(Shortcut shortcut, string? exclude, string? profileId) =>
-        (exclude != "output" && Same(shortcut, Preferences.OutputShortcut)) || (exclude != "input" && Same(shortcut, Preferences.InputShortcut)) || Preferences.Profiles.Any(p => p.Id != profileId && p.Hotkey != null && Same(shortcut, p.Hotkey));
+        (exclude != "output" && Same(shortcut, Preferences.OutputShortcut)) || (exclude != "input" && Same(shortcut, Preferences.InputShortcut)) || (exclude != "theme" && Same(shortcut, Preferences.ThemeShortcut)) || (exclude != "camera" && Same(shortcut, Preferences.CameraShortcut)) || Preferences.Profiles.Any(p => p.Id != profileId && p.Hotkey != null && Same(shortcut, p.Hotkey));
     private static bool Same(Shortcut a, Shortcut b) => a.Modifiers == b.Modifiers && a.Key == b.Key;
     private void BuildProfiles()
     {
@@ -366,7 +369,7 @@ public sealed partial class MainWindow : Window
         {
             var outputId = output.SelectedValue as string; var inputId = input.SelectedValue as string;
             if (string.IsNullOrWhiteSpace(name.Text) || (string.IsNullOrEmpty(outputId) && string.IsNullOrEmpty(inputId))) { error.Text = "Give your profile a name and choose at least one device."; return; }
-            if (shortcut != null && IsDuplicateShortcut(shortcut, null, original?.Id)) { error.Text = "That shortcut is already assigned in SonarShift."; return; }
+            if (shortcut != null && IsDuplicateShortcut(shortcut, null, original?.Id)) { error.Text = "That shortcut is already assigned in SignalShift."; return; }
             hotkeys!.Clear();
             if (shortcut != null && !hotkeys.Register(500, shortcut, () => { })) { RegisterShortcuts(); error.Text = "Another app uses that shortcut. Choose a different one."; return; }
             hotkeys.Clear();
@@ -377,7 +380,8 @@ public sealed partial class MainWindow : Window
     }
     private void BuildSettings()
     {
-        Heading("Small details, your way", "Settle into your flow.", "SonarShift stays quietly in your system tray, ready whenever you need it.");
+        Heading("Small details, your way", "Settle into your flow.", "SignalShift stays quietly in your system tray, ready whenever you need it.");
+        BuildAppearance();
         BuildSettingsTransfer();
         var preferences = new StackPanel();
         StackPanel Option(string title, string description, bool value, Action<bool> change)
@@ -401,13 +405,13 @@ public sealed partial class MainWindow : Window
             finally { startupCheck.IsChecked = IsStartupEnabled(); startupCheck.IsEnabled = true; }
         };
         startup.Children.Add(startupCheck);
-        startup.Children.Add(new TextBlock { Text = "Launch SonarShift in your tray when you sign in.", Foreground = Muted, FontSize = 12, Margin = new Thickness(30, 7, 0, 0) });
+        startup.Children.Add(new TextBlock { Text = "Launch SignalShift in your tray when you sign in.", Foreground = Muted, FontSize = 12, Margin = new Thickness(30, 7, 0, 0) });
         preferences.Children.Add(startup);
-        Option("Open in the tray", "Keep the main window hidden when SonarShift starts.", Preferences.StartMinimized, v => Preferences.StartMinimized = v);
+        Option("Open in the tray", "Keep the main window hidden when SignalShift starts.", Preferences.StartMinimized, v => Preferences.StartMinimized = v);
         page.Children.Add(Card(preferences, 25));
-        var about = new StackPanel { Margin = new Thickness(0, 25, 0, 0) }; about.Children.Add(Text("SONARSHIFT 1.5.0", 11, Purple, FontWeights.SemiBold)); about.Children.Add(new TextBlock { Text = "Native Windows audio switching. No account, no ads, no telemetry.\nYour preferences stay on this computer.", Foreground = Muted, FontSize = 13, LineHeight = 24, Margin = new Thickness(0, 10, 0, 15) });
+        var about = new StackPanel { Margin = new Thickness(0, 25, 0, 0) }; about.Children.Add(Text("SIGNALSHIFT 2.0", 11, Purple, FontWeights.SemiBold)); about.Children.Add(new TextBlock { Text = "Native Windows audio switching. No account, no ads, no telemetry.\nYour preferences stay on this computer.", Foreground = Muted, FontSize = 13, LineHeight = 24, Margin = new Thickness(0, 10, 0, 15) });
         var line = new StackPanel { Orientation = Orientation.Horizontal }; line.Children.Add(Button("Open settings folder", () => Process.Start(new ProcessStartInfo("explorer.exe", SettingsStore.DirectoryPath) { UseShellExecute = true })));
-        var quit = Button("Quit SonarShift", Quit); quit.Margin = new Thickness(12, 0, 0, 0); line.Children.Add(quit); about.Children.Add(line); page.Children.Add(about);
+        var quit = Button("Quit SignalShift", Quit); quit.Margin = new Thickness(12, 0, 0, 0); line.Children.Add(quit); about.Children.Add(line); page.Children.Add(about);
     }
     private void Cycle(AudioFlow f, bool fromHotkey = false)
     {
@@ -459,10 +463,12 @@ public sealed partial class MainWindow : Window
         {
             if (Preferences.OutputHotkeyEnabled && !hotkeys.Register(1, Preferences.OutputShortcut, () => Cycle(AudioFlow.Output, fromHotkey: true))) hotkeyErrors.Add("output");
             if (Preferences.InputHotkeyEnabled && !hotkeys.Register(2, Preferences.InputShortcut, () => Cycle(AudioFlow.Input, fromHotkey: true))) hotkeyErrors.Add("input");
+            if (Preferences.ThemeHotkeyEnabled && !hotkeys.Register(3, Preferences.ThemeShortcut, ToggleTheme)) hotkeyErrors.Add("appearance");
+            if (Preferences.CameraEnabled && Preferences.CameraHotkeyEnabled && !hotkeys.Register(4, Preferences.CameraShortcut, NextCamera)) hotkeyErrors.Add("camera");
             var id = 10; foreach (var profile in Preferences.Profiles) if (profile.Hotkey != null && !hotkeys.Register(id++, profile.Hotkey, () => ActivateProfile(profile, fromHotkey: true))) hotkeyErrors.Add(profile.Name);
         }
         lastShortcutRetry = DateTime.UtcNow;
-        var anyEnabled = Preferences.HotkeysEnabled && (Preferences.OutputHotkeyEnabled || Preferences.InputHotkeyEnabled || Preferences.Profiles.Any(p => p.Hotkey != null));
+        var anyEnabled = Preferences.HotkeysEnabled && (Preferences.OutputHotkeyEnabled || Preferences.InputHotkeyEnabled || Preferences.ThemeHotkeyEnabled || Preferences.Profiles.Any(p => p.Hotkey != null));
         trayStatus.Text = !anyEnabled ? "Shortcuts paused" : hotkeyErrors.Count > 0 ? "Shortcut needs attention" : "Shortcuts active";
         trayStatus.Foreground = hotkeyErrors.Count > 0 ? Brush("#F0B68A") : Mint;
         if (hotkeyErrors.Count > 0) SetStatus("Shortcut conflict: " + string.Join(", ", hotkeyErrors) + ". Open Shortcuts to change it.", true);
@@ -471,13 +477,13 @@ public sealed partial class MainWindow : Window
     private void SetupTray()
     {
         using var stream = Application.GetResourceStream(new Uri("pack://application:,,,/Assets/SonarShift.ico")).Stream;
-        tray = new Forms.NotifyIcon { Icon = new System.Drawing.Icon(stream), Text = "SonarShift · Your sound, one shortcut away", Visible = true };
+        tray = new Forms.NotifyIcon { Icon = new System.Drawing.Icon(stream), Text = "SignalShift · Your sound, one shortcut away", Visible = true };
         tray.DoubleClick += (_, _) => Dispatcher.Invoke(ShowWindow); UpdateTray();
     }
     private void UpdateTray()
     {
         if (tray == null) return;
-        var menu = new Forms.ContextMenuStrip(); menu.Items.Add("Open SonarShift", null, (_, _) => Dispatcher.Invoke(ShowWindow)); menu.Items.Add(new Forms.ToolStripSeparator());
+        var menu = new Forms.ContextMenuStrip(); menu.Items.Add("Open SignalShift", null, (_, _) => Dispatcher.Invoke(ShowWindow)); menu.Items.Add(new Forms.ToolStripSeparator());
         foreach (var f in new[] { AudioFlow.Output, AudioFlow.Input })
         {
             var group = new Forms.ToolStripMenuItem(f == AudioFlow.Output ? "Playback" : "Recording");
@@ -486,7 +492,7 @@ public sealed partial class MainWindow : Window
         }
         menu.Items.Add("Next output", null, (_, _) => Dispatcher.Invoke(() => Cycle(AudioFlow.Output))); menu.Items.Add("Next input", null, (_, _) => Dispatcher.Invoke(() => Cycle(AudioFlow.Input)));
         if (Preferences.Profiles.Count > 0) { var profiles = new Forms.ToolStripMenuItem("Profiles"); foreach (var profile in Preferences.Profiles) profiles.DropDownItems.Add(profile.Name, null, (_, _) => Dispatcher.Invoke(() => ActivateProfile(profile))); menu.Items.Add(profiles); }
-        menu.Items.Add(new Forms.ToolStripSeparator()); menu.Items.Add("Quit SonarShift", null, (_, _) => Dispatcher.Invoke(Quit)); var old = tray.ContextMenuStrip; tray.ContextMenuStrip = menu; old?.Dispose();
+        menu.Items.Add(new Forms.ToolStripSeparator()); menu.Items.Add("Quit SignalShift", null, (_, _) => Dispatcher.Invoke(Quit)); var old = tray.ContextMenuStrip; tray.ContextMenuStrip = menu; old?.Dispose();
     }
     private void Tick()
     {
@@ -516,9 +522,9 @@ public sealed partial class MainWindow : Window
     private bool backgroundClose;
     private void OnClosing(object? sender, CancelEventArgs e)
     {
-        if (!Program.IsInterface && !quitting && Preferences.CloseToTray) { e.Cancel = true; Hide(); SetStatus("SonarShift is running in your tray"); return; }
+        if (!Program.IsInterface && !quitting && Preferences.CloseToTray) { e.Cancel = true; Hide(); SetStatus("SignalShift is running in your tray"); return; }
         if (Program.IsInterface && !hostExiting && (quitting || (!backgroundClose && !Preferences.CloseToTray))) HostConnection.TrySend("quit");
-        timer.Stop(); deviceNotifications?.Dispose(); signalWatcher?.Dispose(); hotkeys?.Dispose(); soundCues.Dispose(); switchNotification?.Dispose(); tray?.Dispose(); Application.Current.Shutdown();
+        cameraList.Dispose(); timer.Stop(); deviceNotifications?.Dispose(); signalWatcher?.Dispose(); hotkeys?.Dispose(); soundCues.Dispose(); switchNotification?.Dispose(); tray?.Dispose(); Application.Current.Shutdown();
     }
     private void QueueDeviceRefresh()
     {
@@ -546,13 +552,9 @@ public sealed partial class MainWindow : Window
     private void SetStatus(string text, bool error = false) { status.Text = (error ? "!  " : "●  ") + text; status.Foreground = error ? Brush("#F0B68A") : Muted; status.ToolTip = text; }
     private static string DeviceName(string? id, IReadOnlyList<AudioDevice> devices) => id == null ? "Leave unchanged" : devices.FirstOrDefault(d => d.Id == id)?.Title ?? "Disconnected device";
     private static bool IsStartupEnabled() => StartupRegistration.IsEnabled();
-    private Window Dialog(string title, int width, int height) => new() { Title = title, Owner = this, Width = width, Height = height, WindowStartupLocation = WindowStartupLocation.CenterOwner, ResizeMode = ResizeMode.NoResize, Background = Brush("#171A23"), Foreground = Brushes.White, FontFamily = FontFamily, ShowInTaskbar = true, Icon = Icon };
-    private static Brush Brush(string color)
-    {
-        if (!palette.TryGetValue(color, out var brush)) { var value = (SolidColorBrush)new BrushConverter().ConvertFromString(color)!; value.Freeze(); palette.Add(color, value); brush = value; }
-        return brush;
-    }
-    private static TextBlock Text(string value, double size, Brush? color = null, FontWeight? weight = null) => new() { Text = value, FontSize = size, Foreground = color ?? Brushes.White, FontWeight = weight ?? FontWeights.Normal };
+    private Window Dialog(string title, int width, int height) => new() { Title = title, Owner = this, Width = width, Height = height, WindowStartupLocation = WindowStartupLocation.CenterOwner, ResizeMode = ResizeMode.NoResize, Background = Brush("#171A23"), Foreground = Brush("#F4F4FA"), FontFamily = FontFamily, ShowInTaskbar = true, Icon = Icon };
+    private static Brush Brush(string color) => ThemePalette.Get(color);
+    private static TextBlock Text(string value, double size, Brush? color = null, FontWeight? weight = null) => new() { Text = value, FontSize = size, Foreground = color ?? Brush("#F4F4FA"), FontWeight = weight ?? FontWeights.Normal };
     private static TextBlock Glyph(string value, double size, Brush color) => new() { Text = value, FontFamily = new FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets"), FontSize = size, Foreground = color, VerticalAlignment = VerticalAlignment.Center };
     private static Border Card(UIElement content, double padding) => new() { Child = content, Padding = new Thickness(padding), Background = Brush("#171A23"), BorderBrush = Brush("#292D3A"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(13) };
     private static Button Button(object label, Action click, bool primary = false)

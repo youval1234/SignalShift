@@ -47,7 +47,7 @@ public static class Program
             using var host = new BackgroundHost(args.Contains("--tray"));
             Forms.Application.Run(host);
         }
-        catch (Exception ex) { Forms.MessageBox.Show(ex.Message, "SonarShift could not start"); Environment.ExitCode = 1; }
+        catch (Exception ex) { Forms.MessageBox.Show(ex.Message, "SignalShift could not start"); Environment.ExitCode = 1; }
     }
     // Keep WPF types out of the background startup/JIT path.
     [MethodImpl(MethodImplOptions.NoInlining)]
