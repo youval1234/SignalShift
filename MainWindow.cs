@@ -87,6 +87,7 @@ public sealed partial class MainWindow : Window
                 {
                     if (message == 0x8001) { ShowWindow(); handled = true; }
                     if (message == 0x8002) { hostExiting = true; quitting = true; Close(); handled = true; }
+                    if (message == 0x8004) { var saved = store.Load(); Preferences.CurrentCameraId = saved.CurrentCameraId; if (currentPage == "Cameras") Navigate("Cameras"); handled = true; }
                     if (message == 0x8003) { backgroundClose = true; Close(); handled = true; }
                     return IntPtr.Zero;
                 });

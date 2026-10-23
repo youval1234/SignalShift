@@ -21,6 +21,7 @@ internal sealed class CameraRuntime : IDisposable
     private Stop? stop;
     private Enumerate? enumerate;
     private bool disposed;
+    private string? appliedSelection;
     private int revision;
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate int Start([MarshalAs(UnmanagedType.LPWStr)] string config, out IntPtr session);
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate void Stop(IntPtr session);
@@ -64,8 +65,10 @@ internal sealed class CameraRuntime : IDisposable
                 if (disposed || requested != System.Threading.Volatile.Read(ref revision)) return;
                 if (!enabled) { StopSession(); return; }
                 Load();
+                if (session != IntPtr.Zero && selected == appliedSelection) return;
                 var config = CameraSelection.Write(selected);
                 if (session == IntPtr.Zero) Marshal.ThrowExceptionForHR(start!(config, out session));
+                appliedSelection = selected;
             }
         });
     }
