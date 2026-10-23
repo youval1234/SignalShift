@@ -1,0 +1,347 @@
+{
+  "executableBytes": 75695359,
+  "executableSha256": "996C9973CE1D3189FD623B45E45D2CC5BB39174C748B6812C6E22AE5F7713486",
+  "os": "Microsoft Windows NT 10.0.26300.0",
+  "sampleSeconds": 10,
+  "measurements": [
+    {
+      "scenario": "Tray only",
+      "processCount": 1,
+      "meanWorkingSetBytes": 132960666,
+      "meanPrivateWorkingSetBytes": 55255040,
+      "meanPrivateCommittedBytes": 58386432,
+      "samples": [
+        {
+          "processes": [
+            {
+              "pid": 28596,
+              "workingSetBytes": 132972544,
+              "privateWorkingSetBytes": 55279616,
+              "privateCommittedBytes": 58421248
+            }
+          ],
+          "workingSetBytes": 132972544,
+          "privateWorkingSetBytes": 55279616,
+          "privateCommittedBytes": 58421248
+        },
+        {
+          "processes": [
+            {
+              "pid": 28596,
+              "workingSetBytes": 132972544,
+              "privateWorkingSetBytes": 55279616,
+              "privateCommittedBytes": 58421248
+            }
+          ],
+          "workingSetBytes": 132972544,
+          "privateWorkingSetBytes": 55279616,
+          "privateCommittedBytes": 58421248
+        },
+        {
+          "processes": [
+            {
+              "pid": 28596,
+              "workingSetBytes": 132980736,
+              "privateWorkingSetBytes": 55279616,
+              "privateCommittedBytes": 58421248
+            }
+          ],
+          "workingSetBytes": 132980736,
+          "privateWorkingSetBytes": 55279616,
+          "privateCommittedBytes": 58421248
+        },
+        {
+          "processes": [
+            {
+              "pid": 28596,
+              "workingSetBytes": 132980736,
+              "privateWorkingSetBytes": 55279616,
+              "privateCommittedBytes": 58421248
+            }
+          ],
+          "workingSetBytes": 132980736,
+          "privateWorkingSetBytes": 55279616,
+          "privateCommittedBytes": 58421248
+        },
+        {
+          "processes": [
+            {
+              "pid": 28596,
+              "workingSetBytes": 132980736,
+              "privateWorkingSetBytes": 55279616,
+              "privateCommittedBytes": 58421248
+            }
+          ],
+          "workingSetBytes": 132980736,
+          "privateWorkingSetBytes": 55279616,
+          "privateCommittedBytes": 58421248
+        },
+        {
+          "processes": [
+            {
+              "pid": 28596,
+              "workingSetBytes": 132943872,
+              "privateWorkingSetBytes": 55230464,
+              "privateCommittedBytes": 58351616
+            }
+          ],
+          "workingSetBytes": 132943872,
+          "privateWorkingSetBytes": 55230464,
+          "privateCommittedBytes": 58351616
+        },
+        {
+          "processes": [
+            {
+              "pid": 28596,
+              "workingSetBytes": 132943872,
+              "privateWorkingSetBytes": 55230464,
+              "privateCommittedBytes": 58351616
+            }
+          ],
+          "workingSetBytes": 132943872,
+          "privateWorkingSetBytes": 55230464,
+          "privateCommittedBytes": 58351616
+        },
+        {
+          "processes": [
+            {
+              "pid": 28596,
+              "workingSetBytes": 132943872,
+              "privateWorkingSetBytes": 55230464,
+              "privateCommittedBytes": 58351616
+            }
+          ],
+          "workingSetBytes": 132943872,
+          "privateWorkingSetBytes": 55230464,
+          "privateCommittedBytes": 58351616
+        },
+        {
+          "processes": [
+            {
+              "pid": 28596,
+              "workingSetBytes": 132943872,
+              "privateWorkingSetBytes": 55230464,
+              "privateCommittedBytes": 58351616
+            }
+          ],
+          "workingSetBytes": 132943872,
+          "privateWorkingSetBytes": 55230464,
+          "privateCommittedBytes": 58351616
+        },
+        {
+          "processes": [
+            {
+              "pid": 28596,
+              "workingSetBytes": 132943872,
+              "privateWorkingSetBytes": 55230464,
+              "privateCommittedBytes": 58351616
+            }
+          ],
+          "workingSetBytes": 132943872,
+          "privateWorkingSetBytes": 55230464,
+          "privateCommittedBytes": 58351616
+        }
+      ]
+    },
+    {
+      "scenario": "Settings open: all app processes combined",
+      "processCount": 2,
+      "meanWorkingSetBytes": 407153459,
+      "meanPrivateWorkingSetBytes": 183215309,
+      "meanPrivateCommittedBytes": 238243430,
+      "samples": [
+        {
+          "processes": [
+            {
+              "pid": 28596,
+              "workingSetBytes": 133681152,
+              "privateWorkingSetBytes": 55562240,
+              "privateCommittedBytes": 58728448
+            },
+            {
+              "pid": 45912,
+              "workingSetBytes": 278642688,
+              "privateWorkingSetBytes": 132829184,
+              "privateCommittedBytes": 184705024
+            }
+          ],
+          "workingSetBytes": 412323840,
+          "privateWorkingSetBytes": 188391424,
+          "privateCommittedBytes": 243433472
+        },
+        {
+          "processes": [
+            {
+              "pid": 28596,
+              "workingSetBytes": 133681152,
+              "privateWorkingSetBytes": 55562240,
+              "privateCommittedBytes": 58728448
+            },
+            {
+              "pid": 45912,
+              "workingSetBytes": 272916480,
+              "privateWorkingSetBytes": 127102976,
+              "privateCommittedBytes": 178974720
+            }
+          ],
+          "workingSetBytes": 406597632,
+          "privateWorkingSetBytes": 182665216,
+          "privateCommittedBytes": 237703168
+        },
+        {
+          "processes": [
+            {
+              "pid": 28596,
+              "workingSetBytes": 133681152,
+              "privateWorkingSetBytes": 55562240,
+              "privateCommittedBytes": 58728448
+            },
+            {
+              "pid": 45912,
+              "workingSetBytes": 272916480,
+              "privateWorkingSetBytes": 127102976,
+              "privateCommittedBytes": 178974720
+            }
+          ],
+          "workingSetBytes": 406597632,
+          "privateWorkingSetBytes": 182665216,
+          "privateCommittedBytes": 237703168
+        },
+        {
+          "processes": [
+            {
+              "pid": 28596,
+              "workingSetBytes": 133689344,
+              "privateWorkingSetBytes": 55562240,
+              "privateCommittedBytes": 58728448
+            },
+            {
+              "pid": 45912,
+              "workingSetBytes": 272916480,
+              "privateWorkingSetBytes": 127102976,
+              "privateCommittedBytes": 178974720
+            }
+          ],
+          "workingSetBytes": 406605824,
+          "privateWorkingSetBytes": 182665216,
+          "privateCommittedBytes": 237703168
+        },
+        {
+          "processes": [
+            {
+              "pid": 28596,
+              "workingSetBytes": 133689344,
+              "privateWorkingSetBytes": 55562240,
+              "privateCommittedBytes": 58728448
+            },
+            {
+              "pid": 45912,
+              "workingSetBytes": 272916480,
+              "privateWorkingSetBytes": 127102976,
+              "privateCommittedBytes": 178974720
+            }
+          ],
+          "workingSetBytes": 406605824,
+          "privateWorkingSetBytes": 182665216,
+          "privateCommittedBytes": 237703168
+        },
+        {
+          "processes": [
+            {
+              "pid": 28596,
+              "workingSetBytes": 133644288,
+              "privateWorkingSetBytes": 55517184,
+              "privateCommittedBytes": 58662912
+            },
+            {
+              "pid": 45912,
+              "workingSetBytes": 272916480,
+              "privateWorkingSetBytes": 127102976,
+              "privateCommittedBytes": 178974720
+            }
+          ],
+          "workingSetBytes": 406560768,
+          "privateWorkingSetBytes": 182620160,
+          "privateCommittedBytes": 237637632
+        },
+        {
+          "processes": [
+            {
+              "pid": 28596,
+              "workingSetBytes": 133644288,
+              "privateWorkingSetBytes": 55517184,
+              "privateCommittedBytes": 58662912
+            },
+            {
+              "pid": 45912,
+              "workingSetBytes": 272916480,
+              "privateWorkingSetBytes": 127102976,
+              "privateCommittedBytes": 178974720
+            }
+          ],
+          "workingSetBytes": 406560768,
+          "privateWorkingSetBytes": 182620160,
+          "privateCommittedBytes": 237637632
+        },
+        {
+          "processes": [
+            {
+              "pid": 28596,
+              "workingSetBytes": 133644288,
+              "privateWorkingSetBytes": 55517184,
+              "privateCommittedBytes": 58662912
+            },
+            {
+              "pid": 45912,
+              "workingSetBytes": 272916480,
+              "privateWorkingSetBytes": 127102976,
+              "privateCommittedBytes": 178974720
+            }
+          ],
+          "workingSetBytes": 406560768,
+          "privateWorkingSetBytes": 182620160,
+          "privateCommittedBytes": 237637632
+        },
+        {
+          "processes": [
+            {
+              "pid": 28596,
+              "workingSetBytes": 133644288,
+              "privateWorkingSetBytes": 55517184,
+              "privateCommittedBytes": 58662912
+            },
+            {
+              "pid": 45912,
+              "workingSetBytes": 272916480,
+              "privateWorkingSetBytes": 127102976,
+              "privateCommittedBytes": 178974720
+            }
+          ],
+          "workingSetBytes": 406560768,
+          "privateWorkingSetBytes": 182620160,
+          "privateCommittedBytes": 237637632
+        },
+        {
+          "processes": [
+            {
+              "pid": 28596,
+              "workingSetBytes": 133644288,
+              "privateWorkingSetBytes": 55517184,
+              "privateCommittedBytes": 58662912
+            },
+            {
+              "pid": 45912,
+              "workingSetBytes": 272916480,
+              "privateWorkingSetBytes": 127102976,
+              "privateCommittedBytes": 178974720
+            }
+          ],
+          "workingSetBytes": 406560768,
+          "privateWorkingSetBytes": 182620160,
+          "privateCommittedBytes": 237637632
+        }
+      ]
+    }
+  ],
+  "notes": "Same isolated settings and hardware. Combined working sets double-count shared pages; private working sets do not. No physical device switches performed."
+}

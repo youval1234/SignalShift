@@ -23,7 +23,11 @@ public static class Diagnostics
         }
         void Require(bool condition, string message) { if (!condition) throw new InvalidOperationException(message); }
         var audio = new AudioService();
-        Check("Enumerate real playback and recording endpoints", () =>
+        Check("Core Audio notification registration releases its callback without polling", () =>
+        {
+            using var notifications = new AudioDeviceNotifications(() => { });
+        });
+        if (!args.Contains("--headless")) Check("Enumerate real playback and recording endpoints", () =>
         {
             var outputs = audio.Enumerate(AudioFlow.Output); var inputs = audio.Enumerate(AudioFlow.Input);
             Require(outputs.Count > 0, "No playback endpoints"); Require(inputs.Count > 0, "No recording endpoints");
@@ -199,7 +203,7 @@ public static class Diagnostics
             }
         }
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(reportPath))!);
-        File.WriteAllText(reportPath, JsonSerializer.Serialize(new { success = !failed, checks = report }, new JsonSerializerOptions { WriteIndented = true }));
+        File.WriteAllText(reportPath, JsonSerializer.Serialize(new { success = !failed, hardwareChecksExcluded = args.Contains("--headless"), checks = report }, new JsonSerializerOptions { WriteIndented = true }));
         Environment.ExitCode = failed ? 1 : 0;
     }
 }

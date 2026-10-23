@@ -48,7 +48,8 @@ public partial class App : Application
             return;
         }
         // Share IPC with older Sonora installations to avoid competing hotkeys.
-        instance = new Mutex(true, "Local\\Sonora-Desktop-v1", out var created);
+        var created = true;
+        if (!Program.IsInterface) instance = new Mutex(true, HostConnection.InstanceMutex, out created);
         if (!created)
         {
             // A second launch asks the existing tray instance to show its window.
@@ -56,7 +57,7 @@ public partial class App : Application
             File.WriteAllText(Path.Combine(SettingsStore.DirectoryPath, "show.signal"), DateTime.UtcNow.ToString("O"));
             Shutdown(); return;
         }
-        try { await StartupRegistration.InitializeAsync(); }
+        try { if (Environment.GetEnvironmentVariable("SONARSHIFT_TEST_DATA") == null) await StartupRegistration.InitializeAsync(); }
         catch (Exception ex) { MessageBox.Show(ex.Message, "SonarShift could not initialize startup settings"); Shutdown(1); return; }
         if (e.Args.Contains("--import-soundswitch") || e.Args.Contains("--import-settings") || e.Args.Contains("--export-settings"))
         {
@@ -74,7 +75,7 @@ public partial class App : Application
             var window = new MainWindow();
             MainWindow = window;
             window.Show();
-            if (e.Args.Contains("--tray") || window.Preferences.StartMinimized) window.Hide();
+            if (!Program.IsInterface && (e.Args.Contains("--tray") || window.Preferences.StartMinimized)) window.Hide();
         }
         catch (Exception ex) { MessageBox.Show(ex.Message, "SonarShift could not start"); Shutdown(1); }
     }
