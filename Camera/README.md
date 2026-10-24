@@ -32,7 +32,15 @@ The audio-only tray does not load the native DLL, enumerate cameras, or capture 
 The virtual device has session lifetime and is removed when the tray quits. Its native
 Media Foundation source starts physical capture only when a consumer starts streaming,
 and shuts it down when streaming stops. Its sample allocator is bounded to four samples;
-there is no recorded video, frame history, or network connection. Switching polls a tiny
+there is no recorded video, frame history, or network connection. Physical reads are
+asynchronous, with one outstanding read and at most one completed sample. A read
+pending for 1.5 seconds is closed and retried after a two-second backoff; completed
+samples older than 500 ms and callbacks from a closed source are discarded. Output
+is paced at nominal 30 fps, including while the selected camera is unavailable.
+Media type/stride are validated once per source negotiation rather than queried on
+every frame. Camera driver activation/format negotiation and shutdown are still
+external driver operations and are not guaranteed to finish within the read timeout.
+Switching polls a tiny
 selection file at most ten times per second **only while streaming**. An unavailable
 camera produces black frames rather than retaining the previous image.
 
@@ -51,3 +59,12 @@ registration/packaging path must be validated before camera support ships there.
 Install Visual Studio 2022 C++ tools, Windows 11 SDK and NuGet CLI, then run
 `Camera/build-camera.ps1`. Microsoft sample code and MIT license are documented in
 `Native/THIRD-PARTY-NOTICES.md`. Dependencies are pinned in `Native/packages.config`.
+
+## Automated camera checks
+
+Native tests cover black frames and buffer boundaries, oversized stride rejection,
+asynchronous read backpressure, timeout, late/stale samples, error/format transitions,
+10,000 state-machine cycles and callback lifetime release. A generated silent PCM
+fixture exercises the actual asynchronous Media Foundation callback wiring without
+opening cameras or playing audio. Frame pacing and timer cleanup are tested too.
+These checks do not establish webcam negotiation or Discord/OBS compatibility.
