@@ -12,8 +12,12 @@ bool TestAsyncState()
     // A second unsolicited completion must not replace/queue the first sample.
     state.Complete(S_OK, 0, second.get(), 121);
     auto ready=state.Take(122);
-    if (ready.sample.get()!=first.get() || ready.timedOut || state.Take(123).sample) return false;
-    if (!state.Begin(200) || state.Take(1699).timedOut || !state.Take(1700).timedOut) return false;
+    if (ready.sample.get()!=first.get() || ready.timedOut || state.Take(123).sample.get()!=first.get()) return false;
+    // A webcam delivering less than 30 fps repeats its latest current frame.
+    if (!state.Begin(124) || state.Take(150).sample.get()!=first.get()) return false;
+    state.Complete(S_OK, 0, nullptr, 160); // A stream tick must not refresh frame age.
+    if (state.Take(621).sample) return false;
+    if (!state.Begin(700) || state.Take(2199).timedOut || !state.Take(2200).timedOut) return false;
     state.Stop(); state.Complete(S_OK, 0, second.get(), 1701);
     auto stopped=state.Take(1702);
     if (stopped.sample || stopped.status!=MF_E_SHUTDOWN || state.Begin(1703)) return false;
@@ -32,13 +36,14 @@ bool TestAsyncState()
     for (auto flag : {MF_SOURCE_READERF_ENDOFSTREAM, MF_SOURCE_READERF_CURRENTMEDIATYPECHANGED, MF_SOURCE_READERF_ERROR}) {
         AsyncCameraRead terminal; terminal.Begin(0); terminal.Complete(S_OK, flag, first.get(), 1);
         auto result=terminal.Take(2);
-        if (result.sample || !(result.flags & AsyncCameraRead::TerminalFlags)) return false;
+        if (result.sample || !(result.flags & AsyncCameraRead::TerminalFlags) || terminal.Begin(3)) return false;
     }
     AsyncCameraRead stress;
     for (ULONGLONG i=0; i<10000; ++i) {
         if (!stress.Begin(i)) return false;
         stress.Complete(S_OK, 0, i%2?first.get():second.get(), i);
-        if (!stress.Take(i).sample || stress.Take(i).sample) return false;
+        auto expected=i%2?first.get():second.get();
+        if (stress.Take(i).sample.get()!=expected || stress.Take(i).sample.get()!=expected) return false;
     }
     auto owned=std::make_shared<AsyncCameraRead>(); std::weak_ptr<AsyncCameraRead> weak=owned;
     auto callback=winrt::make_self<CameraReaderCallback>(owned);
