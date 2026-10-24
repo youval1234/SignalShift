@@ -32,32 +32,40 @@ public static class Diagnostics
             try { Require(watch.ElapsedMilliseconds < 1000 && !listener.IsCompleted, "Listener blocked or stopped on a transient collision"); }
             finally { stop.Cancel(); Require(listener.Wait(2000), "Listener did not cancel promptly"); }
         });
-        Check("Legacy settings migrate without enabling new shortcuts or camera capture", () =>
+        Check("Older settings preserve audio and do not opt into profile cycling", () =>
         {
-            var legacy = new Settings();
-            var json = JsonNode.Parse(JsonSerializer.Serialize(legacy))!.AsObject();
-            foreach (var key in new[] { "Theme", "ThemeShortcut", "ThemeHotkeyEnabled", "Cameras", "CurrentCameraId", "CameraEnabled", "CameraShortcut", "CameraHotkeyEnabled" }) json.Remove(key);
+            var json = JsonNode.Parse(JsonSerializer.Serialize(new Settings()))!.AsObject();
+            json.Remove("ProfileCycleShortcut"); json.Remove("ProfileCycleHotkeyEnabled");
+            json["CameraEnabled"] = true; json["Cameras"] = new JsonArray("retired-device");
             var loaded = SettingsTransfer.Parse(json.ToJsonString(), new Settings(), Array.Empty<AudioDevice>()).Settings;
-            Require(loaded.Theme == "Dark" && !loaded.ThemeHotkeyEnabled && !loaded.CameraEnabled && !loaded.CameraHotkeyEnabled, "New capabilities were opted into during migration");
+            Require(!loaded.ProfileCycleHotkeyEnabled && loaded.ProfileCycleShortcut.Key == 0x50, "Upgrade opted into a new hotkey");
+            Require(!SettingsTransfer.Export(loaded, Array.Empty<AudioDevice>(), false).Contains("CameraEnabled"), "Removed camera preferences were exported");
         });
-        Check("Appearance and camera settings roundtrip through Notepad exports with conflict validation", () =>
+        Check("Profile-cycle preferences export, import and reject shortcut conflicts", () =>
         {
-            var settings = new Settings { Theme = "Light", ThemeHotkeyEnabled = true, CameraEnabled = true, CameraHotkeyEnabled = true, Cameras = new() { "camera-a", "camera-b" }, CurrentCameraId = "camera-b" };
+            var settings = new Settings { Theme = "Light", ProfileCycleHotkeyEnabled = true };
             var exported = SettingsTransfer.Export(settings, Array.Empty<AudioDevice>(), false);
             var loaded = SettingsTransfer.Parse(exported, new Settings(), Array.Empty<AudioDevice>()).Settings;
-            Require(loaded.Theme == "Light" && loaded.ThemeHotkeyEnabled && loaded.CameraEnabled && loaded.Cameras.SetEquals(settings.Cameras) && loaded.CurrentCameraId == "camera-b", "New choices were lost");
-            settings.CameraShortcut = settings.ThemeShortcut;
-            var rejected = false; try { SettingsTransfer.Validate(settings); } catch (InvalidDataException) { rejected = true; }
-            Require(rejected, "Duplicate appearance/camera shortcut was accepted");
-            foreach (var name in new[] { "SonarShift settings", "Sonora settings" }) Require(SettingsTransfer.Parse(exported.Replace("SignalShift settings", name), new Settings(), Array.Empty<AudioDevice>()).Settings.Theme == "Light", "Legacy branded export rejected");
+            Require(loaded.ProfileCycleHotkeyEnabled && loaded.Theme == "Light" && loaded.ProfileCycleShortcut == settings.ProfileCycleShortcut, "Profile-cycle preferences were lost");
+            settings.ProfileCycleShortcut = settings.OutputShortcut;
+            bool rejected = false; try { SettingsTransfer.Validate(settings); } catch (InvalidDataException) { rejected = true; }
+            Require(rejected, "Conflicting profile-cycle shortcut was accepted");
         });
-        Check("Webcam cycle skips disconnected and unchecked devices and wraps", () =>
+        Check("Profile cycle wraps, skips disconnected pairs and follows external audio changes", () =>
         {
-            var devices = new[] { new CameraDevice("a", "A"), new CameraDevice("b", "B"), new CameraDevice("c", "C") };
-            var settings = new Settings { Cameras = new() { "a", "c", "unplugged" }, CurrentCameraId = "a" };
-            Require(CameraSelection.Next(devices, settings)?.Id == "c", "Did not skip unchecked webcam");
-            settings.CurrentCameraId = "c"; Require(CameraSelection.Next(devices, settings)?.Id == "a", "Did not wrap");
-            settings.Cameras.Clear(); Require(CameraSelection.Next(devices, settings) == null, "Empty cycle was not a no-op");
+            var outputs = new[] { new AudioDevice("o1", "One", AudioFlow.Output, false, false), new AudioDevice("o2", "Two", AudioFlow.Output, false, false) };
+            var inputs = new[] { new AudioDevice("i1", "One", AudioFlow.Input, false, false), new AudioDevice("i2", "Two", AudioFlow.Input, false, false) };
+            var first = new AudioProfile { OutputId = "o1", InputId = "i1" };
+            var missing = new AudioProfile { OutputId = "missing", InputId = "i1" };
+            var second = new AudioProfile { OutputId = "o2", InputId = "i2" };
+            var profiles = new[] { first, missing, second };
+            Require(ProfileCyclePlanner.Next(profiles, outputs, inputs, "o1", "i1") == second, "Did not skip disconnected pair");
+            Require(ProfileCyclePlanner.Next(profiles, outputs, inputs, "o2", "i2") == first, "Did not wrap");
+            Require(ProfileCyclePlanner.Next(profiles, outputs, inputs, "external", "i1") == first, "External state should start the cycle");
+            Require(ProfileCyclePlanner.Next(new[] { missing }, outputs, inputs, "o1", "i1") == null, "Disconnected cycle was not empty");
+            Require(ProfileCyclePlanner.Next(Array.Empty<AudioProfile>(), outputs, inputs, null, null) == null, "Empty cycle was not a no-op");
+            var duplicate = new AudioProfile { OutputId = "o1", InputId = "i1" };
+            Require(ProfileCyclePlanner.Next(new[] { first, duplicate }, outputs, inputs, "o1", "i1", duplicate.Id) == first, "Identical pairs did not wrap by last active profile");
         });
         Check("Live appearance changes recolor existing text, backgrounds and templates", () =>
         {

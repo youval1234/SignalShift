@@ -10,6 +10,7 @@ When requested, SignalShift changes default playback/recording endpoints and opt
 
 GitHub hosts this source code, downloads and build infrastructure. SignPath would process build artifacts and maintainer account data if its signing application is approved. Those services have their own privacy policies; the installed SignalShift application does not contact them.
 
-Optional camera support reads webcam names and identifiers. The selection file in `%PROGRAMDATA%/SignalShift-Camera/<Windows SID>/selection.bin` contains a chosen device ID, not video. Capture begins only when a consumer starts the enabled virtual camera. The app does not record or upload video. New camera support defaults to disabled on upgrade. Appearance preferences and their shortcuts are also stored locally.
 
 Microsoft Store distribution was discontinued on 24 October 2026. Deleting the Store product does not itself close the developer account or erase records retained by Microsoft.
+
+SignalShift 2.1 has no camera access or camera component. Appearance and profile-cycle shortcut preferences are stored locally with the other settings. Retired camera fields in older imports are ignored.

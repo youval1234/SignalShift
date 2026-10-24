@@ -1,6 +1,6 @@
 # Code signing policy
 
-SignalShift 2.0 is distributed as an explicitly **unsigned preview** through the
+SignalShift 2.1 is distributed as an explicitly **unsigned preview** through the
 separate owner-requested preview workflow, not the signed stable-release workflow
 described below. Microsoft Store distribution has been discontinued. The
 [Windows trust guide](docs/windows-trust.md) documents optional user decisions;

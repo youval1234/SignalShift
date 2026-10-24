@@ -1,9 +1,0 @@
-LIBRARY "SignalShift.Camera.dll"
-EXPORTS
-    DllGetClassObject PRIVATE
-    DllCanUnloadNow=WINRT_CanUnloadNow PRIVATE
-    DllRegisterServer PRIVATE
-    DllUnregisterServer PRIVATE
-    CameraStart
-    CameraStop
-    CameraEnumerate

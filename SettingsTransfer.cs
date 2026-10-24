@@ -128,7 +128,6 @@ public static class SettingsTransfer
         if (settings.Outputs == null || settings.Inputs == null || settings.Profiles == null || settings.Outputs.Concat(settings.Inputs).Any(string.IsNullOrWhiteSpace)) throw new InvalidDataException("Invalid device selections.");
         if (settings.Outputs.Count + settings.Inputs.Count > 1000 || settings.Profiles.Count > 128) throw new InvalidDataException("Too many saved devices or profiles.");
         if (settings.Theme is not ("Dark" or "Light")) throw new InvalidDataException("Choose Dark or Light appearance.");
-        if (settings.Cameras == null || settings.Cameras.Count > 128 || settings.Cameras.Any(id => string.IsNullOrWhiteSpace(id) || id.Length > 4000 || id.Contains('\0')) || settings.CurrentCameraId?.Length > 4000 || settings.CurrentCameraId?.Contains('\0') == true) throw new InvalidDataException("Invalid camera selections.");
         var active = new List<Shortcut>();
         void Hotkey(Shortcut key, bool enabled)
         {
@@ -138,8 +137,8 @@ public static class SettingsTransfer
         }
         Hotkey(settings.OutputShortcut, settings.HotkeysEnabled && settings.OutputHotkeyEnabled);
         Hotkey(settings.InputShortcut, settings.HotkeysEnabled && settings.InputHotkeyEnabled);
+        Hotkey(settings.ProfileCycleShortcut, settings.HotkeysEnabled && settings.ProfileCycleHotkeyEnabled);
         Hotkey(settings.ThemeShortcut, settings.HotkeysEnabled && settings.ThemeHotkeyEnabled);
-        Hotkey(settings.CameraShortcut, settings.HotkeysEnabled && settings.CameraHotkeyEnabled);
         var profileIds = new HashSet<string>();
         foreach (var profile in settings.Profiles)
         {
@@ -149,8 +148,8 @@ public static class SettingsTransfer
         // Labels are display text; derive them from the actual keys instead of trusting edited labels.
         settings.OutputShortcut = NormalizeShortcut(settings.OutputShortcut);
         settings.InputShortcut = NormalizeShortcut(settings.InputShortcut);
+        settings.ProfileCycleShortcut = NormalizeShortcut(settings.ProfileCycleShortcut);
         settings.ThemeShortcut = NormalizeShortcut(settings.ThemeShortcut);
-        settings.CameraShortcut = NormalizeShortcut(settings.CameraShortcut);
         foreach (var profile in settings.Profiles) if (profile.Hotkey != null) profile.Hotkey = NormalizeShortcut(profile.Hotkey);
     }
     private static Shortcut NormalizeShortcut(Shortcut key)

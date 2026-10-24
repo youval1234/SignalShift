@@ -3,15 +3,11 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Preview tag (preview-2.0.0)
+        description: Preview tag (preview-2.1.0)
         required: true
       build_run_id:
         description: Successful main-branch Build Windows app run
         required: true
-      include_camera:
-        description: Include the experimental camera component from the same build
-        type: boolean
-        default: false
 permissions:
   contents: read
 concurrency:
@@ -29,7 +25,6 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       RELEASE_TAG: ${{ inputs.tag }}
       BUILD_RUN_ID: ${{ inputs.build_run_id }}
-      INCLUDE_CAMERA: ${{ inputs.include_camera }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -58,13 +53,6 @@ jobs:
           path: preview
           run-id: ${{ inputs.build_run_id }}
           github-token: ${{ github.token }}
-      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
-        if: inputs.include_camera
-        with:
-          name: SignalShift-camera-development-preview
-          path: camera-staging/Camera
-          run-id: ${{ inputs.build_run_id }}
-          github-token: ${{ github.token }}
       - name: Verify exact assets and checksum, stage draft, then publish prerelease
         shell: pwsh
         run: |
@@ -76,22 +64,6 @@ jobs:
           $hash = (Get-FileHash $exe.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
           if ((Get-Content preview/SHA256SUMS.txt -Raw).Trim() -cne "$hash  SignalShift.exe") { throw 'Artifact checksum mismatch.' }
           $assets = @('preview/SignalShift.exe', 'preview/SHA256SUMS.txt')
-          if ($env:INCLUDE_CAMERA -eq 'true') {
-            $cameraFiles = @(Get-ChildItem camera-staging/Camera -Recurse -File)
-            $expected = @('MICROSOFT-LICENSE.txt','README.md','SHA256SUMS.txt','SignalShift.Camera.dll','SignalShift.CameraSetup.exe','THIRD-PARTY-NOTICES.md')
-            if ($cameraFiles.Count -ne 6 -or (($cameraFiles.Name | Sort-Object) -join ',') -cne (($expected | Sort-Object) -join ',')) { throw 'Unexpected camera files.' }
-            $lines = @(Get-Content camera-staging/Camera/SHA256SUMS.txt)
-            if ($lines.Count -ne 2) { throw 'Unexpected camera checksum manifest.' }
-            foreach ($name in 'SignalShift.Camera.dll','SignalShift.CameraSetup.exe') {
-              $cameraHash = (Get-FileHash "camera-staging/Camera/$name" -Algorithm SHA256).Hash.ToLowerInvariant()
-              if ($lines -cnotcontains "$cameraHash  $name") { throw "Camera checksum mismatch: $name" }
-            }
-            $zipName = "SignalShift-Camera-$env:PREVIEW_VERSION-preview.zip"
-            Compress-Archive -LiteralPath camera-staging/Camera -DestinationPath "preview/$zipName" -Force
-            $zipHash = (Get-FileHash "preview/$zipName" -Algorithm SHA256).Hash.ToLowerInvariant()
-            "$zipHash  $zipName" | Set-Content preview/CAMERA-SHA256SUMS.txt -Encoding ascii
-            $assets += @("preview/$zipName", 'preview/CAMERA-SHA256SUMS.txt')
-          }
           gh release upload $env:RELEASE_TAG @assets --repo $env:GITHUB_REPOSITORY --clobber
           if ($LASTEXITCODE -ne 0) { throw 'Draft asset upload failed.' }
           $release = gh release view $env:RELEASE_TAG --repo $env:GITHUB_REPOSITORY --json isDraft,isPrerelease,assets | ConvertFrom-Json

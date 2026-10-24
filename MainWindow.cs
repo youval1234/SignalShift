@@ -19,6 +19,7 @@ namespace SonarShift;
 
 public sealed partial class MainWindow : Window
 {
+    private string? activeProfileId;
     private readonly AudioService audio = new();
     private readonly SettingsStore store = new();
     private readonly SoundCueService soundCues = new();
@@ -87,7 +88,6 @@ public sealed partial class MainWindow : Window
                 {
                     if (message == 0x8001) { ShowWindow(); handled = true; }
                     if (message == 0x8002) { hostExiting = true; quitting = true; Close(); handled = true; }
-                    if (message == 0x8004) { var saved = store.Load(); Preferences.CurrentCameraId = saved.CurrentCameraId; if (currentPage == "Cameras") Navigate("Cameras"); handled = true; }
                     if (message == 0x8003) { backgroundClose = true; Close(); handled = true; }
                     return IntPtr.Zero;
                 });
@@ -125,7 +125,7 @@ public sealed partial class MainWindow : Window
         bottom.Children.Add(Text("ALWAYS WITHIN REACH", 10, Muted, FontWeights.SemiBold));
         var trayLine = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 12, 0, 20) };
         trayLine.Children.Add(Text("●  ", 12, Mint)); trayLine.Children.Add(trayStatus); bottom.Children.Add(trayLine);
-        bottom.Children.Add(Text("SIGNALSHIFT  /  2.0", 10, Brush("#5D637B")));
+        bottom.Children.Add(Text("SIGNALSHIFT  /  2.1", 10, Brush("#5D637B")));
         Grid.SetRow(bottom, 2); sidebar.Children.Add(bottom); shell.Children.Add(sidebar);
         var main = new Grid(); Grid.SetColumn(main, 1);
         main.RowDefinitions.Add(new RowDefinition { Height = new GridLength(44) });
@@ -145,7 +145,7 @@ public sealed partial class MainWindow : Window
     {
         currentPage = name; rows = null; page.Children.Clear(); navigation.Children.Clear();
         navigation.Children.Add(Text("WORKSPACE", 10, Muted, FontWeights.SemiBold));
-        foreach (var item in new[] { ("Devices", "\uE7F4"), ("Cameras", "\uE714"), ("Shortcuts", "\uE765"), ("Profiles", "\uE8A9"), ("Settings", "\uE713") })
+        foreach (var item in new[] { ("Devices", "\uE7F4"), ("Shortcuts", "\uE765"), ("Profiles", "\uE8A9"), ("Settings", "\uE713") })
         {
             var content = new StackPanel { Orientation = Orientation.Horizontal };
             content.Children.Add(Glyph(item.Item2, 17, item.Item1 == name ? Purple : Muted));
@@ -154,7 +154,7 @@ public sealed partial class MainWindow : Window
             // The template centers its presenter; fixed width content keeps navigation aligned.
             content.Width = 135; navigation.Children.Add(b);
         }
-        switch (name) { case "Devices": BuildDevices(); break; case "Cameras": BuildCameras(); break; case "Shortcuts": BuildShortcuts(); break; case "Profiles": BuildProfiles(); break; default: BuildSettings(); break; }
+        switch (name) { case "Devices": BuildDevices(); break; case "Shortcuts": BuildShortcuts(); break; case "Profiles": BuildProfiles(); break; default: BuildSettings(); break; }
     }
     private void Heading(string eyebrow, string title, string subtitle)
     {
@@ -254,6 +254,7 @@ public sealed partial class MainWindow : Window
     private void BuildShortcuts()
     {
         Heading("Your muscle memory", "A shortcut to better sound.", "Choose a key combination, then switch devices from any app.");
+        BuildProfileCycleShortcut();
         foreach (var f in new[] { AudioFlow.Output, AudioFlow.Input })
         {
             var p = new StackPanel(); p.Children.Add(Text(f == AudioFlow.Output ? "↗  CYCLE PLAYBACK" : "↙  CYCLE RECORDING", 11, f == AudioFlow.Output ? Mint : Purple, FontWeights.SemiBold));
@@ -273,7 +274,6 @@ public sealed partial class MainWindow : Window
             p.Children.Add(active);
             var card = Card(p, 24); card.Margin = new Thickness(0, 0, 0, 16); page.Children.Add(card);
         }
-        BuildCameraShortcut();
         BuildThemeShortcut();
         var enabled = new CheckBox { Content = "Enable global shortcuts", IsChecked = Preferences.HotkeysEnabled, Margin = new Thickness(2, 8, 0, 15) };
         enabled.Click += (_, _) =>
@@ -324,11 +324,11 @@ public sealed partial class MainWindow : Window
         return result;
     }
     private bool IsDuplicateShortcut(Shortcut shortcut, string? exclude, string? profileId) =>
-        (exclude != "output" && Same(shortcut, Preferences.OutputShortcut)) || (exclude != "input" && Same(shortcut, Preferences.InputShortcut)) || (exclude != "theme" && Same(shortcut, Preferences.ThemeShortcut)) || (exclude != "camera" && Same(shortcut, Preferences.CameraShortcut)) || Preferences.Profiles.Any(p => p.Id != profileId && p.Hotkey != null && Same(shortcut, p.Hotkey));
+        (exclude != "output" && Same(shortcut, Preferences.OutputShortcut)) || (exclude != "input" && Same(shortcut, Preferences.InputShortcut)) || (exclude != "theme" && Same(shortcut, Preferences.ThemeShortcut)) || (exclude != "profile-cycle" && Same(shortcut, Preferences.ProfileCycleShortcut)) || Preferences.Profiles.Any(p => p.Id != profileId && p.Hotkey != null && Same(shortcut, p.Hotkey));
     private static bool Same(Shortcut a, Shortcut b) => a.Modifiers == b.Modifiers && a.Key == b.Key;
     private void BuildProfiles()
     {
-        Heading("Your setups, saved", "A place for every mode.", "Switch your output and microphone together. Give each setup its own shortcut.");
+        Heading("Your setups, saved", "A place for every mode.", "Switch your output and microphone together. Cycle all profiles with one shortcut, or assign individual shortcuts.");
         var add = Button("+   New profile", () => EditProfile(null), true); add.HorizontalAlignment = HorizontalAlignment.Left; add.Margin = new Thickness(0, 0, 0, 20); page.Children.Add(add);
         if (Preferences.Profiles.Count == 0)
         {
@@ -446,7 +446,7 @@ public sealed partial class MainWindow : Window
                 if (failures.Count > 1) throw new AggregateException("Profile switching failed and Windows could not restore every previous default.", failures);
                 throw;
             }
-            RefreshDevices(); if (currentPage == "Devices") RefreshDeviceVisuals(); if (fromHotkey && Preferences.HotkeySounds) soundCues.Play(output != null ? AudioFlow.Output : AudioFlow.Input); Notify("Profile activated", profile.Name); SetStatus("Profile → " + profile.Name);
+            activeProfileId = profile.Id; RefreshDevices(); if (currentPage == "Devices") RefreshDeviceVisuals(); if (fromHotkey && Preferences.HotkeySounds) soundCues.Play(output != null ? AudioFlow.Output : AudioFlow.Input); Notify("Profile activated", profile.Name); SetStatus("Profile → " + profile.Name);
         }
         catch (Exception ex) { SetStatus("Could not activate profile: " + ex.Message, true); }
     }
@@ -465,7 +465,7 @@ public sealed partial class MainWindow : Window
             if (Preferences.OutputHotkeyEnabled && !hotkeys.Register(1, Preferences.OutputShortcut, () => Cycle(AudioFlow.Output, fromHotkey: true))) hotkeyErrors.Add("output");
             if (Preferences.InputHotkeyEnabled && !hotkeys.Register(2, Preferences.InputShortcut, () => Cycle(AudioFlow.Input, fromHotkey: true))) hotkeyErrors.Add("input");
             if (Preferences.ThemeHotkeyEnabled && !hotkeys.Register(3, Preferences.ThemeShortcut, ToggleTheme)) hotkeyErrors.Add("appearance");
-            if (Preferences.CameraEnabled && Preferences.CameraHotkeyEnabled && !hotkeys.Register(4, Preferences.CameraShortcut, NextCamera)) hotkeyErrors.Add("camera");
+            if (Preferences.ProfileCycleHotkeyEnabled && !hotkeys.Register(4, Preferences.ProfileCycleShortcut, CycleProfiles)) hotkeyErrors.Add("profile cycle");
             var id = 10; foreach (var profile in Preferences.Profiles) if (profile.Hotkey != null && !hotkeys.Register(id++, profile.Hotkey, () => ActivateProfile(profile, fromHotkey: true))) hotkeyErrors.Add(profile.Name);
         }
         lastShortcutRetry = DateTime.UtcNow;
@@ -525,7 +525,7 @@ public sealed partial class MainWindow : Window
     {
         if (!Program.IsInterface && !quitting && Preferences.CloseToTray) { e.Cancel = true; Hide(); SetStatus("SignalShift is running in your tray"); return; }
         if (Program.IsInterface && !hostExiting && (quitting || (!backgroundClose && !Preferences.CloseToTray))) HostConnection.TrySend("quit");
-        cameraList.Dispose(); timer.Stop(); deviceNotifications?.Dispose(); signalWatcher?.Dispose(); hotkeys?.Dispose(); soundCues.Dispose(); switchNotification?.Dispose(); tray?.Dispose(); Application.Current.Shutdown();
+        timer.Stop(); deviceNotifications?.Dispose(); signalWatcher?.Dispose(); hotkeys?.Dispose(); soundCues.Dispose(); switchNotification?.Dispose(); tray?.Dispose(); Application.Current.Shutdown();
     }
     private void QueueDeviceRefresh()
     {
