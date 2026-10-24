@@ -36,9 +36,13 @@ Microsoft currently documents no per-app Smart App Control exception.
 
 The project owner supplied this external video:
 [How to Turn On and Off Smart App Control Without Reinstalling Windows](https://youtu.be/BeYSdePDRtk).
-Its full contents were not independently verified for this guide. Registry advice in
-third-party tutorials is not tested or automated by SignalShift; the instructions
-above use Microsoft's documented Windows interface instead. No registry patches,
+The video's transcript describes changing `VerifiedAndReputablePolicyState` in the
+system registry: 0 to turn protection off and 1 to turn it on, followed by a restart.
+It also suggests 2 as a fallback, but that is not equivalent to enforcing protection
+and is not a project recommendation. This registry method has not been tested by
+the project on supported Windows builds; seeing a changed UI alone does not prove
+that the intended policy is enforced. The short tutorial above uses Microsoft's
+documented Windows interface instead. No registry patches,
 security-disabling scripts, exclusions or certificates are installed by the app.
 
 ## Responsibility notice
