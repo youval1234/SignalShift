@@ -1,5 +1,11 @@
 # Code signing policy
 
+SignalShift 2.0 is distributed as an explicitly **unsigned preview** through the
+separate owner-requested preview workflow, not the signed stable-release workflow
+described below. Microsoft Store distribution has been discontinued. The
+[Windows trust guide](docs/windows-trust.md) documents optional user decisions;
+no release or app code automatically disables Windows protections.
+
 **Status (2026-10-23): automation prepared, signing unavailable. SignPath Foundation declined the application because SonarShift has not yet established sufficient public visibility. No signing credentials are configured, and existing release executables are unsigned.** GitHub hosting, checksums and build provenance do not replace trusted Authenticode signatures. Smart App Control may block current releases.
 
 The workflow supports an approved production policy through [SignPath.io](https://signpath.io). A future [SignPath Foundation](https://signpath.org) approval or an eligible organization/sponsor would need to supply the trusted certificate. There is no active signing sponsorship. To respect the owner's privacy preference, do not configure an individual certificate displaying their personal name, or substitute a self-signed certificate.
