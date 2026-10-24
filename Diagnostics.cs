@@ -22,6 +22,16 @@ public static class Diagnostics
             catch (Exception ex) { failed = true; report.Add(new { test = name, passed = false, error = ex.ToString() }); }
         }
         void Require(bool condition, string message) { if (!condition) throw new InvalidOperationException(message); }
+        if (Environment.GetEnvironmentVariable("SONARSHIFT_TEST_DATA") != null) Check("Occupied IPC channel yields and cancels without blocking startup", () =>
+        {
+            var suffix = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(SettingsStore.DirectoryPath)))[..16];
+            using var occupied = new System.IO.Pipes.NamedPipeServerStream("SonarShift-" + suffix, System.IO.Pipes.PipeDirection.InOut, 1, System.IO.Pipes.PipeTransmissionMode.Byte, System.IO.Pipes.PipeOptions.Asynchronous | System.IO.Pipes.PipeOptions.CurrentUserOnly);
+            using var stop = new System.Threading.CancellationTokenSource();
+            var watch = System.Diagnostics.Stopwatch.StartNew();
+            var listener = HostConnection.ListenAsync(_ => System.Threading.Tasks.Task.FromResult("{}"), stop.Token);
+            try { Require(watch.ElapsedMilliseconds < 1000 && !listener.IsCompleted, "Listener blocked or stopped on a transient collision"); }
+            finally { stop.Cancel(); Require(listener.Wait(2000), "Listener did not cancel promptly"); }
+        });
         Check("Legacy settings migrate without enabling new shortcuts or camera capture", () =>
         {
             var legacy = new Settings();

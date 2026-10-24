@@ -6,9 +6,10 @@ SignalShift is the next version of SonarShift, a native Windows app for switchin
 playback and recording devices with global shortcuts, profiles and instant feedback.
 Version 2.0 adds dark/light appearance and an optional Windows 11 virtual camera.
 
-**2.0 is in development, not a production release.** Real webcam, calling-app and
-OBS testing is still required. The existing desktop app and pending Store 1.4
-submission have not been replaced. [Review the update](https://github.com/youval1234/SignalShift/pull/4).
+**[Download SignalShift 2.0 preview](https://github.com/youval1234/SignalShift/releases/tag/preview-2.0.0)**
+for Windows x64. Audio switching and appearance have automated regression coverage;
+the optional webcam component remains **experimental**. Real two-webcam, calling apps
+and OBS switching has not been validated. This is an unsigned prerelease.
 
 | Dark | Light |
 | --- | --- |
@@ -30,8 +31,8 @@ These are rendered UI previews from a CI machine with no audio hardware attached
   compatible. New shortcuts and camera support default to disabled during upgrades.
 
 See [camera installation, privacy, resource boundaries and current limitations](Camera/README.md).
-The elevated portable camera installer is not part of the Store build; Store camera
-registration must be validated separately before submission.
+Camera support is an optional separate download; the audio/appearance app works
+without it. No camera capture starts merely by opening the audio-only app.
 
 ## Audio features
 
@@ -51,9 +52,11 @@ releases its process; the tray continues handling shortcuts. Choose Quit to exit
 
 ## Downloads and Windows trust
 
-The previous [SonarShift 1.5.1 preview](https://github.com/youval1234/SignalShift/releases/tag/preview-1.5.1)
-remains available with its original **SonarShift.exe** filename. New 2.0 builds produce
-**SignalShift.exe**. Historical releases are unchanged.
+Download **SignalShift.exe** from the [2.0 preview release](https://github.com/youval1234/SignalShift/releases/tag/preview-2.0.0).
+Quit older Sonora/SonarShift processes before starting it. Export settings first
+if you want a backup. Optional camera files and their installation guide are separate.
+The [SonarShift 1.5.1 preview](https://github.com/youval1234/SignalShift/releases/tag/preview-1.5.1)
+and historical releases retain their original names.
 
 Portable previews are self-contained and unsigned. Windows Smart App Control can
 block them; downloading from GitHub or checking a hash does not establish a trusted
@@ -61,8 +64,13 @@ publisher. [Trusted release signing](CODE_SIGNING.md) still needs an approved pr
 Neither the app nor the optional camera setup changes Windows security settings.
 Audio and appearance support Windows 10; the virtual camera requires Windows 11 x64.
 
-SonarShift 1.4 was submitted for Microsoft Store certification on 23 October 2026,
-with a manual publishing hold. This development branch does not update or cancel it.
+**Distribution is through GitHub.** The Microsoft Store submission and product entry
+were removed on 24 October 2026; Store publication is no longer planned.
+
+If Windows blocks the unsigned EXE, read the short
+[Smart App Control guide and responsibility notice](docs/windows-trust.md).
+Disabling Smart App Control reduces protection across the PC, not just for this app.
+It does not make an unsigned executable signed or certified.
 
 ## Local settings and backups
 

@@ -49,7 +49,13 @@ internal static class HostConnection
                 await pipe.WriteAsync(Encoding.UTF8.GetBytes(response + "\n"), requestTimeout.Token).ConfigureAwait(false);
             }
             catch (OperationCanceledException) { }
-            catch (IOException) { }
+            catch (IOException)
+            {
+                // A pre-existing pipe or a disconnected client must not spin on
+                // the calling UI thread before the listener reaches an await.
+                try { await Task.Delay(250, stop).ConfigureAwait(false); }
+                catch (OperationCanceledException) when (stop.IsCancellationRequested) { }
+            }
             catch (ObjectDisposedException) when (stop.IsCancellationRequested) { }
         }
     }

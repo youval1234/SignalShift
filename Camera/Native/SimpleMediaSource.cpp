@@ -415,6 +415,11 @@ namespace winrt::WindowsSample::implementation
         _Out_ ULONG* pBytesReturned
         )
     {
+        winrt::slim_lock_guard lock(m_Lock);
+        RETURN_IF_FAILED(_CheckShutdownRequiresLock());
+        RETURN_HR_IF_NULL(E_POINTER, pBytesReturned);
+        *pBytesReturned = 0;
+        RETURN_HR_IF_NULL(E_POINTER, pProperty);
         if (ulPropertyLength < sizeof(KSPROPERTY))
         {
             return E_INVALIDARG;
@@ -463,6 +468,7 @@ namespace winrt::WindowsSample::implementation
             {
             case KSPROPERTY_SIMPLEMEDIASOURCE_CUSTOMCONTROL_COLORING:
             {
+                RETURN_HR_IF(MF_E_NOT_INITIALIZED, m_streamList.size() == 0 || !m_streamList[0]);
                 if (ulDataLength < sizeof(KSPROPERTY_SIMPLEMEDIASOURCE_CUSTOMCONTROL_COLORMODE_S))
                 {
                     *pBytesReturned = sizeof(KSPROPERTY_SIMPLEMEDIASOURCE_CUSTOMCONTROL_COLORMODE_S);
