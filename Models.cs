@@ -27,6 +27,14 @@ public sealed class Settings
     public HashSet<string> Inputs { get; set; } = new();
     public Shortcut OutputShortcut { get; set; } = new(3, 0x7A, "Ctrl + Alt + F11");
     public Shortcut InputShortcut { get; set; } = new(3, 0x79, "Ctrl + Alt + F10");
+    public HashSet<string> Cameras { get; set; } = new();
+    public string? CurrentCameraId { get; set; }
+    public bool CameraEnabled { get; set; }
+    public Shortcut CameraShortcut { get; set; } = new(3, 0x43, "Ctrl + Alt + C");
+    public bool CameraHotkeyEnabled { get; set; }
+    public string Theme { get; set; } = "Dark";
+    public Shortcut ThemeShortcut { get; set; } = new(3, 0x54, "Ctrl + Alt + T");
+    public bool ThemeHotkeyEnabled { get; set; }
     public bool HotkeysEnabled { get; set; } = true;
     public bool OutputHotkeyEnabled { get; set; } = true;
     public bool InputHotkeyEnabled { get; set; } = true;
@@ -62,9 +70,13 @@ public sealed class SettingsStore
     public void Save(Settings settings)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(FilePath)!);
-        var temporary = FilePath + ".tmp";
-        File.WriteAllText(temporary, JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true }));
-        File.Move(temporary, FilePath, true);
+        var temporary = FilePath + "." + Guid.NewGuid().ToString("N") + ".tmp";
+        try
+        {
+            File.WriteAllText(temporary, JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true }));
+            File.Move(temporary, FilePath, true);
+        }
+        finally { if (File.Exists(temporary)) File.Delete(temporary); }
     }
 }
 public static class CyclePlanner

@@ -29,7 +29,7 @@ if ($response.StatusCode -eq 200) {
         $marker,
         "Portable Windows x64 release built from reviewed source: $Commit.",
         '',
-        'SonarShift.exe has a verified, timestamped Authenticode signature from the configured publisher. SHA256SUMS.txt covers the signed executable.',
+        'SignalShift.exe has a verified, timestamped Authenticode signature from the configured publisher. SHA256SUMS.txt covers the signed executable.',
         '',
         'A valid signature does not guarantee acceptance by every Windows reputation service or organization policy.',
         '',
@@ -41,9 +41,9 @@ if ($response.StatusCode -eq 200) {
 
 # Upload failures leave a draft. Check stored assets before making it public.
 $downloadDirectory = Join-Path $env:RUNNER_TEMP "SonarShift-release-check-$([guid]::NewGuid())"
-gh release download $Tag --repo $repo --dir $downloadDirectory --pattern SonarShift.exe --pattern SHA256SUMS.txt
+gh release download $Tag --repo $repo --dir $downloadDirectory --pattern SignalShift.exe --pattern SHA256SUMS.txt
 if ($LASTEXITCODE -ne 0) { throw 'Cannot verify draft downloads; release remains unpublished.' }
-& "$PSScriptRoot/Verify-SignedRelease.ps1" -ExePath (Join-Path $downloadDirectory 'SonarShift.exe') -Tag $Tag -ExpectedSubject $ExpectedSubject -ExpectedHash $ExpectedHash -CheckChecksum
+& "$PSScriptRoot/Verify-SignedRelease.ps1" -ExePath (Join-Path $downloadDirectory 'SignalShift.exe') -Tag $Tag -ExpectedSubject $ExpectedSubject -ExpectedHash $ExpectedHash -CheckChecksum
 & "$PSScriptRoot/Resolve-ReleaseSource.ps1" -Tag $Tag -ExpectedCommit $Commit
 gh release edit $Tag --repo $repo --draft=false --latest
 if ($LASTEXITCODE -ne 0) { throw 'Publication failed; inspect the draft before retrying.' }

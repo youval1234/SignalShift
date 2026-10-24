@@ -1,5 +1,11 @@
 # Microsoft Store preparation
 
+**Archived, 24 October 2026:** Microsoft Store distribution has been discontinued.
+The submission and product entry were deleted. The dated certification status below
+is historical, not a current pending submission. Packaging sources remain for
+reference; CI runs this workflow only when manually requested. Current downloads
+are on [GitHub Releases](https://github.com/youval1234/SignalShift/releases).
+
 The historical Sonora 1.3.0 release is unsigned. SonarShift 1.4.0 is the renamed app now in preparation. A GitHub release, SHA-256 checksum, or GitHub artifact attestation is not a Windows Authenticode signature and does not resolve Smart App Control's publisher check.
 
 ## Microsoft Store route

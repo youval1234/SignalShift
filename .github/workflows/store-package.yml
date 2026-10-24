@@ -2,25 +2,8 @@ name: Build Store validation package
 
 on:
   workflow_dispatch:
-  push:
-    branches: [main, codex/store-signing-preparation]
-    paths:
-      - '**.cs'
-      - '**.csproj'
-      - '**.xaml'
-      - 'Assets/**'
-      - 'Packaging/**'
-      - 'package-store.ps1'
-      - '.github/workflows/store-package.yml'
-  pull_request:
-    paths:
-      - '**.cs'
-      - '**.csproj'
-      - '**.xaml'
-      - 'Assets/**'
-      - 'Packaging/**'
-      - 'package-store.ps1'
-      - '.github/workflows/store-package.yml'
+
+# Archived packaging check only; Store publication has been discontinued.
 
 permissions:
   contents: read
