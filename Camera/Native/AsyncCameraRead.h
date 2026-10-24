@@ -16,7 +16,7 @@ public:
     bool Begin(ULONGLONG now)
     {
         winrt::slim_lock_guard lock(m_lock);
-        if (m_stopped || m_pending || m_sample || FAILED(m_status)) return false;
+        if (m_stopped || m_pending || FAILED(m_status) || (m_flags & TerminalFlags)) return false;
         m_pending = true; m_requestedAt = now; return true;
     }
     void Complete(HRESULT status, DWORD flags, IMFSample* sample, ULONGLONG now)
@@ -24,8 +24,8 @@ public:
         winrt::slim_lock_guard lock(m_lock);
         if (m_stopped || !m_pending) return;
         m_pending = false; m_status = status; m_flags = flags;
-        if (SUCCEEDED(status) && !(flags & TerminalFlags)) m_sample = sample;
-        m_receivedAt = now;
+        if (FAILED(status) || (flags & TerminalFlags)) m_sample.reset();
+        else if (sample) { m_sample = sample; m_receivedAt = now; }
     }
     CameraReadResult Take(ULONGLONG now)
     {
@@ -33,9 +33,12 @@ public:
         CameraReadResult result;
         result.status = m_status; result.flags = m_flags;
         result.timedOut = m_pending && now - m_requestedAt >= TimeoutMs;
-        if (m_sample && now - m_receivedAt <= MaximumFrameAgeMs) result.sample.attach(m_sample.detach());
+        // Repeat a current frame while the next read is pending. Slow webcams
+        // must not flicker to black between their frames. Never repeat a frame
+        // beyond the age limit or across a source switch/error/shutdown.
+        if (m_sample && now - m_receivedAt <= MaximumFrameAgeMs) result.sample = m_sample;
         else m_sample.reset();
-        m_flags = 0;
+        if (!(m_flags & TerminalFlags)) m_flags = 0;
         return result;
     }
     void Stop()
