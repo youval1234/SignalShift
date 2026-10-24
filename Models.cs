@@ -27,11 +27,8 @@ public sealed class Settings
     public HashSet<string> Inputs { get; set; } = new();
     public Shortcut OutputShortcut { get; set; } = new(3, 0x7A, "Ctrl + Alt + F11");
     public Shortcut InputShortcut { get; set; } = new(3, 0x79, "Ctrl + Alt + F10");
-    public HashSet<string> Cameras { get; set; } = new();
-    public string? CurrentCameraId { get; set; }
-    public bool CameraEnabled { get; set; }
-    public Shortcut CameraShortcut { get; set; } = new(3, 0x43, "Ctrl + Alt + C");
-    public bool CameraHotkeyEnabled { get; set; }
+    public Shortcut ProfileCycleShortcut { get; set; } = new(3, 0x50, "Ctrl + Alt + P");
+    public bool ProfileCycleHotkeyEnabled { get; set; }
     public string Theme { get; set; } = "Dark";
     public Shortcut ThemeShortcut { get; set; } = new(3, 0x54, "Ctrl + Alt + T");
     public bool ThemeHotkeyEnabled { get; set; }

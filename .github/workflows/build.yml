@@ -14,25 +14,20 @@ jobs:
       - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
-      - name: Build optional native Windows 11 camera component
-        run: ./Camera/build-camera.ps1
-        shell: pwsh
       - name: Publish self-contained Windows x64 app
         run: ./build.ps1
         shell: pwsh
-      - name: Check new preferences, migration, themes and camera frame bounds
+      - name: Check preferences, migration, themes and profile cycling
         shell: pwsh
         run: |
           Start-Service AudioEndpointBuilder
           Start-Service Audiosrv
-          & ./dist/camera/SignalShift.CameraTests.exe
-          if ($LASTEXITCODE -ne 0) { throw 'Native frame checks failed.' }
           $env:SONARSHIFT_TEST_DATA = Join-Path $env:RUNNER_TEMP 'signalshift-diagnostics'
           $report = Join-Path $PWD 'dist/features-report.json'
           $process = Start-Process ./dist/SignalShift.exe -ArgumentList @('--diagnostics','--headless','--report',('"' + $report + '"')) -PassThru -Wait
           if ($process.ExitCode -ne 0 -or !(Test-Path $report) -or !(Get-Content $report -Raw | ConvertFrom-Json).success) { throw 'Feature diagnostics failed.' }
           foreach ($theme in 'Dark','Light') {
-            foreach ($page in 'Devices','Cameras','Shortcuts','Settings') {
+            foreach ($page in 'Devices','Profiles','Shortcuts','Settings') {
               $path = Join-Path $PWD "dist/preview-$theme-$page.png"
               $preview = Start-Process ./dist/SignalShift.exe -ArgumentList @('--export-preview',('"' + $path + '"'),'--preview-theme',$theme,'--preview-page',$page) -PassThru -Wait
               if ($preview.ExitCode -ne 0 -or !(Test-Path $path)) { throw "Missing preview: $theme $page" }
@@ -40,6 +35,7 @@ jobs:
           }
           Remove-Item Env:SONARSHIFT_TEST_DATA
           ./tools/Test-AppearanceHotkey.ps1 -Executable ./dist/SignalShift.exe -ReportPath ./dist/appearance-hotkey-report.json
+          ./tools/Test-SettingsReload.ps1 -Executable ./dist/SignalShift.exe -ReportPath ./dist/settings-reload-report.json
       - name: Test release source and signature guards
         run: ./tools/Test-ReleaseAutomation.ps1 -ExePath dist/SignalShift.exe
         shell: pwsh
@@ -61,20 +57,11 @@ jobs:
           path: dist/switch-allocation-*.json
           if-no-files-found: warn
       - uses: actions/upload-artifact@v7
-        with:
-          name: SignalShift-camera-development-preview
-          path: |
-            dist/camera/SignalShift.Camera.dll
-            dist/camera/SignalShift.CameraSetup.exe
-            dist/camera/SHA256SUMS.txt
-            dist/camera/MICROSOFT-LICENSE.txt
-            dist/camera/THIRD-PARTY-NOTICES.md
-            dist/camera/README.md
-      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: SignalShift-feature-review
           path: |
             dist/features-report.json
             dist/appearance-hotkey-report.json
+            dist/settings-reload-report.json
             dist/preview-*.png

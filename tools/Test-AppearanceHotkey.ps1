@@ -3,7 +3,7 @@ $ErrorActionPreference = 'Stop'
 $Executable = (Resolve-Path -LiteralPath $Executable).Path
 $data = Join-Path $env:TEMP ('SignalShift-theme-' + [guid]::NewGuid().ToString('N'))
 [IO.Directory]::CreateDirectory($data) | Out-Null
-[IO.File]::WriteAllText((Join-Path $data 'settings.json'), '{"Initialized":true,"HotkeysEnabled":true,"OutputHotkeyEnabled":false,"InputHotkeyEnabled":false,"ThemeHotkeyEnabled":true,"ThemeShortcut":{"Modifiers":7,"Key":135,"Label":"test"},"Notifications":false,"CameraEnabled":false}')
+[IO.File]::WriteAllText((Join-Path $data 'settings.json'), '{"Initialized":true,"HotkeysEnabled":true,"OutputHotkeyEnabled":false,"InputHotkeyEnabled":false,"ThemeHotkeyEnabled":true,"ThemeShortcut":{"Modifiers":7,"Key":135,"Label":"test"},"Notifications":false}')
 Add-Type 'using System; using System.Runtime.InteropServices; public static class ThemeHotkeyMessages { [DllImport("user32.dll")] public static extern bool PostMessage(IntPtr window, uint message, IntPtr w, IntPtr l); }'
 $owned = [Collections.Generic.List[Diagnostics.Process]]::new()
 function Launch([string[]]$Arguments) {
@@ -21,16 +21,16 @@ function Command([string]$Name) {
 try {
     $hostProcess = Launch @('--tray'); Start-Sleep -Seconds 3
     $first = Command 'status'
-    if ($first.conflicts.Count -ne 0 -or $first.wpfLoaded -or $first.cameraEnabled -or !$first.testHotkeyWindow) { throw 'Invalid isolated host baseline.' }
+    if ($first.conflicts.Count -ne 0 -or $first.wpfLoaded -or !$first.testHotkeyWindow) { throw 'Invalid isolated host baseline.' }
     $states = [Collections.Generic.List[string]]::new()
     foreach ($expected in 'Light','Dark','Light','Dark') {
         if (![ThemeHotkeyMessages]::PostMessage([IntPtr]$first.testHotkeyWindow, 0x312, [IntPtr]3, [IntPtr]0)) { throw 'Hotkey message was not delivered.' }
         Start-Sleep -Milliseconds 200
         $state = Command 'status'; $saved = Get-Content (Join-Path $data 'settings.json') -Raw | ConvertFrom-Json
-        if ($state.theme -cne $expected -or $saved.Theme -cne $expected -or $state.wpfLoaded -or $state.interfaceRunning -or $state.cameraEnabled) { throw 'Tray shortcut did not persist the theme without loading UI/camera.' }
+        if ($state.theme -cne $expected -or $saved.Theme -cne $expected -or $state.wpfLoaded -or $state.interfaceRunning) { throw 'Tray shortcut did not persist the theme without loading UI.' }
         $states.Add($state.theme)
     }
-    [pscustomobject]@{ success=$true; dispatch='WM_HOTKEY through registered theme action'; themes=$states; wpfLoaded=$state.wpfLoaded; cameraEnabled=$state.cameraEnabled; interfaceRunning=$state.interfaceRunning } | ConvertTo-Json | Set-Content -LiteralPath $ReportPath -Encoding utf8
+    [pscustomobject]@{ success=$true; dispatch='WM_HOTKEY through registered theme action'; themes=$states; wpfLoaded=$state.wpfLoaded; interfaceRunning=$state.interfaceRunning } | ConvertTo-Json | Set-Content -LiteralPath $ReportPath -Encoding utf8
     $null = Command 'quit'
     if (!$hostProcess.WaitForExit(10000)) { throw 'Host did not exit.' }
 } finally {
