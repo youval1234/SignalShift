@@ -17,7 +17,7 @@ public sealed partial class MainWindow
         var content = new StackPanel();
         content.Children.Add(Text("YOUR SETUP, TO GO", 10, Purple, FontWeights.SemiBold));
         content.Children.Add(new TextBlock { Text = "Save it. Bring it back.", FontSize = 21, FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 10, 0, 7) });
-        content.Children.Add(new TextBlock { Text = "Export a readable .txt file for Notepad, restore a saved setup, or bring your SoundSwitch choices into SonarShift.", Foreground = Muted, FontSize = 12, TextWrapping = TextWrapping.Wrap });
+        content.Children.Add(new TextBlock { Text = "Export a readable .txt file for Notepad, restore a saved setup, or bring your SoundSwitch choices into SignalShift.", Foreground = Muted, FontSize = 12, TextWrapping = TextWrapping.Wrap });
         var buttons = new WrapPanel { Margin = new Thickness(0, 18, 0, 0) };
         foreach (var item in new (string Label, Action Action, bool Primary)[]
         {
@@ -37,11 +37,11 @@ public sealed partial class MainWindow
         paused = true;
         try
         {
-            var dialog = new SaveFileDialog { Title = "Export SonarShift settings", FileName = "SonarShift-settings-" + DateTime.Now.ToString("yyyy-MM-dd") + ".txt", DefaultExt = ".txt", Filter = "Notepad text file (*.txt)|*.txt", AddExtension = true };
+            var dialog = new SaveFileDialog { Title = "Export SignalShift settings", FileName = "SignalShift-settings-" + DateTime.Now.ToString("yyyy-MM-dd") + ".txt", DefaultExt = ".txt", Filter = "Notepad text file (*.txt)|*.txt", AddExtension = true };
             if (dialog.ShowDialog(this) != true) return;
             RefreshDevices();
             // Never overwrite the live settings database with the portable document envelope.
-            if (Path.GetFullPath(dialog.FileName).Equals(Path.GetFullPath(store.FilePath), StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException("Choose a separate export file instead of SonarShift's live settings file.");
+            if (Path.GetFullPath(dialog.FileName).Equals(Path.GetFullPath(store.FilePath), StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException("Choose a separate export file instead of SignalShift's live settings file.");
             SettingsTransfer.ExportFile(dialog.FileName, Preferences, outputs.Concat(inputs), IsStartupEnabled());
             transferMessage = "Exported to " + dialog.FileName; Navigate("Settings"); SetStatus("Settings exported as a Notepad text file");
         }
@@ -53,7 +53,7 @@ public sealed partial class MainWindow
         paused = true;
         try
         {
-            var dialog = new OpenFileDialog { Title = "Import SonarShift or SoundSwitch settings", Filter = "Settings files (*.txt;*.json)|*.txt;*.json|All files (*.*)|*.*", CheckFileExists = true };
+            var dialog = new OpenFileDialog { Title = "Import SignalShift or SoundSwitch settings", Filter = "Settings files (*.txt;*.json)|*.txt;*.json|All files (*.*)|*.*", CheckFileExists = true };
             if (dialog.ShowDialog(this) == true) await ImportSettingsFileAsync(dialog.FileName);
         }
         catch (Exception ex) { SetStatus("Import failed: " + ex.Message, true); }
@@ -73,7 +73,7 @@ public sealed partial class MainWindow
         RefreshDevices(); var devices = outputs.Concat(inputs).ToList();
         var imported = SettingsTransfer.ReadFile(path, Preferences, devices);
         var backup = await SettingsTransfer.ApplyAsync(store, imported, devices);
-        Preferences = imported.Settings; RegisterShortcuts(); RefreshDevices();
+        Preferences = imported.Settings; ThemePalette.Apply(Preferences.Theme); RegisterShortcuts(); RefreshDevices();
         var details = new List<string>
         {
             "Imported from " + imported.Source + ": " + Preferences.Outputs.Count + " playback choices, " + Preferences.Inputs.Count + " recording choices.",
@@ -81,7 +81,7 @@ public sealed partial class MainWindow
             "Previous settings: " + backup
         };
         details.AddRange(imported.Warnings);
-        if (hotkeyErrors.Count > 0) details.Add("A shortcut is still reserved by another app. Quit SoundSwitch or release its shortcut; SonarShift retries automatically.");
+        if (hotkeyErrors.Count > 0) details.Add("A shortcut is still reserved by another app. Quit SoundSwitch or release its shortcut; SignalShift retries automatically.");
         transferMessage = string.Join("\n", details); Navigate("Settings");
         SetStatus(hotkeyErrors.Count > 0 ? "Settings imported. Quit SoundSwitch to free the imported shortcuts." : "Settings imported successfully", hotkeyErrors.Count > 0);
     }

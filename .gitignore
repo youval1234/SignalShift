@@ -8,3 +8,7 @@ dist/
 diagnostics*.json
 settings.json
 *.tmp
+
+Camera/Native/packages/
+Camera/Native/obj*/
+Camera/Native/CameraExpectedHash.h

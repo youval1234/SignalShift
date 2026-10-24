@@ -18,6 +18,10 @@ internal sealed class BackgroundHost : Forms.ApplicationContext
     private readonly KeyWindow keys = new();
     private readonly Forms.NotifyIcon tray;
     private readonly AudioService audio = new();
+    private readonly CameraRuntime camera = new();
+    private string? cameraError;
+    private int cameraSwitchesPending;
+    private bool changingCamera;
     private readonly SettingsStore store = new();
     private Settings settings;
     private IReadOnlyList<AudioDevice> outputs = Array.Empty<AudioDevice>(), inputs = Array.Empty<AudioDevice>();
@@ -40,9 +44,10 @@ internal sealed class BackgroundHost : Forms.ApplicationContext
         _ = dispatch.Handle;
         Directory.CreateDirectory(SettingsStore.DirectoryPath);
         settings = store.Load();
+        feedback.SetTheme(settings.Theme);
         if (Environment.GetEnvironmentVariable("SONARSHIFT_TEST_DATA") == null) StartupRegistration.InitializeAsync().GetAwaiter().GetResult();
         using var icon = typeof(BackgroundHost).Assembly.GetManifestResourceStream("SonarShift.TrayIcon")!;
-        tray = new Forms.NotifyIcon { Icon = new System.Drawing.Icon(icon), Text = "SonarShift", Visible = true };
+        tray = new Forms.NotifyIcon { Icon = new System.Drawing.Icon(icon), Text = "SignalShift", Visible = true };
         tray.DoubleClick += (_, _) => ShowInterface();
         refresh.Tick += (_, _) => { refresh.Stop(); Refresh(); };
         retry.Tick += (_, _) => RegisterKeys();
@@ -58,6 +63,7 @@ internal sealed class BackgroundHost : Forms.ApplicationContext
             settings.Initialized = true; store.Save(settings);
         }
         RegisterKeys();
+        ApplyCamera();
         try { notifications = new AudioDeviceNotifications(() => Post(QueueRefresh)); }
         catch { fallback.Start(); }
         _ = HostConnection.ListenAsync(command =>
@@ -76,7 +82,7 @@ internal sealed class BackgroundHost : Forms.ApplicationContext
     private void QueueRefresh() { if (!refresh.Enabled) refresh.Start(); }
     private void FileChanged(string? name)
     {
-        if (name == "settings.json") Post(() => { settings = store.Load(); if (!settings.Notifications) feedback.Dismiss(); if (!settings.HotkeySounds) feedback.CancelSound(); RegisterKeys(); QueueRefresh(); });
+        if (name == "settings.json") Post(() => { settings = store.Load(); feedback.SetTheme(settings.Theme); if (!settings.Notifications) feedback.Dismiss(); if (!settings.HotkeySounds) feedback.CancelSound(); RegisterKeys(); ApplyCamera(); QueueRefresh(); });
         else if (name == "show.signal") Post(() => { try { File.Delete(Path.Combine(SettingsStore.DirectoryPath, "show.signal")); } catch (IOException) { } ShowInterface(); });
     }
     private string Command(string command)
@@ -87,7 +93,7 @@ internal sealed class BackgroundHost : Forms.ApplicationContext
             var root = request.RootElement;
             if (root.GetProperty("action").GetString() == "notification" && settings.Notifications)
             {
-                var title = root.GetProperty("title").GetString() ?? "SonarShift";
+                var title = root.GetProperty("title").GetString() ?? "SignalShift";
                 var message = root.GetProperty("message").GetString() ?? "";
                 var value = root.GetProperty("flow");
                 feedback.Present(title[..Math.Min(120, title.Length)], message[..Math.Min(2048, message.Length)], value.ValueKind == JsonValueKind.Null ? null : (AudioFlow)value.GetInt32());
@@ -97,14 +103,15 @@ internal sealed class BackgroundHost : Forms.ApplicationContext
         {
             case "show": ShowInterface(); break;
             case "quit": _ = Task.Delay(100).ContinueWith(_ => Post(ExitThread)); break;
-            case "reload": settings = store.Load(); RegisterKeys(); Refresh(); break;
+            case "reload": settings = store.Load(); feedback.SetTheme(settings.Theme); RegisterKeys(); ApplyCamera(); Refresh(); break;
+            case "camera-next": CycleCamera(); break;
             case "resume": RegisterKeys(); break;
             case "close-interface": if (ui != null && !ui.HasExited) { ui.Refresh(); Native.PostMessage(ui.MainWindowHandle, 0x8003, IntPtr.Zero, IntPtr.Zero); } break;
             case "test-switch-stress-long": if (Environment.GetEnvironmentVariable("SONARSHIFT_TEST_DATA") != null) _ = Task.Delay(100).ContinueWith(_ => Post(() => File.WriteAllText(Path.Combine(SettingsStore.DirectoryPath, "stress-report.json"), SwitchAllocationProbe(10000)))); break;
             case "test-switch-stress": if (Environment.GetEnvironmentVariable("SONARSHIFT_TEST_DATA") != null) _ = Task.Delay(100).ContinueWith(_ => Post(() => File.WriteAllText(Path.Combine(SettingsStore.DirectoryPath, "stress-report.json"), SwitchAllocationProbe()))); break;
             case "test-notification": if (Environment.GetEnvironmentVariable("SONARSHIFT_TEST_DATA") != null) feedback.Present("Output switched", "Diagnostic speaker", AudioFlow.Output); break;
         }
-        return JsonSerializer.Serialize(new { pid = Environment.ProcessId, interfaceRunning = ui != null && !ui.HasExited, interfacePid = ui != null && !ui.HasExited ? ui.Id : 0, conflicts, refreshes = RefreshCount, eventDriven = notifications != null });
+        return JsonSerializer.Serialize(new { pid = Environment.ProcessId, interfaceRunning = ui != null && !ui.HasExited, interfacePid = ui != null && !ui.HasExited ? ui.Id : 0, conflicts, refreshes = RefreshCount, testHotkeyWindow = Environment.GetEnvironmentVariable("SONARSHIFT_TEST_DATA") != null ? keys.Handle.ToInt64() : 0, theme = settings.Theme, wpfLoaded = AppDomain.CurrentDomain.GetAssemblies().Any(a => a.GetName().Name == "PresentationFramework"), cameraEnabled = settings.CameraEnabled, cameraError, eventDriven = notifications != null });
     }
     // Synthetic allocation probe: never changes Windows defaults or reads user settings.
     // Available only to an isolated test instance, not the normal desktop host.
@@ -144,7 +151,7 @@ internal sealed class BackgroundHost : Forms.ApplicationContext
         {
             ui = Process.Start(launch) ?? throw new IOException("Could not open settings.");
             ui.EnableRaisingEvents = true;
-            ui.Exited += (_, _) => Post(() => { settings = store.Load(); RegisterKeys(); QueueRefresh(); });
+            ui.Exited += (_, _) => Post(() => { settings = store.Load(); RegisterKeys(); ApplyCamera(); QueueRefresh(); });
         }
         catch { ui = null; RegisterKeys(); throw; }
     }
@@ -156,7 +163,7 @@ internal sealed class BackgroundHost : Forms.ApplicationContext
             outputs = audio.Enumerate(AudioFlow.Output); inputs = audio.Enumerate(AudioFlow.Input);
             UpdateTray();
         }
-        catch (Exception ex) { tray.Text = ("SonarShift: " + ex.Message)[..Math.Min(63, ("SonarShift: " + ex.Message).Length)]; }
+        catch (Exception ex) { tray.Text = ("SignalShift: " + ex.Message)[..Math.Min(63, ("SignalShift: " + ex.Message).Length)]; }
     }
     private void RegisterKeys()
     {
@@ -167,11 +174,48 @@ internal sealed class BackgroundHost : Forms.ApplicationContext
             void Add(int id, bool enabled, Shortcut shortcut, string name, Action action) { if (enabled && !keys.Register(id, shortcut, action)) conflicts.Add(name); }
             Add(1, settings.OutputHotkeyEnabled, settings.OutputShortcut, "output", () => Cycle(AudioFlow.Output, true));
             Add(2, settings.InputHotkeyEnabled, settings.InputShortcut, "input", () => Cycle(AudioFlow.Input, true));
+            Add(3, settings.ThemeHotkeyEnabled, settings.ThemeShortcut, "appearance", ToggleTheme);
+            Add(4, settings.CameraEnabled && settings.CameraHotkeyEnabled, settings.CameraShortcut, "camera", CycleCamera);
             var id = 10;
             foreach (var profile in settings.Profiles) if (profile.Hotkey != null) Add(id++, true, profile.Hotkey, profile.Name, () => ActivateProfile(profile, true));
         }
         if (conflicts.Count != 0) retry.Start();
-        tray.Text = conflicts.Count == 0 ? "SonarShift · Your sound, one shortcut away" : "SonarShift · Shortcut needs attention";
+        tray.Text = conflicts.Count == 0 ? "SignalShift · Your sound, one shortcut away" : "SignalShift · Shortcut needs attention";
+    }
+    private async void ApplyCamera()
+    {
+        try { await camera.ApplyAsync(settings); cameraError = null; }
+        catch (Exception ex) { cameraError = ex.Message; feedback.Present("Camera needs attention", ex.Message, null); }
+    }
+    private async void CycleCamera()
+    {
+        if (!settings.CameraEnabled) { feedback.Present("Camera is off", "Enable SignalShift Camera on the Cameras page first.", null); return; }
+        cameraSwitchesPending++;
+        if (changingCamera) return;
+        changingCamera = true;
+        try {
+            while (cameraSwitchesPending > 0) {
+                var devices = await camera.DevicesAsync();
+                var steps = cameraSwitchesPending; cameraSwitchesPending = 0;
+                CameraDevice? selected = null;
+                for (var i=0; i<steps; i++) {
+                    selected = CameraSelection.Next(devices, settings);
+                    if (selected == null) throw new InvalidOperationException("Select at least one connected webcam on the Cameras page.");
+                    settings.CurrentCameraId = selected.Id;
+                }
+                store.Save(settings); await camera.ApplyAsync(settings); cameraError = null;
+                if (ui != null && !ui.HasExited) { ui.Refresh(); Native.PostMessage(ui.MainWindowHandle, 0x8004, IntPtr.Zero, IntPtr.Zero); }
+                if (selected != null && settings.Notifications) feedback.Present("Camera selected", selected.Name, null);
+                if (settings.HotkeySounds) feedback.Play(AudioFlow.Input);
+            }
+        } catch (Exception ex) { cameraSwitchesPending = 0; cameraError = ex.Message; feedback.Present("Could not select camera", ex.Message, null); }
+        finally { changingCamera = false; }
+    }
+    private void ToggleTheme()
+    {
+        settings.Theme = settings.Theme == "Dark" ? "Light" : "Dark";
+        store.Save(settings); feedback.SetTheme(settings.Theme);
+        if (settings.Notifications) feedback.Present("Appearance changed", settings.Theme + " mode", null);
     }
     private void UpdateTray()
     {
@@ -184,7 +228,7 @@ internal sealed class BackgroundHost : Forms.ApplicationContext
         }
         menuIdentity = identity;
         trayDevices.Clear();
-        var menu = new Forms.ContextMenuStrip(); menu.Items.Add("Open SonarShift", null, (_, _) => ShowInterface()); menu.Items.Add(new Forms.ToolStripSeparator());
+        var menu = new Forms.ContextMenuStrip(); menu.Items.Add("Open SignalShift", null, (_, _) => ShowInterface()); menu.Items.Add(new Forms.ToolStripSeparator());
         foreach (var flow in new[] { AudioFlow.Output, AudioFlow.Input })
         {
             var group = new Forms.ToolStripMenuItem(flow == AudioFlow.Output ? "Playback" : "Recording");
@@ -193,7 +237,7 @@ internal sealed class BackgroundHost : Forms.ApplicationContext
         }
         menu.Items.Add("Next output", null, (_, _) => Cycle(AudioFlow.Output, false)); menu.Items.Add("Next input", null, (_, _) => Cycle(AudioFlow.Input, false));
         if (settings.Profiles.Count > 0) { var group = new Forms.ToolStripMenuItem("Profiles"); foreach (var profile in settings.Profiles) group.DropDownItems.Add(profile.Name, null, (_, _) => ActivateProfile(profile, false)); menu.Items.Add(group); }
-        menu.Items.Add(new Forms.ToolStripSeparator()); menu.Items.Add("Quit SonarShift", null, (_, _) => ExitThread());
+        menu.Items.Add(new Forms.ToolStripSeparator()); menu.Items.Add("Quit SignalShift", null, (_, _) => ExitThread());
         var old = tray.ContextMenuStrip; tray.ContextMenuStrip = menu; old?.Dispose();
     }
     private IReadOnlyList<AudioDevice> Devices(AudioFlow flow) => flow == AudioFlow.Output ? outputs : inputs;
@@ -243,7 +287,7 @@ internal sealed class BackgroundHost : Forms.ApplicationContext
     {
         if (closing) return;
         closing = true; stop.Cancel(); keys.Clear(); notifications?.Dispose(); files.Dispose(); refresh.Dispose(); retry.Dispose(); fallback.Dispose();
-        feedback.Dispose(); tray.Visible = false; tray.ContextMenuStrip?.Dispose(); tray.Icon?.Dispose(); tray.Dispose(); keys.Destroy(); dispatch.Dispose();
+        camera.Dispose(); feedback.Dispose(); tray.Visible = false; tray.ContextMenuStrip?.Dispose(); tray.Icon?.Dispose(); tray.Dispose(); keys.Destroy(); dispatch.Dispose();
         if (ui != null && !ui.HasExited) Native.PostMessage(ui.MainWindowHandle, 0x8002, IntPtr.Zero, IntPtr.Zero);
         ui?.Dispose(); stop.Dispose(); base.ExitThreadCore();
     }

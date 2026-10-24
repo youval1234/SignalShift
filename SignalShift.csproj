@@ -9,11 +9,11 @@
     <ImplicitUsings>disable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <ApplicationIcon>Assets\SonarShift.ico</ApplicationIcon>
-    <AssemblyName>SonarShift</AssemblyName>
-    <Version>1.5.1</Version>
-    <Product>SonarShift</Product>
-    <Description>A quieter way to switch your sound.</Description>
-    <Company>SonarShift</Company>
+    <AssemblyName>SignalShift</AssemblyName>
+    <Version>2.0.0</Version>
+    <Product>SignalShift</Product>
+    <Description>Audio, cameras and appearance, one shortcut away.</Description>
+    <Company>SignalShift</Company>
     <DebugType Condition="'$(Configuration)' == 'Release'">none</DebugType>
     <PublishSingleFile>true</PublishSingleFile>
     <SelfContained>true</SelfContained>

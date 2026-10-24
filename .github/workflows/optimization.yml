@@ -37,11 +37,11 @@ jobs:
         shell: pwsh
         working-directory: app
         run: |
-          dotnet publish SonarShift.csproj -c Release -r win-x64 --self-contained true -o ../optimized-output
+          dotnet publish SignalShift.csproj -c Release -r win-x64 --self-contained true -o ../optimized-output
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          dotnet publish SonarShift.csproj -c Release -r win-x64 --self-contained true -p:EnableCompressionInSingleFile=true -o ../compact-output
+          dotnet publish SignalShift.csproj -c Release -r win-x64 --self-contained true -p:EnableCompressionInSingleFile=true -o ../compact-output
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          dotnet publish SonarShift.csproj -c Release -r win-x64 --self-contained false -p:PublishSingleFile=false -p:EnableCompressionInSingleFile=false -o ../framework-output
+          dotnet publish SignalShift.csproj -c Release -r win-x64 --self-contained false -p:PublishSingleFile=false -p:EnableCompressionInSingleFile=false -o ../framework-output
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           $files = Get-ChildItem ../framework-output -Recurse -File
           [pscustomobject]@{ frameworkDependentBytes=($files | Measure-Object Length -Sum).Sum; files=@($files | Select-Object Name,Length) } | ConvertTo-Json -Depth 4 | Set-Content ../framework-size.json
@@ -64,19 +64,19 @@ jobs:
         shell: pwsh
         run: |
           $report = Join-Path $PWD 'diagnostics.json'
-          $process = Start-Process -FilePath optimized-output/SonarShift.exe -ArgumentList @('--diagnostics','--headless','--report',('"' + $report + '"')) -PassThru
+          $process = Start-Process -FilePath optimized-output/SignalShift.exe -ArgumentList @('--diagnostics','--headless','--report',('"' + $report + '"')) -PassThru
           if (!$process.WaitForExit(60000)) { throw 'Diagnostics timed out.' }
           $result = Get-Content -LiteralPath $report -Raw | ConvertFrom-Json
           $result.checks | Where-Object test | Format-Table test,passed
           if ($process.ExitCode -ne 0 -or !$result.success) { throw ($result | ConvertTo-Json -Depth 6) }
       - name: Measure footprint and verify background/UI lifecycle
         shell: pwsh
-        run: ./app/tools/Test-Optimization.ps1 -OptimizedExe ./optimized-output/SonarShift.exe -BaselineExe ./baseline-output/SonarShift.exe -ReportDirectory ./performance -SampleSeconds 20
+        run: ./app/tools/Test-Optimization.ps1 -OptimizedExe ./optimized-output/SignalShift.exe -BaselineExe ./baseline-output/SonarShift.exe -ReportDirectory ./performance -SampleSeconds 20
       - name: Compare combined host and interface memory with and without bundle compression
         shell: pwsh
         run: |
-          ./app/tools/Measure-InterfaceFootprint.ps1 -Executable ./compact-output/SonarShift.exe -ReportPath ./performance/interface-compact.json -SampleSeconds 10
-          ./app/tools/Measure-InterfaceFootprint.ps1 -Executable ./optimized-output/SonarShift.exe -ReportPath ./performance/interface-default.json -SampleSeconds 10
+          ./app/tools/Measure-InterfaceFootprint.ps1 -Executable ./compact-output/SignalShift.exe -ReportPath ./performance/interface-compact.json -SampleSeconds 10
+          ./app/tools/Measure-InterfaceFootprint.ps1 -Executable ./optimized-output/SignalShift.exe -ReportPath ./performance/interface-default.json -SampleSeconds 10
       - uses: actions/upload-artifact@v7
         if: always()
         with:

@@ -22,6 +22,53 @@ public static class Diagnostics
             catch (Exception ex) { failed = true; report.Add(new { test = name, passed = false, error = ex.ToString() }); }
         }
         void Require(bool condition, string message) { if (!condition) throw new InvalidOperationException(message); }
+        if (Environment.GetEnvironmentVariable("SONARSHIFT_TEST_DATA") != null) Check("Occupied IPC channel yields and cancels without blocking startup", () =>
+        {
+            var suffix = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(SettingsStore.DirectoryPath)))[..16];
+            using var occupied = new System.IO.Pipes.NamedPipeServerStream("SonarShift-" + suffix, System.IO.Pipes.PipeDirection.InOut, 1, System.IO.Pipes.PipeTransmissionMode.Byte, System.IO.Pipes.PipeOptions.Asynchronous | System.IO.Pipes.PipeOptions.CurrentUserOnly);
+            using var stop = new System.Threading.CancellationTokenSource();
+            var watch = System.Diagnostics.Stopwatch.StartNew();
+            var listener = HostConnection.ListenAsync(_ => System.Threading.Tasks.Task.FromResult("{}"), stop.Token);
+            try { Require(watch.ElapsedMilliseconds < 1000 && !listener.IsCompleted, "Listener blocked or stopped on a transient collision"); }
+            finally { stop.Cancel(); Require(listener.Wait(2000), "Listener did not cancel promptly"); }
+        });
+        Check("Legacy settings migrate without enabling new shortcuts or camera capture", () =>
+        {
+            var legacy = new Settings();
+            var json = JsonNode.Parse(JsonSerializer.Serialize(legacy))!.AsObject();
+            foreach (var key in new[] { "Theme", "ThemeShortcut", "ThemeHotkeyEnabled", "Cameras", "CurrentCameraId", "CameraEnabled", "CameraShortcut", "CameraHotkeyEnabled" }) json.Remove(key);
+            var loaded = SettingsTransfer.Parse(json.ToJsonString(), new Settings(), Array.Empty<AudioDevice>()).Settings;
+            Require(loaded.Theme == "Dark" && !loaded.ThemeHotkeyEnabled && !loaded.CameraEnabled && !loaded.CameraHotkeyEnabled, "New capabilities were opted into during migration");
+        });
+        Check("Appearance and camera settings roundtrip through Notepad exports with conflict validation", () =>
+        {
+            var settings = new Settings { Theme = "Light", ThemeHotkeyEnabled = true, CameraEnabled = true, CameraHotkeyEnabled = true, Cameras = new() { "camera-a", "camera-b" }, CurrentCameraId = "camera-b" };
+            var exported = SettingsTransfer.Export(settings, Array.Empty<AudioDevice>(), false);
+            var loaded = SettingsTransfer.Parse(exported, new Settings(), Array.Empty<AudioDevice>()).Settings;
+            Require(loaded.Theme == "Light" && loaded.ThemeHotkeyEnabled && loaded.CameraEnabled && loaded.Cameras.SetEquals(settings.Cameras) && loaded.CurrentCameraId == "camera-b", "New choices were lost");
+            settings.CameraShortcut = settings.ThemeShortcut;
+            var rejected = false; try { SettingsTransfer.Validate(settings); } catch (InvalidDataException) { rejected = true; }
+            Require(rejected, "Duplicate appearance/camera shortcut was accepted");
+            foreach (var name in new[] { "SonarShift settings", "Sonora settings" }) Require(SettingsTransfer.Parse(exported.Replace("SignalShift settings", name), new Settings(), Array.Empty<AudioDevice>()).Settings.Theme == "Light", "Legacy branded export rejected");
+        });
+        Check("Webcam cycle skips disconnected and unchecked devices and wraps", () =>
+        {
+            var devices = new[] { new CameraDevice("a", "A"), new CameraDevice("b", "B"), new CameraDevice("c", "C") };
+            var settings = new Settings { Cameras = new() { "a", "c", "unplugged" }, CurrentCameraId = "a" };
+            Require(CameraSelection.Next(devices, settings)?.Id == "c", "Did not skip unchecked webcam");
+            settings.CurrentCameraId = "c"; Require(CameraSelection.Next(devices, settings)?.Id == "a", "Did not wrap");
+            settings.Cameras.Clear(); Require(CameraSelection.Next(devices, settings) == null, "Empty cycle was not a no-op");
+        });
+        Check("Live appearance changes recolor existing text, backgrounds and templates", () =>
+        {
+            ThemePalette.Apply("Dark");
+            var background = ThemePalette.Get("#0D0F15"); var text = ThemePalette.Get("#F4F4FA"); var dark = background.Color;
+            ThemePalette.Apply("Light");
+            Require(ReferenceEquals(background, ThemePalette.Get("#0D0F15")) && background.Color != dark, "Existing surfaces did not update");
+            Require(background.Color.R > text.Color.R, "Light text contrast is inverted");
+            Require(Application.Current.FindResource("Theme_222632") is System.Windows.Media.Brush, "Button template palette is missing");
+            ThemePalette.Apply("Dark"); Require(background.Color == dark, "Dark appearance was not restored");
+        });
         var audio = new AudioService();
         Check("Core Audio notification registration releases its callback without polling", () =>
         {
@@ -45,7 +92,7 @@ public static class Diagnostics
         });
         Check("Settings roundtrip and corrupt-file recovery preserve a backup", () =>
         {
-            var directory = Path.Combine(Path.GetTempPath(), "SonarShiftTest-" + Guid.NewGuid().ToString("N"));
+            var directory = Path.Combine(Path.GetTempPath(), "SignalShiftTest-" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(directory);
             try
             {
@@ -57,8 +104,8 @@ public static class Diagnostics
         });
         Check("Windows global hotkey registration detects conflicts and releases reservations", () =>
         {
-            using var first = new HwndSource(new HwndSourceParameters("SonarShiftDiagnostics1") { Width = 0, Height = 0, WindowStyle = 0 });
-            using var second = new HwndSource(new HwndSourceParameters("SonarShiftDiagnostics2") { Width = 0, Height = 0, WindowStyle = 0 });
+            using var first = new HwndSource(new HwndSourceParameters("SignalShiftDiagnostics1") { Width = 0, Height = 0, WindowStyle = 0 });
+            using var second = new HwndSource(new HwndSourceParameters("SignalShiftDiagnostics2") { Width = 0, Height = 0, WindowStyle = 0 });
             using var a = new HotkeyService(first.Handle); using var b = new HotkeyService(second.Handle);
             var key = new Shortcut(7, 0x87, "Ctrl + Alt + Shift + F24");
             Require(a.Register(1, key, () => { }), "Could not register diagnostic shortcut"); Require(!b.Register(1, key, () => { }), "Conflicting shortcut was accepted");
@@ -67,7 +114,7 @@ public static class Diagnostics
         });
         Check("Notepad text export restores all preferences, profiles, Unicode names and startup choice", () =>
         {
-            var directory = Path.Combine(Path.GetTempPath(), "SonarShiftTransfer-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(directory);
+            var directory = Path.Combine(Path.GetTempPath(), "SignalShiftTransfer-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(directory);
             try
             {
                 var devices = new[] { new AudioDevice("speaker", "Speakers — שולחן", AudioFlow.Output, true, false), new AudioDevice("mic", "Microphone α", AudioFlow.Input, true, false) };
@@ -78,10 +125,10 @@ public static class Diagnostics
                 var restored = SettingsTransfer.ReadFile(path, new Settings(), devices);
                 Require(JsonSerializer.Serialize(restored.Settings) == JsonSerializer.Serialize(original), "An exported preference or profile was lost");
                 Require(restored.StartWithWindows == false && restored.Warnings.Count == 0, "Startup choice or device mapping was lost");
-                var oldExport = File.ReadAllText(path).Replace("SonarShift settings", "Sonora settings", StringComparison.Ordinal);
+                var oldExport = File.ReadAllText(path).Replace("SignalShift settings", "Sonora settings", StringComparison.Ordinal);
                 var oldRestored = SettingsTransfer.Parse(oldExport, new Settings(), devices);
                 Require(JsonSerializer.Serialize(oldRestored.Settings) == JsonSerializer.Serialize(original), "Legacy Sonora exports must preserve every setting after rebranding");
-                Require(SettingsStore.DirectoryPath == Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Sonora"), "Rebranding must not strand the existing settings folder");
+                Require(SettingsStore.DirectoryPath == (Environment.GetEnvironmentVariable("SONARSHIFT_TEST_DATA") is string isolated ? Path.GetFullPath(isolated) : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Sonora")), "Rebranding must preserve legacy data and explicit test isolation");
                 var legacy = JsonNode.Parse(JsonSerializer.Serialize(original))!.AsObject(); legacy.Remove("HotkeySounds");
                 Require(SettingsTransfer.Parse(legacy.ToJsonString(), new Settings(), devices).Settings.HotkeySounds, "Existing exports must enable confirmation sounds by default");
             }
@@ -92,7 +139,7 @@ public static class Diagnostics
             var devices = new[] { new AudioDevice("new-output", "Sonar Gaming", AudioFlow.Output, true, false), new AudioDevice("new-input", "Sonar Microphone", AudioFlow.Input, true, false), new AudioDevice("wrong-direction", "Sonar Gaming", AudioFlow.Input, false, false) };
             var fixture = JsonSerializer.Serialize(new { SelectedDevices = new[] { new { Id = "old-output", Name = "Sonar Gaming", Type = 0 }, new { Id = "old-input", Name = "Sonar Microphone", Type = 1 }, new { Id = "offline", Name = "Unplugged headphones", Type = 0 } },
                 PlaybackHotKey = new { Keys = 9, Modifier = 2, Enabled = true }, RecordingHotKey = new { Keys = 118, Modifier = 3, Enabled = false }, ChangeCommunications = false, SwitchDeviceNotification = 2 });
-            var current = new Settings { Profiles = new() { new AudioProfile { Name = "Keep my SonarShift profile", OutputId = "new-output" } } }; var before = JsonSerializer.Serialize(current);
+            var current = new Settings { Profiles = new() { new AudioProfile { Name = "Keep my SignalShift profile", OutputId = "new-output" } } }; var before = JsonSerializer.Serialize(current);
             var result = SettingsTransfer.Parse(fixture, current, devices);
             Require(result.Settings.Outputs.SetEquals(new[] { "new-output", "offline" }) && result.Settings.Inputs.SetEquals(new[] { "new-input" }), "Endpoint IDs were not remapped correctly");
             Require(result.Settings.OutputShortcut.Label == "Ctrl + Tab" && result.Settings.InputShortcut.Label == "Ctrl + Alt + F7", "SoundSwitch shortcuts were not converted correctly");
@@ -106,7 +153,7 @@ public static class Diagnostics
         {
             var current = new Settings(); var before = JsonSerializer.Serialize(current);
             var duplicate = SettingsTransfer.Clone(current); duplicate.InputShortcut = duplicate.OutputShortcut;
-            foreach (var invalid in new[] { "{broken", "{}", "null", "{\"Format\":\"SonarShift settings\",\"FormatVersion\":999}", "{\"SchemaVersion\":1}", JsonSerializer.Serialize(duplicate) })
+            foreach (var invalid in new[] { "{broken", "{}", "null", "{\"Format\":\"SignalShift settings\",\"FormatVersion\":999}", "{\"SchemaVersion\":1}", JsonSerializer.Serialize(duplicate) })
             {
                 var rejected = false; try { SettingsTransfer.Parse(invalid, current, Array.Empty<AudioDevice>()); } catch (InvalidDataException) { rejected = true; }
                 Require(rejected, "An invalid settings file was accepted: " + invalid);
@@ -115,7 +162,7 @@ public static class Diagnostics
         });
         Check("Applying an import makes a restorable text backup before replacing the settings", () =>
         {
-            var directory = Path.Combine(Path.GetTempPath(), "SonarShiftBackup-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(directory);
+            var directory = Path.Combine(Path.GetTempPath(), "SignalShiftBackup-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(directory);
             try
             {
                 var store = new SettingsStore(Path.Combine(directory, "settings.json")); var original = new Settings { Notifications = false }; store.Save(original);
