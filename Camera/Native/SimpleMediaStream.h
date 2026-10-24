@@ -7,6 +7,7 @@
 
 #include "SimpleMediaSource.h"
 #include "VirtualCameraMediaSource.h"
+#include "FrameCadence.h"
 
 namespace winrt::WindowsSample::implementation
 {
@@ -54,6 +55,7 @@ namespace winrt::WindowsSample::implementation
         _Requires_lock_held_(m_Lock) HRESULT StopInternal(bool bSendEvent);
 
         std::wstring m_config;
+        FrameCadence m_cadence;
         winrt::slim_mutex  m_Lock;
 
         wil::com_ptr_nothrow<IMFMediaSource> m_parent;

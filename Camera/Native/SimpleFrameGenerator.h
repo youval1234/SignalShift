@@ -1,5 +1,6 @@
 // SignalShift physical-camera frame adapter. Native, capture only while streaming.
 #pragma once
+#include "AsyncCameraRead.h"
 class SimpleFrameGenerator
 {
 public:
@@ -15,6 +16,8 @@ private:
     ULONGLONG m_lastConfig = 0, m_retry = 0;
     wil::com_ptr_nothrow<IMFMediaSource> m_source;
     wil::com_ptr_nothrow<IMFSourceReader> m_reader;
+    std::shared_ptr<AsyncCameraRead> m_async;
     wil::com_ptr_nothrow<IMFMediaType> m_type;
     UINT32 m_width = 0, m_height = 0;
+    LONG m_sourcePitch = 0;
 };

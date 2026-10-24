@@ -187,6 +187,9 @@ namespace winrt::WindowsSample::implementation
             RETURN_HR_MSG(MF_E_INVALIDREQUEST, "Stream is not in running state, state:%d, selected: %d", m_streamState, m_bSelected);
         }
 
+        // Physical reads are asynchronous. Pace output explicitly so consumers
+        // cannot drive a busy loop when a camera is slow, unplugged or absent.
+        m_cadence.Wait();
         RETURN_IF_FAILED(m_spSampleAllocator->AllocateSample(&sample));
         RETURN_IF_FAILED(sample->GetBufferByIndex(0, &outputBuffer));
         RETURN_IF_FAILED(outputBuffer->QueryInterface(IID_PPV_ARGS(&buffer2D)));
@@ -206,6 +209,7 @@ namespace winrt::WindowsSample::implementation
 
         RETURN_IF_FAILED(sample->SetSampleTime(MFGetSystemTime()));
         RETURN_IF_FAILED(sample->SetSampleDuration(333333));
+        m_cadence.Delivered();
         if (pToken != nullptr)
         {
             RETURN_IF_FAILED(sample->SetUnknown(MFSampleExtension_Token, pToken));
@@ -237,6 +241,7 @@ namespace winrt::WindowsSample::implementation
             {
                 return MF_E_INVALID_STATE_TRANSITION;
             }
+            m_cadence.Reset();
             m_spFrameGenerator.reset();
             if (m_spSampleAllocator) m_spSampleAllocator->UninitializeSampleAllocator();
             m_streamState = MF_STREAM_STATE_PAUSED;
@@ -309,6 +314,7 @@ namespace winrt::WindowsSample::implementation
     HRESULT SimpleMediaStream::Shutdown()
     {
         winrt::slim_lock_guard lock(m_Lock);
+        m_cadence.Reset();
 
         m_bIsShutdown = true;
         m_parent.reset();
@@ -450,6 +456,7 @@ namespace winrt::WindowsSample::implementation
     _Requires_lock_held_(m_Lock)
     HRESULT SimpleMediaStream::StopInternal(bool bSendEvent)
     {
+        m_cadence.Reset();
         // Set stream state
         m_streamState = MF_STREAM_STATE_STOPPED;
 
