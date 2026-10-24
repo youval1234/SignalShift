@@ -50,9 +50,9 @@ it because Camera Frame Server runs in that account. It stores a selected device
 not video or credentials. Old exported audio settings remain importable. Cross-PC
 camera IDs may differ; reselect cameras on the destination PC.
 
-The existing Store package identity and pending 1.4 certification remain untouched.
-This elevated portable setup is not part of a Microsoft Store update. A Store-compatible
-registration/packaging path must be validated before camera support ships there.
+Distribution is through GitHub. The Microsoft Store submission and product entry
+have been removed; no Store camera package is planned. See the
+[Windows trust guide](../docs/windows-trust.md) for unsigned-build limitations.
 
 ## Build
 
@@ -68,3 +68,5 @@ asynchronous read backpressure, timeout, late/stale samples, error/format transi
 fixture exercises the actual asynchronous Media Foundation callback wiring without
 opening cameras or playing audio. Frame pacing and timer cleanup are tested too.
 These checks do not establish webcam negotiation or Discord/OBS compatibility.
+Control-request checks also verify invalid pointers/buffer sizes are rejected and
+requests after shutdown return an error without accessing released streams.

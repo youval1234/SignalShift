@@ -97,12 +97,31 @@ bool TestCadence()
     puts("PASS: paced virtual output without busy polling; timer released on reset.");
     return true;
 }
+bool TestControlLifetime()
+{
+    auto source=winrt::make_self<winrt::WindowsSample::implementation::SimpleMediaSource>();
+    if (FAILED(source->Initialize(nullptr))) return false;
+    KSPROPERTY property{}; property.Set=PROPSETID_SIMPLEMEDIASOURCE_CUSTOMCONTROL;
+    property.Id=KSPROPERTY_SIMPLEMEDIASOURCE_CUSTOMCONTROL_COLORING; property.Flags=KSPROPERTY_TYPE_GET;
+    KSPROPERTY_SIMPLEMEDIASOURCE_CUSTOMCONTROL_COLORMODE_S value{}; ULONG returned=99;
+    if (source->KsProperty(nullptr,sizeof(property),&value,sizeof(value),&returned)!=E_POINTER || returned!=0) return false;
+    if (source->KsProperty(&property,sizeof(property),&value,sizeof(value),nullptr)!=E_POINTER) return false;
+    if (source->KsProperty(&property,sizeof(property)-1,&value,sizeof(value),&returned)!=E_INVALIDARG) return false;
+    if (source->KsProperty(&property,sizeof(property),nullptr,0,&returned)!=HRESULT_FROM_WIN32(ERROR_MORE_DATA) || returned!=sizeof(value)) return false;
+    if (source->KsProperty(&property,sizeof(property),&value,sizeof(value)-1,&returned)!=HRESULT_FROM_WIN32(ERROR_INSUFFICIENT_BUFFER)) return false;
+    if (FAILED(source->KsProperty(&property,sizeof(property),&value,sizeof(value),&returned)) || returned!=sizeof(value)) return false;
+    if (FAILED(source->Shutdown())) return false;
+    if (source->KsProperty(&property,sizeof(property),&value,sizeof(value),&returned)!=MF_E_SHUTDOWN) return false;
+    puts("PASS: camera control pointer/buffer validation, valid GET and shutdown rejection; no capture or registration.");
+    return true;
+}
 int wmain()
 {
     auto hr=CoInitializeEx(nullptr,COINIT_MULTITHREADED); if (FAILED(hr)) return 1;
     auto apartment=wil::scope_exit([] { CoUninitialize(); });
     hr=MFStartup(MF_VERSION); if (FAILED(hr)) return 2;
     auto shutdown=wil::scope_exit([] { MFShutdown(); });
+    if (!TestControlLifetime()) { puts("FAIL: camera control lifetime"); return 16; }
     wil::com_ptr_nothrow<IMFMediaType> type;
     if (FAILED(MFCreateMediaType(&type))) return 3;
     type->SetGUID(MF_MT_MAJOR_TYPE,MFMediaType_Video); type->SetGUID(MF_MT_SUBTYPE,MFVideoFormat_NV12);
