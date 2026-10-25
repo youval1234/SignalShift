@@ -41,7 +41,7 @@ public partial class App : Application
         {
             var path = e.Args.SkipWhile(a => a != "--export-notification-preview").Skip(1).First();
             using var preview = new SwitchNotification();
-            preview.SetContent("Output switched", "SteelSeries Sonar — Aux", AudioFlow.Output);
+            preview.SetContent("Output switched", "Desktop speakers", AudioFlow.Output);
             var surface = (FrameworkElement)preview.Content;
             surface.Measure(new Size(preview.Width, preview.Height));
             surface.Arrange(new Rect(0, 0, preview.Width, preview.Height)); surface.UpdateLayout();

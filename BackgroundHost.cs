@@ -269,7 +269,7 @@ internal sealed class BackgroundHost : Forms.ApplicationContext
             var muted = microphoneMute.Toggle() == MicrophoneMuteState.Muted;
             UpdateMicrophoneMuteMenu();
             if (settings.HotkeySounds) feedback.Play(muted ? AudioFlow.Input : AudioFlow.Output);
-            if (settings.Notifications) feedback.Present(muted ? "Microphone muted" : "Microphone live", muted ? "Your default microphones are muted" : "Your default microphones are ready", AudioFlow.Input);
+            if (settings.Notifications) feedback.Present("Microphone", muted ? "Microphone muted" : "Microphone live", AudioFlow.Input);
             return true;
         }
         catch (Exception ex) { feedback.Present("Could not mute microphone", ex.Message, AudioFlow.Input); return false; }

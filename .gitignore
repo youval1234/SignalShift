@@ -8,3 +8,13 @@ dist/
 diagnostics*.json
 settings.json
 *.tmp
+*.path
+*.cueprofile
+*.cuecfg
+*.bundle
+*.pfx
+*.pem
+*.key
+/private/
+/local-tools/
+/local-backups/

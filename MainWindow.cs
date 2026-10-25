@@ -22,6 +22,7 @@ public sealed partial class MainWindow : Window
     private string? activeProfileId;
     private readonly AudioService audio = new();
     private readonly MicrophoneMuteService microphoneMute;
+    private readonly bool useDemoDevices;
     private readonly SettingsStore store = new();
     private readonly SoundCueService soundCues = new();
     private SwitchNotification? switchNotification;
@@ -57,8 +58,9 @@ public sealed partial class MainWindow : Window
 
     public MainWindow(bool previewMode = false, string? previewTheme = null, string previewPage = "Devices")
     {
+        useDemoDevices = previewMode;
         microphoneMute = new(QueueDeviceRefresh);
-        Preferences = store.Load();
+        Preferences = previewMode ? PreviewPreferences() : store.Load();
         if (previewMode && previewTheme is "Dark" or "Light") Preferences.Theme = previewTheme;
         soundCues.PlaybackFailed += ex => SetStatus("Confirmation sound unavailable: " + ex.Message, true);
         Title = "SignalShift — Your sound, one shortcut away";
@@ -130,7 +132,7 @@ public sealed partial class MainWindow : Window
         bottom.Children.Add(Text("ALWAYS WITHIN REACH", 10, Muted, FontWeights.SemiBold));
         var trayLine = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 12, 0, 20) };
         trayLine.Children.Add(Text("●  ", 12, Mint)); trayLine.Children.Add(trayStatus); bottom.Children.Add(trayLine);
-        bottom.Children.Add(Text("SIGNALSHIFT  /  2.3", 10, Brush("#5D637B")));
+        bottom.Children.Add(Text("SIGNALSHIFT  /  2.3.1", 10, Brush("#5D637B")));
         Grid.SetRow(bottom, 2); sidebar.Children.Add(bottom); shell.Children.Add(sidebar);
         var main = new Grid(); Grid.SetColumn(main, 1);
         main.RowDefinitions.Add(new RowDefinition { Height = new GridLength(44) });
@@ -148,7 +150,7 @@ public sealed partial class MainWindow : Window
     }
     private void Navigate(string name)
     {
-        if (name == "Devices") microphoneMute.Refresh();
+        if (name == "Devices" && !useDemoDevices) microphoneMute.Refresh();
         currentPage = name; rows = null; microphoneMuteButton = null; microphoneMuteLabel = null; page.Children.Clear(); navigation.Children.Clear();
         navigation.Children.Add(Text("WORKSPACE", 10, Muted, FontWeights.SemiBold));
         foreach (var item in new[] { ("Devices", "\uE7F4"), ("Shortcuts", "\uE765"), ("Profiles", "\uE8A9"), ("Settings", "\uE713") })
@@ -421,7 +423,7 @@ public sealed partial class MainWindow : Window
         preferences.Children.Add(startup);
         Option("Open in the tray", "Keep the main window hidden when SignalShift starts.", Preferences.StartMinimized, v => Preferences.StartMinimized = v);
         page.Children.Add(Card(preferences, 25));
-        var about = new StackPanel { Margin = new Thickness(0, 25, 0, 0) }; about.Children.Add(Text("SIGNALSHIFT 2.3", 11, Purple, FontWeights.SemiBold)); about.Children.Add(new TextBlock { Text = "Native Windows audio switching. No account, no ads, no telemetry.\nYour preferences stay on this computer.", Foreground = Muted, FontSize = 13, LineHeight = 24, Margin = new Thickness(0, 10, 0, 15) });
+        var about = new StackPanel { Margin = new Thickness(0, 25, 0, 0) }; about.Children.Add(Text("SIGNALSHIFT 2.3.1", 11, Purple, FontWeights.SemiBold)); about.Children.Add(new TextBlock { Text = "Native Windows audio switching. No account, no ads, no telemetry.\nYour preferences stay on this computer.", Foreground = Muted, FontSize = 13, LineHeight = 24, Margin = new Thickness(0, 10, 0, 15) });
         var line = new StackPanel { Orientation = Orientation.Horizontal }; line.Children.Add(Button("Open settings folder", () => Process.Start(new ProcessStartInfo("explorer.exe", SettingsStore.DirectoryPath) { UseShellExecute = true })));
         var licenses = Button("Third-party licenses", () =>
         {
@@ -473,7 +475,11 @@ public sealed partial class MainWindow : Window
     {
         var snapshot = new List<(string?, int)>(); foreach (var f in new[] { AudioFlow.Output, AudioFlow.Input }) foreach (var role in new[] { 0, 1, 2 }) snapshot.Add((audio.GetDefaultId(f, role), role)); return snapshot;
     }
-    private void RefreshDevices() { outputs = audio.Enumerate(AudioFlow.Output); inputs = audio.Enumerate(AudioFlow.Input); microphoneMute.Refresh(); UpdateMicrophoneMuteVisuals(); UpdateTray(); }
+    private void RefreshDevices()
+    {
+        if (useDemoDevices) { LoadPreviewDevices(); return; }
+        outputs = audio.Enumerate(AudioFlow.Output); inputs = audio.Enumerate(AudioFlow.Input); microphoneMute.Refresh(); UpdateMicrophoneMuteVisuals(); UpdateTray();
+    }
     private IReadOnlyList<AudioDevice> Devices(AudioFlow f) => f == AudioFlow.Output ? outputs : inputs;
     private HashSet<string> Selected(AudioFlow f) => f == AudioFlow.Output ? Preferences.Outputs : Preferences.Inputs;
     private void RegisterShortcuts()
@@ -569,7 +575,7 @@ public sealed partial class MainWindow : Window
         catch (Exception ex) { SetStatus("Waiting for Windows audio: " + ex.Message, true); }
     }
     private void Quit() { quitting = true; Close(); }
-    private void Save() { store.Save(Preferences); if (Program.IsInterface) HostConnection.TrySend("reload"); UpdateTray(); }
+    private void Save() { if (useDemoDevices && Environment.GetEnvironmentVariable("SONARSHIFT_TEST_DATA") == null) return; store.Save(Preferences); if (Program.IsInterface) HostConnection.TrySend("reload"); UpdateTray(); }
     private void SetStatus(string text, bool error = false) { status.Text = (error ? "!  " : "●  ") + text; status.Foreground = error ? Brush("#F0B68A") : Muted; status.ToolTip = text; }
     private static string DeviceName(string? id, IReadOnlyList<AudioDevice> devices) => id == null ? "Leave unchanged" : devices.FirstOrDefault(d => d.Id == id)?.Title ?? "Disconnected device";
     private static bool IsStartupEnabled() => StartupRegistration.IsEnabled();

@@ -25,7 +25,7 @@ public sealed partial class MainWindow
     private void UpdateMicrophoneMuteVisuals()
     {
         if (microphoneMuteButton == null || microphoneMuteLabel == null) return;
-        var state = microphoneMute.State;
+        var state = useDemoDevices ? MicrophoneMuteState.Live : microphoneMute.State;
         microphoneMuteButton.Content = state == MicrophoneMuteState.Muted ? "Unmute microphone" : "Mute microphone";
         microphoneMuteButton.IsEnabled = state != MicrophoneMuteState.Unavailable;
         microphoneMuteLabel.Text = state switch { MicrophoneMuteState.Muted => "●  Muted", MicrophoneMuteState.Live => "●  Live", MicrophoneMuteState.Mixed => "●  Mixed", _ => "Unavailable" };
@@ -34,6 +34,7 @@ public sealed partial class MainWindow
     }
     private void ToggleMicrophoneMute()
     {
+        if (useDemoDevices) return;
         try
         {
             if (Program.IsInterface)
@@ -46,7 +47,7 @@ public sealed partial class MainWindow
             {
                 var muted = microphoneMute.Toggle() == MicrophoneMuteState.Muted;
                 if (Preferences.HotkeySounds) soundCues.Play(muted ? AudioFlow.Input : AudioFlow.Output);
-                Notify(muted ? "Microphone muted" : "Microphone live", muted ? "Your default microphones are muted" : "Your default microphones are ready");
+                Notify("Microphone", muted ? "Microphone muted" : "Microphone live");
             }
             microphoneMute.Refresh(); UpdateMicrophoneMuteVisuals();
             SetStatus(microphoneMute.State == MicrophoneMuteState.Muted ? "Microphone muted" : "Microphone live");

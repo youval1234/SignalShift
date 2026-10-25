@@ -1,26 +1,28 @@
-# SonarShift 1.4.0 — in preparation
+# SignalShift release notes
 
-- Rename Sonora to **SonarShift** throughout the app, tray, popup, executable, build and signing workflows, documentation and GitHub repository.
-- Preserve existing Sonora settings, device choices, profiles, shortcuts and export compatibility. Carry a previous portable startup opt-in over to SonarShift.exe.
-- Historical releases below retain their original Sonora names and assets. No signed 1.4.0 release is published yet.
+## 2.3.1
 
-Sonora 1.3 makes switching feedback immediate and more comfortable.
+- Microphone feedback uses the exact messages **Microphone muted** and **Microphone live**.
+- Public screenshots use sample devices and profiles.
+- Documentation focuses on the audio application and its supported controls.
 
-- Windows tray balloons are replaced by a compact Sonora popup. Repeated hotkeys immediately replace its device name and restart the timeout instead of queuing delayed notifications.
-- The popup appears near the bottom of the active display, supports display scaling, stays out of Alt+Tab and the taskbar, and passes clicks through without stealing focus.
-- Successful playback, recording and profile hotkeys now play a warm 230 ms pluck with a rounded attack and smooth decay. Distinct input and output cues use lower notes than the previous chimes.
-- Fast hotkeys cancel pending and playing cues so sound feedback does not build up. Playback still waits briefly for Windows to finish switching audio routing.
-- Sound feedback is enabled by default and can be disabled in Settings, independently of visual notifications. Preview buttons let you hear both sounds.
-- Failed switches and empty cycles do not play a success sound. A shortcut with one selected device still confirms that the device is selected.
-- The preference survives Notepad export/import; older settings files enable sounds by default.
-- Sounds are original generated PCM assets embedded in the portable executable, with no extra downloads or dependencies.
+## 2.3
 
-Download **Sonora.exe** and launch it. The x64 executable includes its .NET runtime and needs no installer or administrator access. It is unsigned. Keep it in a permanent folder before enabling startup.
+- Add microphone mute through the app, tray, configurable hotkey and optional fixed
+  command-line action.
+- Read actual Windows endpoint state and follow external changes through callbacks.
+- Preserve speaker volume/mute, microphone gain and default-device choices.
 
-Default keys: **Ctrl + Alt + F11** for output, **Ctrl + Alt + F10** for input. Change them on the Shortcuts page. Release a shortcut in SoundSwitch first if you want to reuse it in Sonora.
+## 2.2
 
-Validation includes a burst of 50 popup replacements, expiry reset, updates during fading, focus preservation and no stale messages reappearing. It also includes decoding both embedded audio assets, checking their duration and quiet peak levels, and preserving the sound preference through settings export/import and older files, alongside the existing diagnostics.
+- Add sidebar light/dark control and remove the theme hotkey.
+- Add output samples and temporary five-second microphone playback tests.
+- Fix device-test interoperability with the live audio-device watcher in 2.2.1.
 
-`SHA256SUMS.txt` contains the SHA-256 of Sonora.exe. The full source, icon assets, build script, and Windows build workflow are in this repository.
+## 2.1
 
-SoundSwitch migration reads its configuration without changing it. It imports supported device cycling settings; SoundSwitch's microphone-mute shortcut, profiles/automation, per-app rules, and banner styling are not transferred. Existing Sonora profiles are preserved.
+- Add whole-profile cycling, skipping disconnected setups and preserving individual
+  profile shortcuts.
+- Improve settings reload recovery after transient file locks.
+
+See GitHub Releases for earlier device-switching, settings portability and feedback updates.

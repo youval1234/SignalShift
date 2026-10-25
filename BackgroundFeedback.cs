@@ -63,6 +63,7 @@ internal sealed class BackgroundFeedback : IDisposable
         private Size regionSize;
         private float regionScale;
         private string title = "", message = "", glyph = "";
+        private bool microphoneFeedback;
         internal string CurrentMessage => message;
         internal int ActivationCount { get; private set; }
         protected override bool ShowWithoutActivation => true;
@@ -95,8 +96,9 @@ internal sealed class BackgroundFeedback : IDisposable
         internal void Present(string caption, string device, AudioFlow? flow)
         {
             title = caption.ToUpperInvariant(); message = device; glyph = flow == AudioFlow.Output ? "\uE7F5" : flow == AudioFlow.Input ? "\uE720" : "\uE8A9";
-            accent.Color = caption == "Microphone muted" ? (light ? Color.FromArgb(192, 49, 76) : Color.FromArgb(255, 99, 120))
-                : caption == "Microphone live" ? (light ? Color.FromArgb(23, 111, 88) : Color.FromArgb(92, 230, 162))
+            microphoneFeedback = caption == "Microphone" && device is "Microphone muted" or "Microphone live";
+            accent.Color = microphoneFeedback && device == "Microphone muted" ? (light ? Color.FromArgb(192, 49, 76) : Color.FromArgb(255, 99, 120))
+                : microphoneFeedback ? (light ? Color.FromArgb(23, 111, 88) : Color.FromArgb(92, 230, 162))
                 : light ? Color.FromArgb(105, 80, 199) : Color.FromArgb(184, 163, 255);
             AccessibleName = caption + ": " + device;
             elapsed.Restart(); Opacity = 1;
@@ -118,7 +120,7 @@ internal sealed class BackgroundFeedback : IDisposable
         internal void Dismiss() { animation.Stop(); Hide(); elapsed.Reset(); Opacity = 1; }
         internal void Export(string path)
         {
-            title = "OUTPUT SWITCHED"; message = "SteelSeries Sonar — Aux"; glyph = "\uE7F5"; Size = new Size(384, 102);
+            title = "OUTPUT SWITCHED"; message = "Desktop speakers"; glyph = "\uE7F5"; Size = new Size(384, 102);
             using var image = new Bitmap(Width, Height); DrawToBitmap(image, new Rectangle(0, 0, Width, Height));
             image.Save(path, System.Drawing.Imaging.ImageFormat.Png);
         }
@@ -134,7 +136,7 @@ internal sealed class BackgroundFeedback : IDisposable
             g.DrawString("SIGNALSHIFT", brand, muted, new PointF(304, 20));
             g.DrawString(message, text, foreground, new RectangleF(76, 39, 288, 40), format);
             g.FillRectangle(track, 76, 80, 288, 2);
-            g.FillRectangle(title is "MICROPHONE MUTED" or "MICROPHONE LIVE" ? accent : mint, 76, 80, (float)(288 * Math.Max(0, 1 - elapsed.ElapsedMilliseconds / 1600.0)), 2);
+            g.FillRectangle(microphoneFeedback ? accent : mint, 76, 80, (float)(288 * Math.Max(0, 1 - elapsed.ElapsedMilliseconds / 1600.0)), 2);
         }
         private static GraphicsPath Rounded(RectangleF rect, float radius)
         {
