@@ -80,34 +80,43 @@ public sealed partial class MainWindow : Window
         void InitializeAudioUi()
         {
             if (hostExiting || backgroundClose || quitting) return;
-            RefreshDevices();
-            StartupTrace.Mark("devices-ready");
-            if (!Preferences.Initialized)
+            try
             {
-                foreach (var d in outputs.Where(d => d.IsDefault)) Preferences.Outputs.Add(d.Id);
-                foreach (var d in inputs.Where(d => d.IsDefault)) Preferences.Inputs.Add(d.Id);
-                Preferences.Initialized = true; Save();
-            }
-            if (!previewMode)
-            {
-                if (!Program.IsInterface) SetupTray();
-                RegisterShortcuts();
-                try { deviceNotifications = new AudioDeviceNotifications(QueueDeviceRefresh); }
-                catch { timer.Interval = TimeSpan.FromSeconds(30); }
-                timer.Tick += (_, _) => Tick();
-                // The timer is only needed when audio callbacks are unavailable or a shortcut conflicts.
-                if (deviceNotifications == null || hotkeyErrors.Count > 0) timer.Start();
-                if (!Program.IsInterface)
+                RefreshDevices();
+                StartupTrace.Mark("devices-ready");
+                if (!Preferences.Initialized)
                 {
-                    signalWatcher = new FileSystemWatcher(SettingsStore.DirectoryPath, "show.signal") { EnableRaisingEvents = true };
-                    signalWatcher.Created += (_, _) => Dispatcher.BeginInvoke(new Action(ShowWindow));
+                    foreach (var d in outputs.Where(d => d.IsDefault)) Preferences.Outputs.Add(d.Id);
+                    foreach (var d in inputs.Where(d => d.IsDefault)) Preferences.Inputs.Add(d.Id);
+                    Preferences.Initialized = true; Save();
                 }
+                if (!previewMode)
+                {
+                    if (!Program.IsInterface) SetupTray();
+                    RegisterShortcuts();
+                    try { deviceNotifications = new AudioDeviceNotifications(QueueDeviceRefresh); }
+                    catch { timer.Interval = TimeSpan.FromSeconds(30); }
+                    timer.Tick += (_, _) => Tick();
+                    // The timer is only needed when audio callbacks are unavailable or a shortcut conflicts.
+                    if (deviceNotifications == null || hotkeyErrors.Count > 0) timer.Start();
+                    if (!Program.IsInterface)
+                    {
+                        signalWatcher = new FileSystemWatcher(SettingsStore.DirectoryPath, "show.signal") { EnableRaisingEvents = true };
+                        signalWatcher.Created += (_, _) => Dispatcher.BeginInvoke(new Action(ShowWindow));
+                    }
+                }
+                Navigate(previewMode ? previewPage : "Devices");
+                audioUiReady = true;
+                StartupTrace.Mark("page-ready");
+                if (themeToggle != null) themeToggle.IsEnabled = true;
+                if (hotkeyErrors.Count == 0) SetStatus("Ready when you are");
             }
-            Navigate(previewMode ? previewPage : "Devices");
-            audioUiReady = true;
-            StartupTrace.Mark("page-ready");
-            if (themeToggle != null) themeToggle.IsEnabled = true;
-            if (hotkeyErrors.Count == 0) SetStatus("Ready when you are");
+            catch (Exception ex)
+            {
+                StartupTrace.Mark("startup-error");
+                MessageBox.Show(this, "Audio controls could not finish loading. Your settings are preserved.\n\n" + ex.Message, "SignalShift", MessageBoxButton.OK, MessageBoxImage.Information);
+                backgroundClose = true; quitting = !Program.IsInterface; Close();
+            }
         }
         SourceInitialized += (_, _) =>
         {
