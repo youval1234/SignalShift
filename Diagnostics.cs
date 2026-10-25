@@ -23,6 +23,21 @@ public static class Diagnostics
         }
         void Require(bool condition, string message) { if (!condition) throw new InvalidOperationException(message); }
         UpdaterChecks.Run(Check, Require);
+        if (Environment.GetEnvironmentVariable("SONARSHIFT_TEST_DATA") != null) Check("Second launch shows the window with one IPC request before requesting updates", () =>
+        {
+            using var mutex = new System.Threading.Mutex(true, HostConnection.InstanceMutex, out var owner);
+            Require(owner, "Startup test instance already exists");
+            using var stop = new System.Threading.CancellationTokenSource();
+            var commands = new System.Collections.Concurrent.ConcurrentQueue<string>();
+            var listener = HostConnection.ListenAsync(command => { commands.Enqueue(command); return System.Threading.Tasks.Task.FromResult("{}"); }, stop.Token);
+            try
+            {
+                using var client = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(Environment.ProcessPath!) { UseShellExecute = false, CreateNoWindow = true })!;
+                Require(client.WaitForExit(10000) && client.ExitCode == 0, "Second launch did not complete");
+                Require(commands.Count == 1 && commands.TryPeek(out var first) && first == "show-launch", "Window display waited for an extra update-check request");
+            }
+            finally { stop.Cancel(); listener.GetAwaiter().GetResult(); mutex.ReleaseMutex(); }
+        });
         if (Environment.GetEnvironmentVariable("SONARSHIFT_TEST_DATA") != null) Check("Microphone command sends one toggle and rejects legacy or failed hosts without retrying", () =>
         {
             foreach (var scenario in new[] { "success", "legacy", "failure" })

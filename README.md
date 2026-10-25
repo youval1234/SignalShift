@@ -5,8 +5,8 @@
 SignalShift is a portable Windows audio switcher with global shortcuts, saved audio
 profiles, microphone mute, dark/light themes and a lightweight system tray.
 
-**[Download the Windows x64 preview](https://github.com/youval1234/SignalShift/releases/tag/preview-2.4.2)**.
-The self-contained EXE needs no separate .NET runtime. Previews are unsigned;
+**[Download the Windows x64 release](https://github.com/youval1234/SignalShift/releases/tag/v2.4.3)**.
+The self-contained EXE needs no separate .NET runtime. Releases are currently unsigned;
 see the [Windows trust guide](docs/windows-trust.md).
 
 | Dark | Light |
@@ -30,7 +30,7 @@ Screenshots use sample devices and profiles.
 - **Device tests:** play a sample through a chosen output, or record five seconds
   and hear your microphone through a chosen playback device. Clips remain in memory
   and are discarded when the test closes.
-- **Automatic updates:** launch checks download newer releases from this repository, verify SHA-256 and executable metadata, then replace the portable EXE and restart. Settings includes an opt-out and a manual check. Preview builds follow preview releases.
+- **Automatic updates:** launch checks download newer releases from this repository, verify SHA-256 and executable metadata, then replace the portable EXE and restart. Settings includes an opt-out and a manual check. Updates follow published regular releases.
 - **Responsive interface:** short hover, press and page transitions respect Windows animation preferences.
 - **Light and dark themes:** switch with the sidebar button or choose in Settings.
 - **Readable backups:** import/export Notepad `.txt` settings and migrate supported
@@ -54,7 +54,7 @@ keyboard-shortcut switch.
 ## Install and update
 
 Download **SignalShift.exe** and **SHA256SUMS.txt** from the
-[release page](https://github.com/youval1234/SignalShift/releases/tag/preview-2.4.2).
+[release page](https://github.com/youval1234/SignalShift/releases/tag/v2.4.3).
 Quit the previous instance from its tray menu before replacing the EXE. Keep it in
 a permanent location if you enable startup. Existing preferences are preserved.
 From 2.4 onward, automatic launch checks can install newer verified downloads and
@@ -98,7 +98,7 @@ cycling, mute command handling, theme controls, bounded test clips, notification
 reuse, settings lock recovery and IPC. Hardware-specific tests restore original
 states. Automated checks do not establish compatibility with every audio driver.
 
-[Release notes](docs/release-2.4.2.md) · [Memory measurements](docs/performance-1.5.md) ·
+[Release notes](docs/release-2.4.3.md) · [Memory measurements](docs/performance-1.5.md) ·
 [Switch allocation results](docs/performance-switching.md).
 Historical measurements are workload-specific, not guarantees for every machine.
 

@@ -1,5 +1,14 @@
 # SignalShift release notes
 
+## 2.4.3
+
+- Start the settings process alongside tray initialization.
+- Draw the window before loading audio-device controls.
+- Combine second-launch display and update requests, with bounded IPC waits.
+- Publish current 2.4.x versions and future versions as regular releases.
+
+[Details and measurements](docs/release-2.4.3.md).
+
 ## 2.4.2
 
 - Show the executable version beneath the app name with improved contrast.

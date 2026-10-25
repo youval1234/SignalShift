@@ -39,6 +39,7 @@ jobs:
           Remove-Item Env:SONARSHIFT_TEST_DATA
           ./tools/Test-RetiredThemeHotkey.ps1 -Executable ./dist/SignalShift.exe -ReportPath ./dist/retired-theme-hotkey-report.json
           ./tools/Test-SettingsReload.ps1 -Executable ./dist/SignalShift.exe -ReportPath ./dist/settings-reload-report.json
+          ./tools/Measure-Startup.ps1 -Executable ./dist/SignalShift.exe -ReportDirectory ./dist/startup-checks -Samples 2
       - name: Test release source and signature guards
         run: ./tools/Test-ReleaseAutomation.ps1 -ExePath dist/SignalShift.exe
         shell: pwsh
@@ -68,3 +69,4 @@ jobs:
             dist/retired-theme-hotkey-report.json
             dist/settings-reload-report.json
             dist/preview-*.png
+            dist/startup-checks/samples.json

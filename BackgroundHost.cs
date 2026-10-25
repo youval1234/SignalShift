@@ -43,6 +43,7 @@ internal sealed class BackgroundHost : Forms.ApplicationContext
 
     internal BackgroundHost(bool startInTray, bool checkUpdates = true, bool forceInterface = false)
     {
+        StartupTrace.Mark("host-start");
         microphoneMute = new(() => Post(QueueRefresh));
         _ = dispatch.Handle;
         Directory.CreateDirectory(SettingsStore.DirectoryPath);
@@ -59,6 +60,7 @@ internal sealed class BackgroundHost : Forms.ApplicationContext
         files = new FileSystemWatcher(SettingsStore.DirectoryPath) { NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite };
         files.Changed += (_, e) => FileChanged(e.Name); files.Created += (_, e) => FileChanged(e.Name); files.Renamed += (_, e) => FileChanged(e.Name);
         files.EnableRaisingEvents = true;
+        if (!startInTray && (!settings.StartMinimized || forceInterface)) ShowInterface();
         Refresh();
         if (!settings.Initialized)
         {
@@ -66,7 +68,8 @@ internal sealed class BackgroundHost : Forms.ApplicationContext
             foreach (var device in inputs.Where(d => d.IsDefault)) settings.Inputs.Add(device.Id);
             settings.Initialized = true; store.Save(settings);
         }
-        RegisterKeys();
+        StartupTrace.Mark("host-audio-ready");
+        if (ui == null || ui.HasExited) RegisterKeys();
         try { notifications = new AudioDeviceNotifications(() => Post(QueueRefresh)); }
         catch { fallback.Start(); }
         _ = HostConnection.ListenAsync(command =>
@@ -75,7 +78,7 @@ internal sealed class BackgroundHost : Forms.ApplicationContext
             Post(() => { try { completion.TrySetResult(Command(command)); } catch (Exception ex) { completion.TrySetResult(JsonSerializer.Serialize(new { error = ex.Message })); } });
             return completion.Task;
         }, stop.Token);
-        if (!startInTray && (!settings.StartMinimized || forceInterface)) ShowInterface();
+        StartupTrace.Mark("host-ready");
         if (checkUpdates) Post(CheckUpdates);
     }
     private void CheckUpdates() => CheckUpdates(false);
@@ -128,7 +131,7 @@ internal sealed class BackgroundHost : Forms.ApplicationContext
     private void FileChanged(string? name)
     {
         if (name == "settings.json") Post(QueueSettingsReload);
-        else if (name == "show.signal") Post(() => { try { File.Delete(Path.Combine(SettingsStore.DirectoryPath, "show.signal")); } catch (IOException) { } ShowInterface(); });
+        else if (name == "show.signal") Post(() => { try { File.Delete(Path.Combine(SettingsStore.DirectoryPath, "show.signal")); } catch (IOException) { } ShowInterface(); CheckUpdates(); });
     }
     private string Command(string command)
     {
@@ -155,6 +158,7 @@ internal sealed class BackgroundHost : Forms.ApplicationContext
                 var result = ToggleMicrophoneMute();
                 return JsonSerializer.Serialize(new { success = result, microphoneMute = microphoneMute.State.ToString(), error = result ? null : microphoneMute.Error ?? "Could not change microphone mute." });
             case "show": ShowInterface(); break;
+            case "show-launch": ShowInterface(); Post(CheckUpdates); break;
             case "quit": _ = Task.Delay(100).ContinueWith(_ => Post(ExitThread)); break;
             case "reload": settings = store.Load(); feedback.SetTheme(settings.Theme); RegisterKeys(); Refresh(); break;
             case "profile-next": CycleProfiles(); break;

@@ -1,0 +1,55 @@
+{
+  "method": "Five sequential process launches per build on the same Windows PC with isolated settings, real audio-device enumeration and update checks disabled. Stopwatch spans process start through WPF ContentRendered and populated page. OS caches were not cleared; not a reboot benchmark. Diagnostic trace instrumentation is present in both builds.",
+  "baseline": [
+    {
+      "firstFrameMs": 984.5931,
+      "pageReadyMs": 916.9488
+    },
+    {
+      "firstFrameMs": 916.7284,
+      "pageReadyMs": 856.2357
+    },
+    {
+      "firstFrameMs": 928.2366,
+      "pageReadyMs": 857.5709
+    },
+    {
+      "firstFrameMs": 932.4,
+      "pageReadyMs": 859.5689
+    },
+    {
+      "firstFrameMs": 941.4703,
+      "pageReadyMs": 851.4873
+    }
+  ],
+  "optimized": [
+    {
+      "firstFrameMs": 1633.5397,
+      "pageReadyMs": 1699.161
+    },
+    {
+      "firstFrameMs": 732.2412,
+      "pageReadyMs": 798.1321
+    },
+    {
+      "firstFrameMs": 722.6313,
+      "pageReadyMs": 787.8681
+    },
+    {
+      "firstFrameMs": 744.2581,
+      "pageReadyMs": 810.6541
+    },
+    {
+      "firstFrameMs": 725.472,
+      "pageReadyMs": 789.3646
+    }
+  ],
+  "baselineMedian": {
+    "firstFrameMs": 932.4,
+    "pageReadyMs": 857.57
+  },
+  "optimizedMedian": {
+    "firstFrameMs": 732.24,
+    "pageReadyMs": 798.13
+  }
+}

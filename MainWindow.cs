@@ -51,6 +51,7 @@ public sealed partial class MainWindow : Window
     private TextBlock? cycleCount;
     private bool quitting;
     private bool paused;
+    private bool audioUiReady;
     private DateTime lastShortcutRetry = DateTime.MinValue;
     private static readonly Brush Muted = Brush("#9297AC");
     private static readonly Brush Mint = Brush("#8BE2C5");
@@ -58,6 +59,7 @@ public sealed partial class MainWindow : Window
 
     public MainWindow(bool previewMode = false, string? previewTheme = null, string previewPage = "Devices")
     {
+        StartupTrace.Mark("window-start");
         useDemoDevices = previewMode;
         microphoneMute = new(QueueDeviceRefresh);
         Preferences = previewMode ? PreviewPreferences() : store.Load();
@@ -74,11 +76,12 @@ public sealed partial class MainWindow : Window
         Icon = BitmapFrame.Create(new Uri("pack://application:,,,/Assets/SonarShift.png"));
         WindowChrome.SetWindowChrome(this, new WindowChrome { CaptionHeight = 44, CornerRadius = new CornerRadius(12), GlassFrameThickness = new Thickness(0), ResizeBorderThickness = new Thickness(6) });
         BuildShell();
-        SourceInitialized += (_, _) =>
+        StartupTrace.Mark("shell-ready");
+        void InitializeAudioUi()
         {
-            InitializeWorkAreaBounds();
-            if (!previewMode) hotkeys = new(new WindowInteropHelper(this).Handle);
+            if (hostExiting || backgroundClose || quitting) return;
             RefreshDevices();
+            StartupTrace.Mark("devices-ready");
             if (!Preferences.Initialized)
             {
                 foreach (var d in outputs.Where(d => d.IsDefault)) Preferences.Outputs.Add(d.Id);
@@ -89,14 +92,6 @@ public sealed partial class MainWindow : Window
             {
                 if (!Program.IsInterface) SetupTray();
                 RegisterShortcuts();
-                var source = HwndSource.FromHwnd(new WindowInteropHelper(this).Handle)!;
-                source.AddHook((IntPtr hwnd, int message, IntPtr wParam, IntPtr lParam, ref bool handled) =>
-                {
-                    if (message == 0x8001) { ShowWindow(); handled = true; }
-                    if (message == 0x8002) { hostExiting = true; quitting = true; Close(); handled = true; }
-                    if (message == 0x8003) { backgroundClose = true; Close(); handled = true; }
-                    return IntPtr.Zero;
-                });
                 try { deviceNotifications = new AudioDeviceNotifications(QueueDeviceRefresh); }
                 catch { timer.Interval = TimeSpan.FromSeconds(30); }
                 timer.Tick += (_, _) => Tick();
@@ -109,6 +104,39 @@ public sealed partial class MainWindow : Window
                 }
             }
             Navigate(previewMode ? previewPage : "Devices");
+            audioUiReady = true;
+            StartupTrace.Mark("page-ready");
+            if (themeToggle != null) themeToggle.IsEnabled = true;
+            if (hotkeyErrors.Count == 0) SetStatus("Ready when you are");
+        }
+        SourceInitialized += (_, _) =>
+        {
+            InitializeWorkAreaBounds();
+            if (!previewMode) hotkeys = new(new WindowInteropHelper(this).Handle);
+            if (!previewMode)
+            {
+                var source = HwndSource.FromHwnd(new WindowInteropHelper(this).Handle)!;
+                source.AddHook((IntPtr hwnd, int message, IntPtr wParam, IntPtr lParam, ref bool handled) =>
+                {
+                    if (message == 0x8001) { ShowWindow(); handled = true; }
+                    if (message == 0x8002) { hostExiting = true; quitting = true; Close(); handled = true; }
+                    if (message == 0x8003) { backgroundClose = true; Close(); handled = true; }
+                    return IntPtr.Zero;
+                });
+            }
+            if (previewMode) InitializeAudioUi();
+            else
+            {
+                if (themeToggle != null) themeToggle.IsEnabled = false;
+                Navigate("Devices", loading: true);
+                EventHandler? rendered = null;
+                rendered = (_, _) =>
+                {
+                    ContentRendered -= rendered;
+                    _ = Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(InitializeAudioUi));
+                };
+                ContentRendered += rendered;
+            }
         };
         Closing += OnClosing;
         StateChanged += (_, _) => { if (WindowState == WindowState.Minimized) MinimizeToTray(); };
@@ -152,9 +180,9 @@ public sealed partial class MainWindow : Window
         var footer = new Border { BorderBrush = Brush("#20232E"), BorderThickness = new Thickness(0, 1, 0, 0), Padding = new Thickness(36, 10, 36, 0), Child = status };
         Grid.SetRow(footer, 2); main.Children.Add(footer); shell.Children.Add(main); Content = shell;
     }
-    private void Navigate(string name)
+    private void Navigate(string name, bool loading = false)
     {
-        if (name == "Devices" && !useDemoDevices) microphoneMute.Refresh();
+        if (!loading && name == "Devices" && !useDemoDevices) microphoneMute.Refresh();
         currentPage = name; rows = null; microphoneMuteButton = null; microphoneMuteLabel = null; page.Children.Clear(); navigation.Children.Clear(); profileRows.Clear();
         navigation.Children.Add(Text("WORKSPACE", 10, Muted, FontWeights.SemiBold));
         foreach (var item in new[] { ("Devices", "\uE7F4"), ("Shortcuts", "\uE765"), ("Profiles", "\uE8A9"), ("Settings", "\uE713") })
@@ -164,8 +192,9 @@ public sealed partial class MainWindow : Window
             content.Children.Add(new TextBlock { Text = item.Item1, Margin = new Thickness(13, 0, 0, 0), FontSize = 14, Foreground = item.Item1 == name ? Brush("#E1D7FF") : Muted });
             var b = Button(content, () => Navigate(item.Item1)); b.HorizontalContentAlignment = HorizontalAlignment.Left; b.Padding = new Thickness(16, 13, 16, 13); b.Margin = new Thickness(0, 9, 0, 0); b.BorderThickness = new Thickness(0); b.Background = item.Item1 == name ? Brush("#29223F") : Brushes.Transparent;
             // The template centers its presenter; fixed width content keeps navigation aligned.
-            content.Width = 135; navigation.Children.Add(b);
+            content.Width = 135; b.IsEnabled = !loading; navigation.Children.Add(b);
         }
+        if (loading) { Heading("YOUR AUDIO, SIMPLIFIED", "Make yourself heard.", "Loading your audio devices…"); SetStatus("Starting audio controls…"); return; }
         switch (name) { case "Devices": BuildDevices(); break; case "Shortcuts": BuildShortcuts(); break; case "Profiles": BuildProfiles(); break; default: BuildSettings(); break; }
         if (!useDemoDevices) Motion.Enter(page);
     }
@@ -554,7 +583,7 @@ public sealed partial class MainWindow : Window
         try { (switchNotification ??= new SwitchNotification()).Present(title, text, flow); }
         catch (Exception ex) { SetStatus("Switch confirmation unavailable: " + ex.Message, true); }
     }
-    private void ShowWindow() { Show(); if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal; Activate(); RefreshDevices(); Navigate(currentPage); }
+    private void ShowWindow() { Show(); if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal; Activate(); if (audioUiReady) { RefreshDevices(); Navigate(currentPage); } }
     private void MinimizeToTray() { if (Program.IsInterface) { backgroundClose = true; Close(); } else Hide(); }
     private bool backgroundClose;
     private void OnClosing(object? sender, CancelEventArgs e)

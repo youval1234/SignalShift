@@ -13,6 +13,7 @@ public static class Program
     [STAThread]
     public static void Main(string[] args)
     {
+        StartupTrace.Mark("entry");
         try
         {
             if (args.Contains("--apply-update"))
@@ -47,9 +48,8 @@ public static class Program
             using var instance = new Mutex(true, HostConnection.InstanceMutex, out var first);
             if (!first)
             {
-                if (!args.Contains("--updated")) HostConnection.TrySend("check-update");
-                if (args.Contains("--tray")) return;
-                try { HostConnection.Send("show"); }
+                if (args.Contains("--tray")) { if (!args.Contains("--updated")) HostConnection.TrySend("check-update"); return; }
+                try { HostConnection.Send(args.Contains("--updated") ? "show" : "show-launch", 500); }
                 catch { Directory.CreateDirectory(SettingsStore.DirectoryPath); File.WriteAllText(Path.Combine(SettingsStore.DirectoryPath, "show.signal"), DateTime.UtcNow.ToString("O")); }
                 return;
             }
@@ -64,6 +64,6 @@ public static class Program
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static void RunInterface(string[] args)
     {
-        var app = new App(); app.InitializeComponent(); app.Run();
+        var app = new App(); app.InitializeComponent(); StartupTrace.Mark("resources-ready"); app.Run();
     }
 }

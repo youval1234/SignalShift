@@ -88,7 +88,7 @@ public partial class App : Application
             File.WriteAllText(Path.Combine(SettingsStore.DirectoryPath, "show.signal"), DateTime.UtcNow.ToString("O"));
             Shutdown(); return;
         }
-        try { if (Environment.GetEnvironmentVariable("SONARSHIFT_TEST_DATA") == null) await StartupRegistration.InitializeAsync(); }
+        try { if (!Program.IsInterface && Environment.GetEnvironmentVariable("SONARSHIFT_TEST_DATA") == null) await StartupRegistration.InitializeAsync(); }
         catch (Exception ex) { MessageBox.Show(ex.Message, "SignalShift could not initialize startup settings"); Shutdown(1); return; }
         if (e.Args.Contains("--import-soundswitch") || e.Args.Contains("--import-settings") || e.Args.Contains("--export-settings"))
         {
@@ -104,6 +104,7 @@ public partial class App : Application
         try
         {
             var window = new MainWindow();
+            window.ContentRendered += (_, _) => StartupTrace.Mark("first-frame");
             MainWindow = window;
             window.Show();
             if (!Program.IsInterface && (e.Args.Contains("--tray") || window.Preferences.StartMinimized)) window.Hide();
