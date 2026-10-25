@@ -5,7 +5,7 @@
 SignalShift is a portable Windows audio switcher with global shortcuts, saved audio
 profiles, microphone mute, dark/light themes and a lightweight system tray.
 
-**[Download the Windows x64 preview](https://github.com/youval1234/SignalShift/releases/tag/preview-2.4.0)**.
+**[Download the Windows x64 preview](https://github.com/youval1234/SignalShift/releases/tag/preview-2.4.1)**.
 The self-contained EXE needs no separate .NET runtime. Previews are unsigned;
 see the [Windows trust guide](docs/windows-trust.md).
 
@@ -20,7 +20,7 @@ Screenshots use sample devices and profiles.
 - **Switch playback and recording devices:** choose the devices in each shortcut
   cycle. Disconnected choices are remembered and skipped until available.
 - **Complete audio profiles:** switch output and microphone together. Cycle saved
-  profiles or give each one a dedicated shortcut.
+  profiles or give each one a dedicated shortcut. The matching active profile is highlighted.
 - **Microphone mute:** use the app button, tray menu or a configurable shortcut.
   The suggested combination is **Ctrl + Alt + M**, enabled under Shortcuts.
   The app reads the real Windows mute state and follows external changes.
@@ -49,10 +49,12 @@ An optional `SignalShift.exe --toggle-microphone` command uses the same local mu
 control and starts the tray quietly if needed. It works independently of the
 keyboard-shortcut switch.
 
+![Active profile with sample devices](Assets/Profiles.png)
+
 ## Install and update
 
 Download **SignalShift.exe** and **SHA256SUMS.txt** from the
-[release page](https://github.com/youval1234/SignalShift/releases/tag/preview-2.4.0).
+[release page](https://github.com/youval1234/SignalShift/releases/tag/preview-2.4.1).
 Quit the previous instance from its tray menu before replacing the EXE. Keep it in
 a permanent location if you enable startup. Existing preferences are preserved.
 From 2.4 onward, automatic launch checks can install newer verified downloads and
@@ -96,7 +98,7 @@ cycling, mute command handling, theme controls, bounded test clips, notification
 reuse, settings lock recovery and IPC. Hardware-specific tests restore original
 states. Automated checks do not establish compatibility with every audio driver.
 
-[Release notes](docs/release-2.4.md) · [Memory measurements](docs/performance-1.5.md) ·
+[Release notes](docs/release-2.4.1.md) · [Memory measurements](docs/performance-1.5.md) ·
 [Switch allocation results](docs/performance-switching.md).
 Historical measurements are workload-specific, not guarantees for every machine.
 

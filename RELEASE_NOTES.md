@@ -1,5 +1,13 @@
 # SignalShift release notes
 
+## 2.4.1
+
+- Highlight the profile matching the current audio setup, with an ACTIVE badge.
+- Follow external device changes without new polling.
+- Keep the update-check footer consistent with the completed result.
+
+[Details](docs/release-2.4.1.md).
+
 ## 2.4.0
 
 - Consistent vector window controls.

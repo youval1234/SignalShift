@@ -37,7 +37,11 @@ public sealed partial class MainWindow
     private void UpdateStatusText()
     {
         if (updateStatus == null) return;
-        try { updateStatus.Text = !useDemoDevices && File.Exists(AppUpdater.StatusPath) ? File.ReadAllText(AppUpdater.StatusPath) : "Version " + AppUpdater.Current.ToString(3) + " · GitHub Releases"; }
+        try
+        {
+            updateStatus.Text = !useDemoDevices && File.Exists(AppUpdater.StatusPath) ? File.ReadAllText(AppUpdater.StatusPath) : "Version " + AppUpdater.Current.ToString(3) + " · GitHub Releases";
+            if (!useDemoDevices && currentPage == "Settings") SetStatus(updateStatus.Text);
+        }
         catch (IOException) { } catch (UnauthorizedAccessException) { }
     }
 }

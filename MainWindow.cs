@@ -133,7 +133,7 @@ public sealed partial class MainWindow : Window
         bottom.Children.Add(Text("ALWAYS WITHIN REACH", 10, Muted, FontWeights.SemiBold));
         var trayLine = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 12, 0, 20) };
         trayLine.Children.Add(Text("●  ", 12, Mint)); trayLine.Children.Add(trayStatus); bottom.Children.Add(trayLine);
-        bottom.Children.Add(Text("SIGNALSHIFT  /  2.4.0", 10, Brush("#5D637B")));
+        bottom.Children.Add(Text("SIGNALSHIFT  /  2.4.1", 10, Brush("#5D637B")));
         Grid.SetRow(bottom, 2); sidebar.Children.Add(bottom); shell.Children.Add(sidebar);
         var main = new Grid(); Grid.SetColumn(main, 1);
         main.RowDefinitions.Add(new RowDefinition { Height = new GridLength(44) });
@@ -148,7 +148,7 @@ public sealed partial class MainWindow : Window
     private void Navigate(string name)
     {
         if (name == "Devices" && !useDemoDevices) microphoneMute.Refresh();
-        currentPage = name; rows = null; microphoneMuteButton = null; microphoneMuteLabel = null; page.Children.Clear(); navigation.Children.Clear();
+        currentPage = name; rows = null; microphoneMuteButton = null; microphoneMuteLabel = null; page.Children.Clear(); navigation.Children.Clear(); profileRows.Clear();
         navigation.Children.Add(Text("WORKSPACE", 10, Muted, FontWeights.SemiBold));
         foreach (var item in new[] { ("Devices", "\uE7F4"), ("Shortcuts", "\uE765"), ("Profiles", "\uE8A9"), ("Settings", "\uE713") })
         {
@@ -347,12 +347,17 @@ public sealed partial class MainWindow : Window
         }
         foreach (var profile in Preferences.Profiles)
         {
-            var content = new StackPanel(); content.Children.Add(Text(profile.Name, 21, null, FontWeights.SemiBold));
+            var content = new StackPanel();
+            var header = new DockPanel();
+            var badge = new Border { Child = Text("●  ACTIVE", 10, Mint, FontWeights.SemiBold), Background = Brush("#1D3531"), Padding = new Thickness(10, 5, 10, 5), CornerRadius = new CornerRadius(5), HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Center, Visibility = Visibility.Collapsed };
+            DockPanel.SetDock(badge, Dock.Right); header.Children.Add(badge); header.Children.Add(Text(profile.Name, 21, null, FontWeights.SemiBold)); content.Children.Add(header);
             content.Children.Add(new TextBlock { Text = "↗  " + DeviceName(profile.OutputId, outputs) + "\n↙  " + DeviceName(profile.InputId, inputs), Foreground = Muted, FontSize = 13, Margin = new Thickness(0, 12, 0, 16), LineHeight = 25, TextWrapping = TextWrapping.Wrap });
             if (profile.Hotkey != null) content.Children.Add(new TextBlock { Text = profile.Hotkey.Label, Foreground = Purple, Margin = new Thickness(0, 0, 0, 14) });
-            var buttons = new StackPanel { Orientation = Orientation.Horizontal }; buttons.Children.Add(Button("Activate profile  ↗", () => ActivateProfile(profile), true)); var edit = Button("Edit", () => EditProfile(profile)); edit.Margin = new Thickness(10, 0, 0, 0); buttons.Children.Add(edit); var remove = Button("Remove", () => { Preferences.Profiles.Remove(profile); Save(); RegisterShortcuts(); Navigate("Profiles"); }); remove.Margin = edit.Margin; buttons.Children.Add(remove); content.Children.Add(buttons);
+            var buttons = new StackPanel { Orientation = Orientation.Horizontal }; var activate = Button("Activate profile  ↗", () => ActivateProfile(profile), true); buttons.Children.Add(activate); var edit = Button("Edit", () => EditProfile(profile)); edit.Margin = new Thickness(10, 0, 0, 0); buttons.Children.Add(edit); var remove = Button("Remove", () => { Preferences.Profiles.Remove(profile); Save(); RegisterShortcuts(); Navigate("Profiles"); }); remove.Margin = edit.Margin; buttons.Children.Add(remove); content.Children.Add(buttons);
             var card = Card(content, 24); card.Margin = new Thickness(0, 0, 0, 15); page.Children.Add(card);
+            profileRows[profile.Id] = (card, activate, badge, profile.Name);
         }
+        RefreshProfileVisuals();
     }
     private void EditProfile(AudioProfile? original)
     {
@@ -422,7 +427,7 @@ public sealed partial class MainWindow : Window
         preferences.Children.Add(startup);
         Option("Open in the tray", "Keep the main window hidden when SignalShift starts.", Preferences.StartMinimized, v => Preferences.StartMinimized = v);
         page.Children.Add(Card(preferences, 25));
-        var about = new StackPanel { Margin = new Thickness(0, 25, 0, 0) }; about.Children.Add(Text("SIGNALSHIFT 2.4.0", 11, Purple, FontWeights.SemiBold)); about.Children.Add(new TextBlock { Text = "Native Windows audio switching. No account, no ads, no telemetry.\nYour preferences stay on this computer.", Foreground = Muted, FontSize = 13, LineHeight = 24, Margin = new Thickness(0, 10, 0, 15) });
+        var about = new StackPanel { Margin = new Thickness(0, 25, 0, 0) }; about.Children.Add(Text("SIGNALSHIFT 2.4.1", 11, Purple, FontWeights.SemiBold)); about.Children.Add(new TextBlock { Text = "Native Windows audio switching. No account, no ads, no telemetry.\nYour preferences stay on this computer.", Foreground = Muted, FontSize = 13, LineHeight = 24, Margin = new Thickness(0, 10, 0, 15) });
         var line = new StackPanel { Orientation = Orientation.Horizontal }; line.Children.Add(Button("Open settings folder", () => Process.Start(new ProcessStartInfo("explorer.exe", SettingsStore.DirectoryPath) { UseShellExecute = true })));
         var licenses = Button("Third-party licenses", () =>
         {
@@ -476,8 +481,8 @@ public sealed partial class MainWindow : Window
     }
     private void RefreshDevices()
     {
-        if (useDemoDevices) { LoadPreviewDevices(); return; }
-        outputs = audio.Enumerate(AudioFlow.Output); inputs = audio.Enumerate(AudioFlow.Input); microphoneMute.Refresh(); UpdateMicrophoneMuteVisuals(); UpdateTray();
+        if (useDemoDevices) { LoadPreviewDevices(); RefreshProfileVisuals(); return; }
+        outputs = audio.Enumerate(AudioFlow.Output); inputs = audio.Enumerate(AudioFlow.Input); microphoneMute.Refresh(); UpdateMicrophoneMuteVisuals(); UpdateTray(); RefreshProfileVisuals();
     }
     private IReadOnlyList<AudioDevice> Devices(AudioFlow f) => f == AudioFlow.Output ? outputs : inputs;
     private HashSet<string> Selected(AudioFlow f) => f == AudioFlow.Output ? Preferences.Outputs : Preferences.Inputs;
@@ -570,6 +575,7 @@ public sealed partial class MainWindow : Window
             if (outputs.SequenceEqual(nextOutputs) && inputs.SequenceEqual(nextInputs)) return;
             outputs = nextOutputs; inputs = nextInputs; UpdateTray();
             if (IsVisible && currentPage == "Devices") RefreshDeviceVisuals();
+            if (IsVisible && currentPage == "Profiles") RefreshProfileVisuals();
         }
         catch (Exception ex) { SetStatus("Waiting for Windows audio: " + ex.Message, true); }
     }

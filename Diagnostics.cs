@@ -193,6 +193,21 @@ public static class Diagnostics
             var duplicate = new AudioProfile { OutputId = "o1", InputId = "i1" };
             Require(ProfileCyclePlanner.Next(new[] { first, duplicate }, outputs, inputs, "o1", "i1", duplicate.Id) == first, "Identical pairs did not wrap by last active profile");
         });
+        Check("Active profile follows actual defaults, partial setups and external changes", () =>
+        {
+            var partial = new AudioProfile { Id = "partial", OutputId = "o1" };
+            var first = new AudioProfile { Id = "first", OutputId = "o1", InputId = "i1" };
+            var second = new AudioProfile { Id = "second", OutputId = "o2", InputId = "i1" };
+            var empty = new AudioProfile { Id = "empty" };
+            var profiles = new[] { empty, partial, first, second };
+            Require(ProfileSelection.Current(profiles, "o1", "i1") == first.Id, "Complete matching setup should take precedence");
+            Require(ProfileSelection.Current(profiles, "o2", "i1", first.Id) == second.Id, "Highlight did not follow changed defaults");
+            Require(ProfileSelection.Current(profiles, "o1", "external") == partial.Id, "Leave-unchanged microphone was not respected");
+            Require(ProfileSelection.Current(new[] { first, second, empty }, "external", "i1", first.Id) == null, "Stale profile stayed highlighted");
+            Require(ProfileSelection.Current(profiles, null, null) == null, "Disconnected defaults matched a profile");
+            var duplicate = new AudioProfile { Id = "duplicate", OutputId = "o1", InputId = "i1" };
+            Require(ProfileSelection.Current(new[] { first, duplicate }, "o1", "i1", duplicate.Id) == duplicate.Id, "Activated duplicate did not retain precedence");
+        });
         Check("Live appearance changes recolor existing text, backgrounds and templates", () =>
         {
             ThemePalette.Apply("Dark");
