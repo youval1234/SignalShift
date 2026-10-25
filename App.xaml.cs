@@ -61,9 +61,15 @@ public partial class App : Application
         {
             var path = e.Args.SkipWhile(a => a != "--export-preview").Skip(1).First();
             var preview = new MainWindow(previewMode: true, previewTheme: e.Args.SkipWhile(a => a != "--preview-theme").Skip(1).FirstOrDefault(), previewPage: e.Args.SkipWhile(a => a != "--preview-page").Skip(1).FirstOrDefault() ?? "Devices"); preview.Show();
+            if (e.Args.Contains("--preview-maximized")) preview.WindowState = WindowState.Maximized;
             _ = Dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle, new Action(() =>
             {
                 preview.UpdateLayout();
+                if (e.Args.Contains("--preview-maximized"))
+                {
+                    try { preview.VerifyMaximizedWorkArea(); }
+                    catch (Exception ex) { File.WriteAllText(path + ".error.txt", ex.Message); Shutdown(1); return; }
+                }
                 var bitmap = new RenderTargetBitmap((int)preview.ActualWidth, (int)preview.ActualHeight, 96, 96, PixelFormats.Pbgra32);
                 bitmap.Render(preview); var encoder = new PngBitmapEncoder(); encoder.Frames.Add(BitmapFrame.Create(bitmap));
                 Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(path))!);

@@ -1,5 +1,12 @@
 # SignalShift release notes
 
+## 2.4.2
+
+- Show the executable version beneath the app name with improved contrast.
+- Keep maximized windows above the taskbar and fit smaller/scaled displays.
+
+[Details](docs/release-2.4.2.md).
+
 ## 2.4.1
 
 - Highlight the profile matching the current audio setup, with an ACTIVE badge.

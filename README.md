@@ -5,7 +5,7 @@
 SignalShift is a portable Windows audio switcher with global shortcuts, saved audio
 profiles, microphone mute, dark/light themes and a lightweight system tray.
 
-**[Download the Windows x64 preview](https://github.com/youval1234/SignalShift/releases/tag/preview-2.4.1)**.
+**[Download the Windows x64 preview](https://github.com/youval1234/SignalShift/releases/tag/preview-2.4.2)**.
 The self-contained EXE needs no separate .NET runtime. Previews are unsigned;
 see the [Windows trust guide](docs/windows-trust.md).
 
@@ -54,7 +54,7 @@ keyboard-shortcut switch.
 ## Install and update
 
 Download **SignalShift.exe** and **SHA256SUMS.txt** from the
-[release page](https://github.com/youval1234/SignalShift/releases/tag/preview-2.4.1).
+[release page](https://github.com/youval1234/SignalShift/releases/tag/preview-2.4.2).
 Quit the previous instance from its tray menu before replacing the EXE. Keep it in
 a permanent location if you enable startup. Existing preferences are preserved.
 From 2.4 onward, automatic launch checks can install newer verified downloads and
@@ -98,7 +98,7 @@ cycling, mute command handling, theme controls, bounded test clips, notification
 reuse, settings lock recovery and IPC. Hardware-specific tests restore original
 states. Automated checks do not establish compatibility with every audio driver.
 
-[Release notes](docs/release-2.4.1.md) · [Memory measurements](docs/performance-1.5.md) ·
+[Release notes](docs/release-2.4.2.md) · [Memory measurements](docs/performance-1.5.md) ·
 [Switch allocation results](docs/performance-switching.md).
 Historical measurements are workload-specific, not guarantees for every machine.
 

@@ -76,6 +76,7 @@ public sealed partial class MainWindow : Window
         BuildShell();
         SourceInitialized += (_, _) =>
         {
+            InitializeWorkAreaBounds();
             if (!previewMode) hotkeys = new(new WindowInteropHelper(this).Handle);
             RefreshDevices();
             if (!Preferences.Initialized)
@@ -123,7 +124,14 @@ public sealed partial class MainWindow : Window
         sidebar.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         var brand = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(26, 38, 0, 0), VerticalAlignment = VerticalAlignment.Top };
         var logo = new Image { Source = Icon, Width = 36, Height = 36, Margin = new Thickness(0, 0, 11, 0) };
-        brand.Children.Add(logo); brand.Children.Add(Text("SignalShift", 23, null, FontWeights.SemiBold));
+        logo.VerticalAlignment = VerticalAlignment.Center;
+        var brandText = new StackPanel();
+        brandText.Children.Add(Text("SignalShift", 23, null, FontWeights.SemiBold));
+        var version = Text("Version " + AppUpdater.Current.ToString(3), 12, Muted);
+        version.Margin = new Thickness(0, 4, 0, 0);
+        AutomationPropertiesName(version, "SignalShift version " + AppUpdater.Current.ToString(3));
+        brandText.Children.Add(version);
+        brand.Children.Add(logo); brand.Children.Add(brandText);
         sidebar.Children.Add(brand);
         navigation.Margin = new Thickness(16, 0, 16, 0); Grid.SetRow(navigation, 1); sidebar.Children.Add(navigation);
         var bottom = new StackPanel { Margin = new Thickness(24, 20, 24, 24) };
@@ -133,7 +141,6 @@ public sealed partial class MainWindow : Window
         bottom.Children.Add(Text("ALWAYS WITHIN REACH", 10, Muted, FontWeights.SemiBold));
         var trayLine = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 12, 0, 20) };
         trayLine.Children.Add(Text("●  ", 12, Mint)); trayLine.Children.Add(trayStatus); bottom.Children.Add(trayLine);
-        bottom.Children.Add(Text("SIGNALSHIFT  /  2.4.1", 10, Brush("#5D637B")));
         Grid.SetRow(bottom, 2); sidebar.Children.Add(bottom); shell.Children.Add(sidebar);
         var main = new Grid(); Grid.SetColumn(main, 1);
         main.RowDefinitions.Add(new RowDefinition { Height = new GridLength(44) });
@@ -427,7 +434,7 @@ public sealed partial class MainWindow : Window
         preferences.Children.Add(startup);
         Option("Open in the tray", "Keep the main window hidden when SignalShift starts.", Preferences.StartMinimized, v => Preferences.StartMinimized = v);
         page.Children.Add(Card(preferences, 25));
-        var about = new StackPanel { Margin = new Thickness(0, 25, 0, 0) }; about.Children.Add(Text("SIGNALSHIFT 2.4.1", 11, Purple, FontWeights.SemiBold)); about.Children.Add(new TextBlock { Text = "Native Windows audio switching. No account, no ads, no telemetry.\nYour preferences stay on this computer.", Foreground = Muted, FontSize = 13, LineHeight = 24, Margin = new Thickness(0, 10, 0, 15) });
+        var about = new StackPanel { Margin = new Thickness(0, 25, 0, 0) }; about.Children.Add(Text("SIGNALSHIFT " + AppUpdater.Current.ToString(3), 11, Purple, FontWeights.SemiBold)); about.Children.Add(new TextBlock { Text = "Native Windows audio switching. No account, no ads, no telemetry.\nYour preferences stay on this computer.", Foreground = Muted, FontSize = 13, LineHeight = 24, Margin = new Thickness(0, 10, 0, 15) });
         var line = new StackPanel { Orientation = Orientation.Horizontal }; line.Children.Add(Button("Open settings folder", () => Process.Start(new ProcessStartInfo("explorer.exe", SettingsStore.DirectoryPath) { UseShellExecute = true })));
         var licenses = Button("Third-party licenses", () =>
         {
