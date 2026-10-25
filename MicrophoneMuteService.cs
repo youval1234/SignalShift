@@ -29,8 +29,10 @@ public sealed class MicrophoneMuteService : IDisposable
         try
         {
             var ids = new HashSet<string>();
-            foreach (var role in new[] { 0, 1, 2 })
-                if (audio.GetDefaultId(AudioFlow.Input, role) is { } id) ids.Add(id);
+            var roles = audio.GetRoleDefaults(AudioFlow.Input);
+            if (roles.Console != null) ids.Add(roles.Console);
+            if (roles.Multimedia != null) ids.Add(roles.Multimedia);
+            if (roles.Communications != null) ids.Add(roles.Communications);
             foreach (var id in endpoints.Keys.Where(id => !ids.Contains(id)).ToArray()) Remove(id);
             foreach (var id in ids)
             {
@@ -51,6 +53,12 @@ public sealed class MicrophoneMuteService : IDisposable
     internal static MicrophoneMuteState Classify(IReadOnlyList<MicrophoneMuteSnapshot> values) => values.Count == 0
         ? MicrophoneMuteState.Unavailable : values.All(v => v.Muted) ? MicrophoneMuteState.Muted
         : values.All(v => !v.Muted) ? MicrophoneMuteState.Live : MicrophoneMuteState.Mixed;
+    internal bool RefreshState()
+    {
+        if (disposed) return false;
+        try { State = Classify(Snapshot()); Error = null; return true; }
+        catch (Exception ex) { State = MicrophoneMuteState.Unavailable; Error = ex.Message; return false; }
+    }
     internal IReadOnlyList<MicrophoneMuteSnapshot> Snapshot()
     {
         var result = new List<MicrophoneMuteSnapshot>(endpoints.Count);

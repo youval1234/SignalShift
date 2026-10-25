@@ -1,5 +1,14 @@
 # SignalShift release notes
 
+## 2.4.4
+
+- Reuse device metadata for known default-only changes and read mute state without rescanning endpoints.
+- Preserve full scans for topology/name changes, unknown defaults and errors.
+- Reuse tray/profile layout metadata instead of serializing it on every refresh.
+- Retain pending device events while shortcut/profile dialogs pause refreshes.
+
+[Details and measurements](docs/release-2.4.4.md).
+
 ## 2.4.3
 
 - Start the settings process alongside tray initialization.

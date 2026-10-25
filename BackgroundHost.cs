@@ -34,7 +34,9 @@ internal sealed class BackgroundHost : Forms.ApplicationContext
     private Process? ui;
     private readonly BackgroundFeedback feedback = new();
     private readonly List<string> conflicts = new();
-    private string menuIdentity = "";
+    private readonly TrayLayoutCache trayLayout = new();
+    private AudioChangeKind pendingChange;
+    private int trayBuilds, fastDefaultRefreshes, fastMuteRefreshes;
     private readonly Dictionary<(AudioFlow Flow, string Id), Forms.ToolStripMenuItem> trayDevices = new();
     private string? activeProfileId;
     private bool closing;
@@ -44,7 +46,7 @@ internal sealed class BackgroundHost : Forms.ApplicationContext
     internal BackgroundHost(bool startInTray, bool checkUpdates = true, bool forceInterface = false)
     {
         StartupTrace.Mark("host-start");
-        microphoneMute = new(() => Post(QueueRefresh));
+        microphoneMute = new(() => Post(() => QueueRefresh(AudioChangeKind.Mute)));
         _ = dispatch.Handle;
         Directory.CreateDirectory(SettingsStore.DirectoryPath);
         settings = store.Load();
@@ -53,7 +55,7 @@ internal sealed class BackgroundHost : Forms.ApplicationContext
         using var icon = typeof(BackgroundHost).Assembly.GetManifestResourceStream("SonarShift.TrayIcon")!;
         tray = new Forms.NotifyIcon { Icon = new System.Drawing.Icon(icon), Text = "SignalShift", Visible = true };
         tray.DoubleClick += (_, _) => ShowInterface();
-        refresh.Tick += (_, _) => { refresh.Stop(); Refresh(); };
+        refresh.Tick += (_, _) => { refresh.Stop(); var kind = pendingChange; pendingChange = AudioChangeKind.None; RefreshChanged(kind); };
         retry.Tick += (_, _) => RegisterKeys();
         fallback.Tick += (_, _) => Refresh();
         settingsReload.Tick += (_, _) => ReloadChangedSettings();
@@ -70,7 +72,7 @@ internal sealed class BackgroundHost : Forms.ApplicationContext
         }
         StartupTrace.Mark("host-audio-ready");
         if (ui == null || ui.HasExited) RegisterKeys();
-        try { notifications = new AudioDeviceNotifications(() => Post(QueueRefresh)); }
+        try { notifications = new AudioDeviceNotifications(kind => Post(() => QueueRefresh(kind))); }
         catch { fallback.Start(); }
         _ = HostConnection.ListenAsync(command =>
         {
@@ -104,7 +106,8 @@ internal sealed class BackgroundHost : Forms.ApplicationContext
         if (closing || dispatch.IsDisposed) return;
         try { dispatch.BeginInvoke(action); } catch (InvalidOperationException) { }
     }
-    private void QueueRefresh() { if (!refresh.Enabled) refresh.Start(); }
+    private void QueueRefresh() => QueueRefresh(AudioChangeKind.Topology);
+    private void QueueRefresh(AudioChangeKind kind) { pendingChange |= kind; if (!refresh.Enabled) refresh.Start(); }
     private void QueueSettingsReload()
     {
         settingsReloadAttempts = 0;
@@ -149,6 +152,8 @@ internal sealed class BackgroundHost : Forms.ApplicationContext
         }
         switch (command)
         {
+            case "test-refresh-defaults": if (Environment.GetEnvironmentVariable("SONARSHIFT_TEST_DATA") != null) return RefreshProbe("defaults"); break;
+            case "test-refresh-mute": if (Environment.GetEnvironmentVariable("SONARSHIFT_TEST_DATA") != null) return RefreshProbe("mute"); break;
             case "check-update": CheckUpdates(); break;
             case "check-update-manual": CheckUpdates(true); break;
             case "mic-state":
@@ -168,9 +173,18 @@ internal sealed class BackgroundHost : Forms.ApplicationContext
             case "test-switch-stress": if (Environment.GetEnvironmentVariable("SONARSHIFT_TEST_DATA") != null) _ = Task.Delay(100).ContinueWith(_ => Post(() => File.WriteAllText(Path.Combine(SettingsStore.DirectoryPath, "stress-report.json"), SwitchAllocationProbe()))); break;
             case "test-notification": if (Environment.GetEnvironmentVariable("SONARSHIFT_TEST_DATA") != null) feedback.Present("Output switched", "Diagnostic speaker", AudioFlow.Output); break;
         }
-        return JsonSerializer.Serialize(new { version = AppUpdater.Current.ToString(3), updateChecking, pid = Environment.ProcessId, interfaceRunning = ui != null && !ui.HasExited, interfacePid = ui != null && !ui.HasExited ? ui.Id : 0, conflicts, refreshes = RefreshCount, testHotkeyWindow = Environment.GetEnvironmentVariable("SONARSHIFT_TEST_DATA") != null ? keys.Handle.ToInt64() : 0, theme = settings.Theme, wpfLoaded = AppDomain.CurrentDomain.GetAssemblies().Any(a => a.GetName().Name == "PresentationFramework"), audioTestsLoaded = AppDomain.CurrentDomain.GetAssemblies().Any(a => a.GetName().Name?.StartsWith("NAudio", StringComparison.Ordinal) == true), activeProfileId, profileCycleEnabled = settings.ProfileCycleHotkeyEnabled, microphoneMute = microphoneMute.State.ToString(), microphoneMuteHotkeyEnabled = settings.MicrophoneMuteHotkeyEnabled, eventDriven = notifications != null });
+        return JsonSerializer.Serialize(new { version = AppUpdater.Current.ToString(3), updateChecking, trayBuilds, fastDefaultRefreshes, fastMuteRefreshes, fullEnumerations = AudioService.EnumerationCount, propertyReads = AudioService.PropertyReadCount, testOutputDefault = Environment.GetEnvironmentVariable("SONARSHIFT_TEST_DATA") != null ? outputs.FirstOrDefault(d => d.IsDefault)?.Id : null, testOutputCalls = Environment.GetEnvironmentVariable("SONARSHIFT_TEST_DATA") != null ? outputs.FirstOrDefault(d => d.IsCommunications)?.Id : null, testTrayChecksCorrect = Environment.GetEnvironmentVariable("SONARSHIFT_TEST_DATA") != null ? outputs.All(d => trayDevices.TryGetValue((d.Flow, d.Id), out var item) && item.Checked == d.IsDefault) : (bool?)null, pid = Environment.ProcessId, interfaceRunning = ui != null && !ui.HasExited, interfacePid = ui != null && !ui.HasExited ? ui.Id : 0, conflicts, refreshes = RefreshCount, testHotkeyWindow = Environment.GetEnvironmentVariable("SONARSHIFT_TEST_DATA") != null ? keys.Handle.ToInt64() : 0, theme = settings.Theme, wpfLoaded = AppDomain.CurrentDomain.GetAssemblies().Any(a => a.GetName().Name == "PresentationFramework"), audioTestsLoaded = AppDomain.CurrentDomain.GetAssemblies().Any(a => a.GetName().Name?.StartsWith("NAudio", StringComparison.Ordinal) == true), activeProfileId, profileCycleEnabled = settings.ProfileCycleHotkeyEnabled, microphoneMute = microphoneMute.State.ToString(), microphoneMuteHotkeyEnabled = settings.MicrophoneMuteHotkeyEnabled, eventDriven = notifications != null });
     }
     // Synthetic allocation probe: never changes Windows defaults or reads user settings.
+    private string RefreshProbe(string kind)
+    {
+        var scans = AudioService.EnumerationCount; var properties = AudioService.PropertyReadCount;
+        var bytes = GC.GetTotalAllocatedBytes(true); var watch = Stopwatch.StartNew();
+        for (var index = 0; index < 20; index++) RefreshChanged(kind == "defaults" ? AudioChangeKind.Defaults : AudioChangeKind.Mute);
+        return JsonSerializer.Serialize(new { scenario = kind, iterations = 20, elapsedMs = watch.Elapsed.TotalMilliseconds,
+            allocatedBytes = GC.GetTotalAllocatedBytes(true) - bytes, fullEnumerations = AudioService.EnumerationCount - scans,
+            propertyReads = AudioService.PropertyReadCount - properties, defaultDevicesChanged = false, microphoneRecorded = false });
+    }
     // Available only to an isolated test instance, not the normal desktop host.
     private string SwitchAllocationProbe(int measuredSwitches = 2000)
     {
@@ -218,10 +232,29 @@ internal sealed class BackgroundHost : Forms.ApplicationContext
         {
             RefreshCount++;
             microphoneMute.Refresh();
-            outputs = audio.Enumerate(AudioFlow.Output); inputs = audio.Enumerate(AudioFlow.Input);
+            var nextOutputs = audio.Enumerate(AudioFlow.Output); var nextInputs = audio.Enumerate(AudioFlow.Input);
+            outputs = nextOutputs; inputs = nextInputs;
             UpdateTray();
         }
         catch (Exception ex) { tray.Text = ("SignalShift: " + ex.Message)[..Math.Min(63, ("SignalShift: " + ex.Message).Length)]; }
+    }
+    private void RefreshChanged(AudioChangeKind kind)
+    {
+        if (kind == AudioChangeKind.None) return;
+        try
+        {
+            if ((kind & AudioChangeKind.Topology) != 0) { Refresh(); return; }
+            if ((kind & AudioChangeKind.Defaults) != 0)
+            {
+                if (!audio.TryRefreshDefaults(outputs, AudioFlow.Output, out var nextOutputs) ||
+                    !audio.TryRefreshDefaults(inputs, AudioFlow.Input, out var nextInputs)) { Refresh(); return; }
+                outputs = nextOutputs; inputs = nextInputs; microphoneMute.Refresh(); fastDefaultRefreshes++;
+            }
+            else
+            { if (!microphoneMute.RefreshState()) { Refresh(); return; } fastMuteRefreshes++; }
+            UpdateTray();
+        }
+        catch { Refresh(); } // Driver errors or uncertain cache state use the original full path.
     }
     private void RegisterKeys()
     {
@@ -255,14 +288,15 @@ internal sealed class BackgroundHost : Forms.ApplicationContext
     private void UpdateTray()
     {
         UpdateMicrophoneMuteMenu();
-        var identity = string.Join("|", outputs.Concat(inputs).Select(d => d.Flow + d.Id + d.Name)) + JsonSerializer.Serialize(settings.Profiles);
-        if (identity == menuIdentity)
+        if (!trayLayout.Update(outputs, inputs, settings.Profiles))
         {
-            foreach (var device in outputs.Concat(inputs))
+            foreach (var device in outputs)
+                if (trayDevices.TryGetValue((device.Flow, device.Id), out var item)) item.Checked = device.IsDefault;
+            foreach (var device in inputs)
                 if (trayDevices.TryGetValue((device.Flow, device.Id), out var item)) item.Checked = device.IsDefault;
             return;
         }
-        menuIdentity = identity;
+        trayBuilds++;
         trayDevices.Clear();
         var menu = new Forms.ContextMenuStrip(); menu.Items.Add("Open SignalShift", null, (_, _) => ShowInterface()); menu.Items.Add(new Forms.ToolStripSeparator());
         foreach (var flow in new[] { AudioFlow.Output, AudioFlow.Input })

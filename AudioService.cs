@@ -8,6 +8,7 @@ namespace SonarShift;
 // Core Audio runs on the application's STA dispatcher. COM objects never cross threads.
 public sealed class AudioService
 {
+    internal static long EnumerationCount, PropertyReadCount;
     internal static IMMDeviceEnumerator CreateEnumerator()
     {
         // Windows can return one enumerator identity for multiple activations.
@@ -23,6 +24,7 @@ public sealed class AudioService
     private static void Release(object? value) { if (value != null && Marshal.IsComObject(value)) Marshal.ReleaseComObject(value); }
     public IReadOnlyList<AudioDevice> Enumerate(AudioFlow flow)
     {
+        System.Threading.Interlocked.Increment(ref EnumerationCount);
         var enumerator = CreateEnumerator();
         IMMDeviceCollection? collection = null;
         try
@@ -40,6 +42,7 @@ public sealed class AudioService
                 {
                     Marshal.ThrowExceptionForHR(collection.Item(i, out device));
                     Marshal.ThrowExceptionForHR(device.GetId(out var id));
+                    System.Threading.Interlocked.Increment(ref PropertyReadCount);
                     Marshal.ThrowExceptionForHR(device.OpenPropertyStore(0, out properties));
                     var key = new PropertyKey { FormatId = new Guid("a45c254e-df1c-4efd-8020-67d146a850e0"), PropertyId = 14 };
                     Marshal.ThrowExceptionForHR(properties.GetValue(ref key, out var value));
@@ -65,6 +68,19 @@ public sealed class AudioService
     {
         var enumerator = CreateEnumerator();
         try { return DefaultId(enumerator, flow, role); }
+        finally { Release(enumerator); }
+    }
+    internal (string? Console, string? Multimedia, string? Communications) GetRoleDefaults(AudioFlow flow)
+    {
+        var enumerator = CreateEnumerator();
+        try { return (DefaultId(enumerator, flow, 0), DefaultId(enumerator, flow, 1), DefaultId(enumerator, flow, 2)); }
+        finally { Release(enumerator); }
+    }
+    internal bool TryRefreshDefaults(IReadOnlyList<AudioDevice> devices, AudioFlow flow, out IReadOnlyList<AudioDevice> next)
+    {
+        next = devices; IMMDeviceEnumerator? enumerator = null;
+        try { enumerator = CreateEnumerator(); return DeviceDefaults.TryApply(devices, DefaultId(enumerator, flow, 1), DefaultId(enumerator, flow, 2), out next); }
+        catch (Exception ex) when (ex is COMException or InvalidCastException or UnauthorizedAccessException or InvalidOperationException) { return false; }
         finally { Release(enumerator); }
     }
     public void SetDefault(AudioDevice device, bool communicationsToo)

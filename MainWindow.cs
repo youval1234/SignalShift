@@ -38,6 +38,7 @@ public sealed partial class MainWindow : Window
     private AudioDeviceNotifications? deviceNotifications;
     private System.IO.FileSystemWatcher? signalWatcher;
     private bool refreshPending;
+    private AudioChangeKind pendingDeviceChange;
     private bool hostExiting;
     private Forms.NotifyIcon? tray;
     private HotkeyService? hotkeys;
@@ -61,7 +62,7 @@ public sealed partial class MainWindow : Window
     {
         StartupTrace.Mark("window-start");
         useDemoDevices = previewMode;
-        microphoneMute = new(QueueDeviceRefresh);
+        microphoneMute = new(() => QueueDeviceRefresh(AudioChangeKind.Mute));
         Preferences = previewMode ? PreviewPreferences() : store.Load();
         if (previewMode && previewTheme is "Dark" or "Light") Preferences.Theme = previewTheme;
         soundCues.PlaybackFailed += ex => SetStatus("Confirmation sound unavailable: " + ex.Message, true);
@@ -94,7 +95,7 @@ public sealed partial class MainWindow : Window
                 {
                     if (!Program.IsInterface) SetupTray();
                     RegisterShortcuts();
-                    try { deviceNotifications = new AudioDeviceNotifications(QueueDeviceRefresh); }
+                    try { deviceNotifications = new AudioDeviceNotifications(kind => QueueDeviceRefresh(kind)); }
                     catch { timer.Interval = TimeSpan.FromSeconds(30); }
                     timer.Tick += (_, _) => Tick();
                     // The timer is only needed when audio callbacks are unavailable or a shortcut conflicts.
@@ -548,6 +549,7 @@ public sealed partial class MainWindow : Window
         trayStatus.Foreground = hotkeyErrors.Count > 0 ? Brush("#F0B68A") : Mint;
         if (hotkeyErrors.Count > 0) SetStatus("Shortcut conflict: " + string.Join(", ", hotkeyErrors) + ". Open Shortcuts to change it.", true);
         if (deviceNotifications != null) { if (hotkeyErrors.Count > 0) timer.Start(); else timer.Stop(); }
+        if (!paused && pendingDeviceChange != AudioChangeKind.None) QueueDeviceRefresh(AudioChangeKind.None);
     }
     private void SetupTray()
     {
@@ -601,22 +603,34 @@ public sealed partial class MainWindow : Window
         if (Program.IsInterface && !hostExiting && (quitting || (!backgroundClose && !Preferences.CloseToTray))) HostConnection.TrySend("quit");
         timer.Stop(); deviceNotifications?.Dispose(); microphoneMute.Dispose(); signalWatcher?.Dispose(); hotkeys?.Dispose(); soundCues.Dispose(); switchNotification?.Dispose(); tray?.Dispose(); Application.Current.Shutdown();
     }
-    private void QueueDeviceRefresh()
+    private void QueueDeviceRefresh() => QueueDeviceRefresh(AudioChangeKind.Topology);
+    private void QueueDeviceRefresh(AudioChangeKind kind)
     {
         if (Dispatcher.HasShutdownStarted) return;
         _ = Dispatcher.BeginInvoke(new Action(() =>
         {
+            pendingDeviceChange |= kind;
             if (refreshPending) return;
             refreshPending = true;
-            _ = Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() => { refreshPending = false; if (!paused) ApplyDeviceRefresh(); }));
+            _ = Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() => { refreshPending = false; if (paused) return; var change = pendingDeviceChange; pendingDeviceChange = AudioChangeKind.None; ApplyDeviceRefresh(change); }));
         }));
     }
-    private void ApplyDeviceRefresh()
+    private void ApplyDeviceRefresh(AudioChangeKind kind = AudioChangeKind.Topology)
     {
         try
         {
-            var nextOutputs = audio.Enumerate(AudioFlow.Output); var nextInputs = audio.Enumerate(AudioFlow.Input);
-            microphoneMute.Refresh(); UpdateMicrophoneMuteVisuals();
+            IReadOnlyList<AudioDevice> nextOutputs = outputs, nextInputs = inputs;
+            if ((kind & AudioChangeKind.Topology) != 0 ||
+                ((kind & AudioChangeKind.Defaults) != 0 &&
+                 (!audio.TryRefreshDefaults(outputs, AudioFlow.Output, out nextOutputs) || !audio.TryRefreshDefaults(inputs, AudioFlow.Input, out nextInputs))))
+            {
+                nextOutputs = audio.Enumerate(AudioFlow.Output); nextInputs = audio.Enumerate(AudioFlow.Input);
+                microphoneMute.Refresh();
+            }
+            else if ((kind & AudioChangeKind.Defaults) != 0) microphoneMute.Refresh();
+            else if (!microphoneMute.RefreshState())
+            { nextOutputs = audio.Enumerate(AudioFlow.Output); nextInputs = audio.Enumerate(AudioFlow.Input); microphoneMute.Refresh(); }
+            UpdateMicrophoneMuteVisuals();
             if (outputs.SequenceEqual(nextOutputs) && inputs.SequenceEqual(nextInputs)) return;
             outputs = nextOutputs; inputs = nextInputs; UpdateTray();
             if (IsVisible && currentPage == "Devices") RefreshDeviceVisuals();

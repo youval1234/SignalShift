@@ -1,0 +1,49 @@
+{
+  "method": "100 known-state refreshes per scenario against real connected endpoints. Default-role changes and microphone state use read-only native queries; the probe does not switch devices, record audio, play sounds or force GC. Two generated sample profiles are used. Elapsed time excludes client process launch. Allocated bytes are cumulative managed allocation, not retained RAM. Unknown defaults, topology/property changes and errors still take the full scan path.",
+  "baseline": [
+    {
+      "elapsedMs": 779.1244,
+      "scenario": "defaults",
+      "iterations": 100,
+      "fullEnumerations": 200.0,
+      "allocatedBytes": 2036288.0,
+      "propertyReads": 1500.0
+    },
+    {
+      "elapsedMs": 778.518,
+      "scenario": "mute",
+      "iterations": 100,
+      "fullEnumerations": 200.0,
+      "allocatedBytes": 2034504.0,
+      "propertyReads": 1500.0
+    }
+  ],
+  "optimized": [
+    {
+      "allocatedBytes": 188424.0,
+      "scenario": "defaults",
+      "iterations": 100,
+      "propertyReads": 0.0,
+      "elapsedMs": 578.7889,
+      "fullEnumerations": 0.0
+    },
+    {
+      "allocatedBytes": 18120.0,
+      "scenario": "mute",
+      "iterations": 100,
+      "propertyReads": 0.0,
+      "elapsedMs": 1.419,
+      "fullEnumerations": 0.0
+    }
+  ],
+  "hardware": {
+    "defaultSwitchChecked": true,
+    "defaultFullScans": 2,
+    "muteFullScans": 0,
+    "originalMicrophoneStatesRestored": true,
+    "speakerMuteAndVolumePreserved": true,
+    "allSixDefaultRolesPreserved": true,
+    "microphoneRecorded": false,
+    "note": "The real output switch produced property changes and therefore correctly used a full scan. Pure known-state callback numbers are not end-to-end switch-time estimates."
+  }
+}

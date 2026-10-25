@@ -10,7 +10,8 @@ public sealed class AudioDeviceNotifications : IDisposable
     private IMMDeviceEnumerator? enumerator;
     private readonly Callback callback;
     private IntPtr callbackPointer;
-    public AudioDeviceNotifications(Action changed)
+    public AudioDeviceNotifications(Action changed) : this(_ => changed()) { }
+    public AudioDeviceNotifications(Action<AudioChangeKind> changed)
     {
         callback = new Callback(changed);
         try
@@ -32,16 +33,18 @@ public sealed class AudioDeviceNotifications : IDisposable
         if (callbackPointer != IntPtr.Zero) { Marshal.Release(callbackPointer); callbackPointer = IntPtr.Zero; }
     }
     [ComVisible(true), ClassInterface(ClassInterfaceType.None)]
-    public sealed class Callback(Action changed) : IEndpointNotifications
+    public sealed class Callback : IEndpointNotifications
     {
-        private Action? notify = changed;
+        private Action<AudioChangeKind>? notify;
+        public Callback(Action changed) : this(_ => changed()) { }
+        public Callback(Action<AudioChangeKind> changed) => notify = changed;
         public void Stop() => Interlocked.Exchange(ref notify, null);
-        private int Signal() { try { Volatile.Read(ref notify)?.Invoke(); } catch { /* Never throw across a native callback. */ } return 0; }
-        public int OnDeviceStateChanged(string id, uint state) => Signal();
-        public int OnDeviceAdded(string id) => Signal();
-        public int OnDeviceRemoved(string id) => Signal();
-        public int OnDefaultDeviceChanged(int flow, int role, string? id) => Signal();
-        public int OnPropertyValueChanged(string id, PropertyKey key) => Signal();
+        private int Signal(AudioChangeKind kind) { try { Volatile.Read(ref notify)?.Invoke(kind); } catch { /* Never throw across a native callback. */ } return 0; }
+        public int OnDeviceStateChanged(string id, uint state) => Signal(AudioChangeKind.Topology);
+        public int OnDeviceAdded(string id) => Signal(AudioChangeKind.Topology);
+        public int OnDeviceRemoved(string id) => Signal(AudioChangeKind.Topology);
+        public int OnDefaultDeviceChanged(int flow, int role, string? id) => Signal(flow is 0 or 1 && role is >= 0 and <= 2 ? AudioChangeKind.Defaults : AudioChangeKind.Topology);
+        public int OnPropertyValueChanged(string id, PropertyKey key) => Signal(AudioChangeKind.Topology);
     }
 }
 

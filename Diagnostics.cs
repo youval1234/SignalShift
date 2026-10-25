@@ -23,6 +23,44 @@ public static class Diagnostics
         }
         void Require(bool condition, string message) { if (!condition) throw new InvalidOperationException(message); }
         UpdaterChecks.Run(Check, Require);
+        Check("Audio notifications distinguish default changes from topology changes and stop safely", () =>
+        {
+            var seen = new List<AudioChangeKind>();
+            var callback = new AudioDeviceNotifications.Callback(kind => seen.Add(kind));
+            callback.OnDefaultDeviceChanged(0, 1, "a"); callback.OnDeviceAdded("a"); callback.OnDeviceRemoved("a");
+            callback.OnDeviceStateChanged("a", 1); callback.OnPropertyValueChanged("a", default); callback.OnDefaultDeviceChanged(99, 1, "a");
+            Require(seen.Count == 6 && seen[0] == AudioChangeKind.Defaults && seen.Skip(1).All(k => k == AudioChangeKind.Topology), "Unsafe notification classification");
+            callback.Stop(); callback.OnDeviceAdded("b"); Require(seen.Count == 6, "Disposed callback still dispatched");
+            var throwing = new AudioDeviceNotifications.Callback((AudioChangeKind _) => throw new InvalidOperationException("test"));
+            Require(throwing.OnDeviceAdded("a") == 0, "Exception escaped native callback");
+        });
+        Check("Cached defaults preserve device metadata and require rescans for unknown IDs", () =>
+        {
+            IReadOnlyList<AudioDevice> devices = new[] { new AudioDevice("a", "One", AudioFlow.Output, true, false), new AudioDevice("b", "Two", AudioFlow.Output, false, true) };
+            Require(DeviceDefaults.TryApply(devices, "a", "b", out var unchanged) && ReferenceEquals(devices, unchanged), "Unchanged defaults allocated a new snapshot");
+            Require(DeviceDefaults.TryApply(devices, "b", "a", out var next) && next[1].IsDefault && next[0].IsCommunications && !next[0].IsDefault && !next[1].IsCommunications, "Default roles were mixed up");
+            Require(next[0].Name == "One" && devices[0].IsDefault, "Cache metadata or original snapshot was mutated");
+            Require(!DeviceDefaults.TryApply(devices, "new-device", "a", out var rejected) && ReferenceEquals(rejected, devices), "Unknown device bypassed a full scan");
+            Require(DeviceDefaults.TryApply(devices, null, null, out var emptyDefaults) && emptyDefaults.All(d => !d.IsDefault && !d.IsCommunications), "Removed defaults stayed selected");
+        });
+        Check("Tray layout cache detects edits, order and topology without rebuilding for default flags", () =>
+        {
+            var devices = new[] { new AudioDevice("a", "One", AudioFlow.Output, true, false), new AudioDevice("b", "Two", AudioFlow.Output, false, false) };
+            var profiles = new List<AudioProfile> { new() { Id = "first", Name = "Desk", OutputId = "a" }, new() { Id = "second", Name = "Calls", OutputId = "b" } };
+            var cache = new TrayLayoutCache(); var inputs = Array.Empty<AudioDevice>();
+            Require(cache.Update(devices, inputs, profiles), "Initial tray not built");
+            Require(!cache.Update(new[] { devices[0] with { IsDefault = false }, devices[1] with { IsDefault = true } }, inputs, profiles), "Default flags rebuilt the tray layout");
+            profiles[0].Name = "Edited"; Require(cache.Update(devices, inputs, profiles), "In-place profile rename missed");
+            profiles[0].OutputId = "b"; Require(cache.Update(devices, inputs, profiles), "Profile routing edit missed");
+            profiles.Reverse(); Require(cache.Update(devices, inputs, profiles), "Profile order change missed");
+            devices[0] = devices[0] with { Name = "Renamed" }; Require(cache.Update(devices, inputs, profiles), "In-place device rename missed");
+            Require(cache.Update(new[] { devices[1] }, inputs, profiles), "Device removal missed");
+            Require(!cache.Update(new[] { devices[1] }, inputs, profiles), "Unchanged tray rebuilt");
+            var stable = new[] { devices[1] }; cache.Update(stable, inputs, profiles);
+            var allocated = GC.GetTotalAllocatedBytes(true);
+            for (var i = 0; i < 10000; i++) cache.Update(stable, inputs, profiles);
+            Require(GC.GetTotalAllocatedBytes(true) - allocated < 50000, "Stable tray metadata still allocates on every refresh");
+        });
         if (Environment.GetEnvironmentVariable("SONARSHIFT_TEST_DATA") != null) Check("Second launch shows the window with one IPC request before requesting updates", () =>
         {
             using var mutex = new System.Threading.Mutex(true, HostConnection.InstanceMutex, out var owner);

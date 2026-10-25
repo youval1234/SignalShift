@@ -50,15 +50,38 @@ internal static class Program
             using var client = Launch("--toggle-microphone");
             if (!client.WaitForExit(10000) || client.ExitCode != 0) throw new InvalidOperationException("Microphone command failed.");
         }
-        Process? host = null; var coldStart = false;
+        Process? host = null; var coldStart = false; var defaultSwitchChecked = false; long defaultFullScans = -1, muteFullScans = -1;
         try
         {
             host = Launch("--tray"); Thread.Sleep(750);
             using var state = Command("status");
             if (state.RootElement.GetProperty("conflicts").GetArrayLength() != 0) throw new InvalidOperationException("Test hotkey is unavailable.");
+            var alternate = audio.Enumerate(AudioFlow.Output).FirstOrDefault(d => d.Id != defaults[1]);
+            if (alternate != null && defaults.Take(3).All(id => id != null))
+            {
+                speakers.TryAdd(alternate.Id, MicrophoneMuteService.ReadEndpoint(alternate.Id));
+                var scans = state.RootElement.GetProperty("fullEnumerations").GetInt64();
+                try
+                {
+                    audio.SetDefault(alternate, true);
+                    WaitFor(() => { using var current = Command("status"); return current.RootElement.GetProperty("testOutputDefault").GetString() == alternate.Id && current.RootElement.GetProperty("testOutputCalls").GetString() == alternate.Id; });
+                    using var switched = Command("status");
+                    if (!switched.RootElement.GetProperty("testTrayChecksCorrect").GetBoolean()) throw new InvalidOperationException("Tray default checks are stale.");
+                    defaultFullScans = switched.RootElement.GetProperty("fullEnumerations").GetInt64() - scans;
+                    defaultSwitchChecked = true;
+                }
+                finally
+                {
+                    for (var role = 0; role < 3; role++) audio.SetRoles(defaults[role]!, new[] { role });
+                    WaitFor(() => { using var current = Command("status"); return current.RootElement.GetProperty("testOutputDefault").GetString() == defaults[1] && current.RootElement.GetProperty("testOutputCalls").GetString() == defaults[2]; });
+                }
+            }
             var window = new IntPtr(state.RootElement.GetProperty("testHotkeyWindow").GetInt64());
             var target = MicrophoneMuteService.Classify(snapshot) != MicrophoneMuteState.Muted;
+            using var beforeMute = Command("status");
             ToggleClient(); WaitFor(() => All(target));
+            WaitFor(() => { using var current = Command("status"); return current.RootElement.GetProperty("fastMuteRefreshes").GetInt32() > beforeMute.RootElement.GetProperty("fastMuteRefreshes").GetInt32(); });
+            using (var afterMute = Command("status")) muteFullScans = afterMute.RootElement.GetProperty("fullEnumerations").GetInt64() - beforeMute.RootElement.GetProperty("fullEnumerations").GetInt64();
             if (!PostMessage(window, 0x312, new IntPtr(5), IntPtr.Zero)) throw new InvalidOperationException("Could not dispatch registered mute hotkey.");
             WaitFor(() => All(!target));
             var previousCallbacks = callbacks;
@@ -90,7 +113,7 @@ internal static class Program
             var after = (from flow in new[] { AudioFlow.Output, AudioFlow.Input } from role in new[] { 0, 1, 2 } select audio.GetDefaultId(flow, role)).ToArray();
             if (!defaults.SequenceEqual(after)) throw new InvalidOperationException("A default device changed.");
         }
-        var report = new { success = true, endpoints = snapshot.Count, callbacks, commandLineToggle = true, registeredHotkey = true, externalMuteNotification = true,
+        var report = new { success = true, defaultSwitchChecked, defaultFullScans, muteFullScans, endpoints = snapshot.Count, callbacks, commandLineToggle = true, registeredHotkey = true, externalMuteNotification = true,
             coldStart, originalMicrophoneStatesRestored = true, speakerMuteAndVolumePreserved = true, allSixDefaultRolesPreserved = true, microphoneRecorded = false };
         var json = JsonSerializer.Serialize(report, new JsonSerializerOptions { WriteIndented = true });
         File.WriteAllText(Path.Combine(data, "hardware-report.json"), json); Console.WriteLine(json); return 0;
