@@ -40,6 +40,7 @@ public sealed class Settings
     public bool HotkeySounds { get; set; } = true;
     public bool CloseToTray { get; set; } = true;
     public bool StartMinimized { get; set; }
+    public bool AutomaticUpdates { get; set; } = true;
     public bool Initialized { get; set; }
     public List<AudioProfile> Profiles { get; set; } = new();
 }

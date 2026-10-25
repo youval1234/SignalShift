@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Preview tag (preview-2.3.1)
+        description: Preview tag (preview-2.4.0)
         required: true
       build_run_id:
         description: Successful main-branch Build Windows app run

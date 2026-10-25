@@ -13,6 +13,12 @@ namespace SonarShift;
 
 public partial class App : Application
 {
+    private void ButtonLoaded(object sender, RoutedEventArgs e)
+    {
+        if (sender is System.Windows.Controls.Button button && !Equals(button.GetValue(MotionWiredProperty), true))
+        { button.SetValue(MotionWiredProperty, true); Motion.Wire(button); }
+    }
+    private static readonly DependencyProperty MotionWiredProperty = DependencyProperty.RegisterAttached("MotionWired", typeof(bool), typeof(App), new PropertyMetadata(false));
     private Mutex? instance;
     protected override async void OnStartup(StartupEventArgs e)
     {

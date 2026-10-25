@@ -15,6 +15,8 @@ public static class Program
     {
         try
         {
+            if (args.Contains("--apply-update"))
+            { Environment.ExitCode = AppUpdater.Apply(args.SkipWhile(a => a != "--apply-update").Skip(1).First()); return; }
             if (args.Contains("--toggle-microphone"))
             {
                 var result = MicrophoneCommand.Run();
@@ -45,6 +47,7 @@ public static class Program
             using var instance = new Mutex(true, HostConnection.InstanceMutex, out var first);
             if (!first)
             {
+                if (!args.Contains("--updated")) HostConnection.TrySend("check-update");
                 if (args.Contains("--tray")) return;
                 try { HostConnection.Send("show"); }
                 catch { Directory.CreateDirectory(SettingsStore.DirectoryPath); File.WriteAllText(Path.Combine(SettingsStore.DirectoryPath, "show.signal"), DateTime.UtcNow.ToString("O")); }
@@ -52,7 +55,7 @@ public static class Program
             }
             Forms.Application.SetHighDpiMode(Forms.HighDpiMode.PerMonitorV2);
             Forms.Application.EnableVisualStyles();
-            using var host = new BackgroundHost(args.Contains("--tray"));
+            using var host = new BackgroundHost(args.Contains("--tray"), !args.Contains("--updated"));
             Forms.Application.Run(host);
         }
         catch (Exception ex) { Forms.MessageBox.Show(ex.Message, "SignalShift could not start"); Environment.ExitCode = 1; }

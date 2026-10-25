@@ -38,9 +38,10 @@ internal sealed class BackgroundHost : Forms.ApplicationContext
     private readonly Dictionary<(AudioFlow Flow, string Id), Forms.ToolStripMenuItem> trayDevices = new();
     private string? activeProfileId;
     private bool closing;
+    private bool updateChecking;
     internal int RefreshCount { get; private set; }
 
-    internal BackgroundHost(bool startInTray)
+    internal BackgroundHost(bool startInTray, bool checkUpdates = true)
     {
         microphoneMute = new(() => Post(QueueRefresh));
         _ = dispatch.Handle;
@@ -75,6 +76,24 @@ internal sealed class BackgroundHost : Forms.ApplicationContext
             return completion.Task;
         }, stop.Token);
         if (!startInTray && !settings.StartMinimized) ShowInterface();
+        if (checkUpdates) Post(CheckUpdates);
+    }
+    private void CheckUpdates() => CheckUpdates(false);
+    private async void CheckUpdates(bool manual)
+    {
+        if (closing || updateChecking || (!manual && !settings.AutomaticUpdates) || Environment.GetEnvironmentVariable("SONARSHIFT_TEST_DATA") != null) return;
+        updateChecking = true;
+        try
+        {
+            var directory = await Task.Run(() => AppUpdater.PrepareAsync(stop.Token));
+            if (directory == null || closing || (!manual && !settings.AutomaticUpdates)) return;
+            var show = ui != null && !ui.HasExited;
+            AppUpdater.Start(directory, show ? ui!.Id : 0, show);
+            ExitThread();
+        }
+        catch (OperationCanceledException) { if (!closing) AppUpdater.Status("Update check timed out; try again next launch."); }
+        catch (Exception ex) { if (!closing) AppUpdater.Status("Update unavailable: " + ex.Message); }
+        finally { updateChecking = false; }
     }
     private void Post(Action action)
     {
@@ -126,6 +145,8 @@ internal sealed class BackgroundHost : Forms.ApplicationContext
         }
         switch (command)
         {
+            case "check-update": CheckUpdates(); break;
+            case "check-update-manual": CheckUpdates(true); break;
             case "mic-state":
                 microphoneMute.Refresh();
                 return JsonSerializer.Serialize(new { microphoneMute = microphoneMute.State.ToString(), endpoints = microphoneMute.Snapshot(), error = microphoneMute.Error });
@@ -142,7 +163,7 @@ internal sealed class BackgroundHost : Forms.ApplicationContext
             case "test-switch-stress": if (Environment.GetEnvironmentVariable("SONARSHIFT_TEST_DATA") != null) _ = Task.Delay(100).ContinueWith(_ => Post(() => File.WriteAllText(Path.Combine(SettingsStore.DirectoryPath, "stress-report.json"), SwitchAllocationProbe()))); break;
             case "test-notification": if (Environment.GetEnvironmentVariable("SONARSHIFT_TEST_DATA") != null) feedback.Present("Output switched", "Diagnostic speaker", AudioFlow.Output); break;
         }
-        return JsonSerializer.Serialize(new { pid = Environment.ProcessId, interfaceRunning = ui != null && !ui.HasExited, interfacePid = ui != null && !ui.HasExited ? ui.Id : 0, conflicts, refreshes = RefreshCount, testHotkeyWindow = Environment.GetEnvironmentVariable("SONARSHIFT_TEST_DATA") != null ? keys.Handle.ToInt64() : 0, theme = settings.Theme, wpfLoaded = AppDomain.CurrentDomain.GetAssemblies().Any(a => a.GetName().Name == "PresentationFramework"), audioTestsLoaded = AppDomain.CurrentDomain.GetAssemblies().Any(a => a.GetName().Name?.StartsWith("NAudio", StringComparison.Ordinal) == true), activeProfileId, profileCycleEnabled = settings.ProfileCycleHotkeyEnabled, microphoneMute = microphoneMute.State.ToString(), microphoneMuteHotkeyEnabled = settings.MicrophoneMuteHotkeyEnabled, eventDriven = notifications != null });
+        return JsonSerializer.Serialize(new { version = AppUpdater.Current.ToString(3), updateChecking, pid = Environment.ProcessId, interfaceRunning = ui != null && !ui.HasExited, interfacePid = ui != null && !ui.HasExited ? ui.Id : 0, conflicts, refreshes = RefreshCount, testHotkeyWindow = Environment.GetEnvironmentVariable("SONARSHIFT_TEST_DATA") != null ? keys.Handle.ToInt64() : 0, theme = settings.Theme, wpfLoaded = AppDomain.CurrentDomain.GetAssemblies().Any(a => a.GetName().Name == "PresentationFramework"), audioTestsLoaded = AppDomain.CurrentDomain.GetAssemblies().Any(a => a.GetName().Name?.StartsWith("NAudio", StringComparison.Ordinal) == true), activeProfileId, profileCycleEnabled = settings.ProfileCycleHotkeyEnabled, microphoneMute = microphoneMute.State.ToString(), microphoneMuteHotkeyEnabled = settings.MicrophoneMuteHotkeyEnabled, eventDriven = notifications != null });
     }
     // Synthetic allocation probe: never changes Windows defaults or reads user settings.
     // Available only to an isolated test instance, not the normal desktop host.

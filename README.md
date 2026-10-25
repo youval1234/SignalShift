@@ -5,7 +5,7 @@
 SignalShift is a portable Windows audio switcher with global shortcuts, saved audio
 profiles, microphone mute, dark/light themes and a lightweight system tray.
 
-**[Download the Windows x64 preview](https://github.com/youval1234/SignalShift/releases/tag/preview-2.3.1)**.
+**[Download the Windows x64 preview](https://github.com/youval1234/SignalShift/releases/tag/preview-2.4.0)**.
 The self-contained EXE needs no separate .NET runtime. Previews are unsigned;
 see the [Windows trust guide](docs/windows-trust.md).
 
@@ -30,6 +30,8 @@ Screenshots use sample devices and profiles.
 - **Device tests:** play a sample through a chosen output, or record five seconds
   and hear your microphone through a chosen playback device. Clips remain in memory
   and are discarded when the test closes.
+- **Automatic updates:** launch checks download newer releases from this repository, verify SHA-256 and executable metadata, then replace the portable EXE and restart. Settings includes an opt-out and a manual check. Preview builds follow preview releases.
+- **Responsive interface:** short hover, press and page transitions respect Windows animation preferences.
 - **Light and dark themes:** switch with the sidebar button or choose in Settings.
 - **Readable backups:** import/export Notepad `.txt` settings and migrate supported
   SoundSwitch device-cycle settings.
@@ -50,9 +52,13 @@ keyboard-shortcut switch.
 ## Install and update
 
 Download **SignalShift.exe** and **SHA256SUMS.txt** from the
-[release page](https://github.com/youval1234/SignalShift/releases/tag/preview-2.3.1).
+[release page](https://github.com/youval1234/SignalShift/releases/tag/preview-2.4.0).
 Quit the previous instance from its tray menu before replacing the EXE. Keep it in
 a permanent location if you enable startup. Existing preferences are preserved.
+From 2.4 onward, automatic launch checks can install newer verified downloads and
+restart in place. Disable this in Settings if you prefer manual replacement. Offline
+or failed checks leave the running version in place. Downloads remain unsigned;
+Windows security policies may prevent an update.
 
 The app supports Windows 10/11 x64. A checksum verifies the downloaded bytes; it
 does not establish a trusted publisher. The app never changes Windows protections.
@@ -66,7 +72,8 @@ Exports contain audio device names and IDs; share them intentionally. Imports ma
 a restorable backup before replacing preferences. Older Sonora/SonarShift settings
 remain supported; retired fields are ignored.
 
-SignalShift has no account, advertising, telemetry or network service. Audio tests
+SignalShift has no account, advertising or telemetry. Update checks contact GitHub;
+no preferences, device information or audio are sent. Audio tests
 are local and temporary. Microphone mute does not record audio. Startup is opt-in.
 [Privacy policy](PRIVACY.md).
 
@@ -89,7 +96,7 @@ cycling, mute command handling, theme controls, bounded test clips, notification
 reuse, settings lock recovery and IPC. Hardware-specific tests restore original
 states. Automated checks do not establish compatibility with every audio driver.
 
-[Release notes](docs/release-2.3.md) · [Memory measurements](docs/performance-1.5.md) ·
+[Release notes](docs/release-2.4.md) · [Memory measurements](docs/performance-1.5.md) ·
 [Switch allocation results](docs/performance-switching.md).
 Historical measurements are workload-specific, not guarantees for every machine.
 

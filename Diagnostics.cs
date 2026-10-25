@@ -22,6 +22,7 @@ public static class Diagnostics
             catch (Exception ex) { failed = true; report.Add(new { test = name, passed = false, error = ex.ToString() }); }
         }
         void Require(bool condition, string message) { if (!condition) throw new InvalidOperationException(message); }
+        UpdaterChecks.Run(Check, Require);
         if (Environment.GetEnvironmentVariable("SONARSHIFT_TEST_DATA") != null) Check("Microphone command sends one toggle and rejects legacy or failed hosts without retrying", () =>
         {
             foreach (var scenario in new[] { "success", "legacy", "failure" })

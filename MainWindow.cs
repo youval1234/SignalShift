@@ -67,6 +67,7 @@ public sealed partial class MainWindow : Window
         Width = 1160; Height = 900; MinWidth = 960; MinHeight = 680;
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
         ThemePalette.Apply(Preferences.Theme);
+        UseLayoutRounding = true;
         Background = Brush("#0D0F15"); Foreground = Brush("#F4F4FA");
         FontFamily = new FontFamily("Segoe UI Variable Text, Segoe UI");
         WindowStyle = WindowStyle.None; ResizeMode = ResizeMode.CanResize;
@@ -132,17 +133,13 @@ public sealed partial class MainWindow : Window
         bottom.Children.Add(Text("ALWAYS WITHIN REACH", 10, Muted, FontWeights.SemiBold));
         var trayLine = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 12, 0, 20) };
         trayLine.Children.Add(Text("●  ", 12, Mint)); trayLine.Children.Add(trayStatus); bottom.Children.Add(trayLine);
-        bottom.Children.Add(Text("SIGNALSHIFT  /  2.3.1", 10, Brush("#5D637B")));
+        bottom.Children.Add(Text("SIGNALSHIFT  /  2.4.0", 10, Brush("#5D637B")));
         Grid.SetRow(bottom, 2); sidebar.Children.Add(bottom); shell.Children.Add(sidebar);
         var main = new Grid(); Grid.SetColumn(main, 1);
         main.RowDefinitions.Add(new RowDefinition { Height = new GridLength(44) });
         main.RowDefinitions.Add(new RowDefinition());
         main.RowDefinitions.Add(new RowDefinition { Height = new GridLength(40) });
-        var chrome = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 4, 10, 0) };
-        var minimize = Button("—", MinimizeToTray); minimize.Padding = new Thickness(14, 4, 14, 4); minimize.Background = Brushes.Transparent; minimize.BorderThickness = new Thickness(0); minimize.ToolTip = "Minimize to tray";
-        var maximize = Button("□", () => WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized); maximize.Padding = minimize.Padding; maximize.Background = Brushes.Transparent; maximize.BorderThickness = new Thickness(0); maximize.ToolTip = "Maximize / restore";
-        var close = Button("×", Close); close.Padding = minimize.Padding; close.Background = Brushes.Transparent; close.BorderThickness = new Thickness(0); close.FontSize = 20; close.ToolTip = "Close to tray";
-        foreach (var b in new[] { minimize, maximize, close }) { WindowChrome.SetIsHitTestVisibleInChrome(b, true); chrome.Children.Add(b); }
+        var chrome = CaptionControls();
         main.Children.Add(chrome);
         var scroll = new ScrollViewer { Content = page, Padding = new Thickness(36, 10, 36, 16) }; Grid.SetRow(scroll, 1); main.Children.Add(scroll);
         var footer = new Border { BorderBrush = Brush("#20232E"), BorderThickness = new Thickness(0, 1, 0, 0), Padding = new Thickness(36, 10, 36, 0), Child = status };
@@ -163,6 +160,7 @@ public sealed partial class MainWindow : Window
             content.Width = 135; navigation.Children.Add(b);
         }
         switch (name) { case "Devices": BuildDevices(); break; case "Shortcuts": BuildShortcuts(); break; case "Profiles": BuildProfiles(); break; default: BuildSettings(); break; }
+        if (!useDemoDevices) Motion.Enter(page);
     }
     private void Heading(string eyebrow, string title, string subtitle)
     {
@@ -396,6 +394,7 @@ public sealed partial class MainWindow : Window
     {
         Heading("Small details, your way", "Settle into your flow.", "SignalShift stays quietly in your system tray, ready whenever you need it.");
         BuildAppearance();
+        BuildUpdates();
         BuildSettingsTransfer();
         var preferences = new StackPanel();
         StackPanel Option(string title, string description, bool value, Action<bool> change)
@@ -423,7 +422,7 @@ public sealed partial class MainWindow : Window
         preferences.Children.Add(startup);
         Option("Open in the tray", "Keep the main window hidden when SignalShift starts.", Preferences.StartMinimized, v => Preferences.StartMinimized = v);
         page.Children.Add(Card(preferences, 25));
-        var about = new StackPanel { Margin = new Thickness(0, 25, 0, 0) }; about.Children.Add(Text("SIGNALSHIFT 2.3.1", 11, Purple, FontWeights.SemiBold)); about.Children.Add(new TextBlock { Text = "Native Windows audio switching. No account, no ads, no telemetry.\nYour preferences stay on this computer.", Foreground = Muted, FontSize = 13, LineHeight = 24, Margin = new Thickness(0, 10, 0, 15) });
+        var about = new StackPanel { Margin = new Thickness(0, 25, 0, 0) }; about.Children.Add(Text("SIGNALSHIFT 2.4.0", 11, Purple, FontWeights.SemiBold)); about.Children.Add(new TextBlock { Text = "Native Windows audio switching. No account, no ads, no telemetry.\nYour preferences stay on this computer.", Foreground = Muted, FontSize = 13, LineHeight = 24, Margin = new Thickness(0, 10, 0, 15) });
         var line = new StackPanel { Orientation = Orientation.Horizontal }; line.Children.Add(Button("Open settings folder", () => Process.Start(new ProcessStartInfo("explorer.exe", SettingsStore.DirectoryPath) { UseShellExecute = true })));
         var licenses = Button("Third-party licenses", () =>
         {

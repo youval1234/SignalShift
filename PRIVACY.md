@@ -1,7 +1,7 @@
 # SignalShift privacy policy
 
-SignalShift runs locally. It has no accounts, advertising, telemetry, network client
-or automatic uploads.
+SignalShift controls audio locally. It has no accounts, advertising, telemetry
+or automatic uploads. Optional automatic updates contact GitHub at launch.
 
 The app reads audio endpoint names, identifiers and default-device/mute state to
 show and control Windows audio. Preferences, selected devices, shortcuts and
@@ -28,5 +28,10 @@ Startup is opt-in. To uninstall, turn off startup, quit the tray and delete the
 portable EXE and local settings folder. Export preferences first if wanted.
 
 GitHub hosts source and release downloads under its own privacy policy. The
-installed application does not contact GitHub. Public screenshots use sample
+updater requests release metadata and executable downloads from GitHub over HTTPS.
+GitHub receives ordinary network request information, including your IP address
+and the app version in its User-Agent. No settings, audio, device names or IDs are
+sent. Turn off automatic updates in Settings to disable launch checks; Check for
+updates makes an explicit request. Update status and temporary downloads stay in
+the local settings folder. Public screenshots use sample
 devices and profiles rather than a contributor's local configuration.

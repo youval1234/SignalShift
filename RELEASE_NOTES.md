@@ -1,5 +1,14 @@
 # SignalShift release notes
 
+## 2.4.0
+
+- Consistent vector window controls.
+- Launch-time GitHub updates, a manual Settings update button and an automatic-check opt-out.
+- Short hover, press, page and theme transitions respecting Windows animation preferences.
+- Verified in-place replacement, settings preservation and rollback checks.
+
+[Details](docs/release-2.4.md).
+
 ## 2.3.1
 
 - Microphone feedback uses the exact messages **Microphone muted** and **Microphone live**.
