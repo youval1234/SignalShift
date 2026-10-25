@@ -5,7 +5,7 @@
 SignalShift is a native Windows audio switcher with global shortcuts, saved audio
 profiles, dark/light themes and a lightweight background tray.
 
-**[Download SignalShift 2.2.1 preview](https://github.com/youval1234/SignalShift/releases/tag/preview-2.2.1)**
+**[Download SignalShift 2.3 preview](https://github.com/youval1234/SignalShift/releases/tag/preview-2.3.0)**
 for Windows x64. This self-contained EXE is unsigned; see the
 [Windows trust guide and responsibility notice](docs/windows-trust.md).
 
@@ -13,7 +13,18 @@ for Windows x64. This self-contained EXE is unsigned; see the
 | --- | --- |
 | ![Dark appearance](Assets/SignalShift-Dark.png) | ![Light appearance](Assets/SignalShift-Light.png) |
 
-## New in 2.2
+## New in 2.3
+
+- **Microphone mute:** one action from the app, tray, configurable hotkey. The suggested shortcut is **Ctrl + Alt + M**, enabled under Shortcuts.
+  It toggles the Windows default microphone endpoints for audio and calls together;
+  mixed states are muted first. Speaker mute, volume and default-device choices are
+  preserved. The app reads the actual endpoint state and follows external changes
+  through notifications, without polling. A different microphone selected directly
+  inside another app still needs that app's own mute control.
+
+[2.3 release notes](docs/release-2.3.md)
+
+## Appearance and device tests
 
 **2.2.1 fixes the “Specified cast is not valid” error in both device tests.**
 The Core Audio watcher and test library now use independent COM wrappers. A
@@ -70,7 +81,7 @@ releases its process; the tray keeps handling shortcuts. Choose Quit to exit.
 ## Downloads and Windows trust
 
 Download **SignalShift.exe** and **SHA256SUMS.txt** from the
-[2.2.1 preview release](https://github.com/youval1234/SignalShift/releases/tag/preview-2.2.1).
+[2.3 preview release](https://github.com/youval1234/SignalShift/releases/tag/preview-2.3.0).
 Quit older Sonora/SonarShift/SignalShift processes before replacing the EXE.
 Audio switching and themes support Windows 10/11 x64.
 

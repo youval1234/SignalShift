@@ -95,6 +95,9 @@ internal sealed class BackgroundFeedback : IDisposable
         internal void Present(string caption, string device, AudioFlow? flow)
         {
             title = caption.ToUpperInvariant(); message = device; glyph = flow == AudioFlow.Output ? "\uE7F5" : flow == AudioFlow.Input ? "\uE720" : "\uE8A9";
+            accent.Color = caption == "Microphone muted" ? (light ? Color.FromArgb(192, 49, 76) : Color.FromArgb(255, 99, 120))
+                : caption == "Microphone live" ? (light ? Color.FromArgb(23, 111, 88) : Color.FromArgb(92, 230, 162))
+                : light ? Color.FromArgb(105, 80, 199) : Color.FromArgb(184, 163, 255);
             AccessibleName = caption + ": " + device;
             elapsed.Restart(); Opacity = 1;
             var foreground = GetForegroundWindow();
@@ -131,7 +134,7 @@ internal sealed class BackgroundFeedback : IDisposable
             g.DrawString("SIGNALSHIFT", brand, muted, new PointF(304, 20));
             g.DrawString(message, text, foreground, new RectangleF(76, 39, 288, 40), format);
             g.FillRectangle(track, 76, 80, 288, 2);
-            g.FillRectangle(mint, 76, 80, (float)(288 * Math.Max(0, 1 - elapsed.ElapsedMilliseconds / 1600.0)), 2);
+            g.FillRectangle(title is "MICROPHONE MUTED" or "MICROPHONE LIVE" ? accent : mint, 76, 80, (float)(288 * Math.Max(0, 1 - elapsed.ElapsedMilliseconds / 1600.0)), 2);
         }
         private static GraphicsPath Rounded(RectangleF rect, float radius)
         {

@@ -22,6 +22,47 @@ public static class Diagnostics
             catch (Exception ex) { failed = true; report.Add(new { test = name, passed = false, error = ex.ToString() }); }
         }
         void Require(bool condition, string message) { if (!condition) throw new InvalidOperationException(message); }
+        if (Environment.GetEnvironmentVariable("SONARSHIFT_TEST_DATA") != null) Check("Microphone command sends one toggle and rejects legacy or failed hosts without retrying", () =>
+        {
+            foreach (var scenario in new[] { "success", "legacy", "failure" })
+            {
+                using var stop = new System.Threading.CancellationTokenSource(); var toggles = 0;
+                var listener = HostConnection.ListenAsync(command =>
+                {
+                    if (command == "status") return System.Threading.Tasks.Task.FromResult(scenario == "legacy" ? "{\"pid\":1}" : "{\"microphoneMute\":\"Live\"}");
+                    System.Threading.Interlocked.Increment(ref toggles);
+                    return System.Threading.Tasks.Task.FromResult(scenario == "failure" ? "{\"success\":false,\"error\":\"test failure\"}" : "{\"success\":true,\"microphoneMute\":\"Muted\"}");
+                }, stop.Token);
+                try
+                {
+                    var rejected = false;
+                    try { _ = MicrophoneCommand.Run(); } catch (InvalidOperationException) { rejected = true; }
+                    Require(rejected == (scenario != "success"), "Unexpected command result: " + scenario);
+                    Require(toggles == (scenario == "legacy" ? 0 : 1), "A toggle was retried or sent to a legacy host");
+                }
+                finally { stop.Cancel(); Require(listener.Wait(2000), "Command fixture did not stop"); }
+            }
+        });
+        Check("Microphone mute settings migrate safely, roundtrip and reject conflicts", () =>
+        {
+            var old = JsonNode.Parse(JsonSerializer.Serialize(new Settings()))!.AsObject();
+            old.Remove("MicrophoneMuteShortcut"); old.Remove("MicrophoneMuteHotkeyEnabled");
+            var migrated = SettingsTransfer.Parse(old.ToJsonString(), new Settings(), Array.Empty<AudioDevice>()).Settings;
+            Require(!migrated.MicrophoneMuteHotkeyEnabled && migrated.MicrophoneMuteShortcut.Key == 0x4D, "Upgrade unexpectedly claimed a mute shortcut");
+            migrated.MicrophoneMuteHotkeyEnabled = true;
+            var loaded = SettingsTransfer.Parse(SettingsTransfer.Export(migrated, Array.Empty<AudioDevice>(), false), new Settings(), Array.Empty<AudioDevice>()).Settings;
+            Require(loaded.MicrophoneMuteHotkeyEnabled && loaded.MicrophoneMuteShortcut == migrated.MicrophoneMuteShortcut, "Mute shortcut was lost");
+            migrated.MicrophoneMuteShortcut = migrated.OutputShortcut;
+            var rejected = false; try { SettingsTransfer.Validate(migrated); } catch (InvalidDataException) { rejected = true; }
+            Require(rejected, "Conflicting mute shortcut was accepted");
+        });
+        Check("Microphone state distinguishes muted, live, mixed and unavailable", () =>
+        {
+            Require(MicrophoneMuteService.Classify(Array.Empty<MicrophoneMuteSnapshot>()) == MicrophoneMuteState.Unavailable, "Missing microphone reported live");
+            Require(MicrophoneMuteService.Classify(new[] { new MicrophoneMuteSnapshot("a", true) }) == MicrophoneMuteState.Muted, "Muted input reported live");
+            Require(MicrophoneMuteService.Classify(new[] { new MicrophoneMuteSnapshot("a", false) }) == MicrophoneMuteState.Live, "Live input reported muted");
+            Require(MicrophoneMuteService.Classify(new[] { new MicrophoneMuteSnapshot("a", false), new MicrophoneMuteSnapshot("b", true) }) == MicrophoneMuteState.Mixed, "Mixed role states lost");
+        });
         Check("Live device watcher coexists with audio-test COM wrappers", () =>
         {
             using var watcher = new AudioDeviceNotifications(() => { });

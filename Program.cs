@@ -15,6 +15,13 @@ public static class Program
     {
         try
         {
+            if (args.Contains("--toggle-microphone"))
+            {
+                var result = MicrophoneCommand.Run();
+                var report = args.SkipWhile(a => a != "--report").Skip(1).FirstOrDefault();
+                if (report != null) File.WriteAllText(report, result);
+                return;
+            }
             if (args.Contains("--export-background-preview"))
             {
                 BackgroundFeedback.ExportPreview(args.SkipWhile(a => a != "--export-background-preview").Skip(1).First()); return;
@@ -38,6 +45,7 @@ public static class Program
             using var instance = new Mutex(true, HostConnection.InstanceMutex, out var first);
             if (!first)
             {
+                if (args.Contains("--tray")) return;
                 try { HostConnection.Send("show"); }
                 catch { Directory.CreateDirectory(SettingsStore.DirectoryPath); File.WriteAllText(Path.Combine(SettingsStore.DirectoryPath, "show.signal"), DateTime.UtcNow.ToString("O")); }
                 return;

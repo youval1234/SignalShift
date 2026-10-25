@@ -29,6 +29,8 @@ public sealed class Settings
     public Shortcut InputShortcut { get; set; } = new(3, 0x79, "Ctrl + Alt + F10");
     public Shortcut ProfileCycleShortcut { get; set; } = new(3, 0x50, "Ctrl + Alt + P");
     public bool ProfileCycleHotkeyEnabled { get; set; }
+    public Shortcut MicrophoneMuteShortcut { get; set; } = new(3, 0x4D, "Ctrl + Alt + M");
+    public bool MicrophoneMuteHotkeyEnabled { get; set; }
     public string Theme { get; set; } = "Dark";
     public bool HotkeysEnabled { get; set; } = true;
     public bool OutputHotkeyEnabled { get; set; } = true;

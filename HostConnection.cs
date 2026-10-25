@@ -16,10 +16,10 @@ internal static class HostConnection
     internal static string UiMutex => "Local\\SonarShift-interface-" + Suffix;
     private static string PipeName => "SonarShift-" + Suffix;
     internal static void Notify(string title, string message, AudioFlow? flow) => Send(JsonSerializer.Serialize(new { action = "notification", title = title[..Math.Min(120, title.Length)], message = message[..Math.Min(2048, message.Length)], flow }));
-    internal static string Send(string command)
+    internal static string Send(string command, int timeoutMilliseconds = 3000)
     {
         using var pipe = new NamedPipeClientStream(".", PipeName, PipeDirection.InOut, PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly);
-        using var timeout = new CancellationTokenSource(3000);
+        using var timeout = new CancellationTokenSource(timeoutMilliseconds);
         pipe.ConnectAsync(timeout.Token).GetAwaiter().GetResult();
         using var writer = new StreamWriter(pipe, new UTF8Encoding(false), leaveOpen: true) { AutoFlush = true };
         using var reader = new StreamReader(pipe, Encoding.UTF8, leaveOpen: true);

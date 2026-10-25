@@ -138,6 +138,7 @@ public static class SettingsTransfer
         Hotkey(settings.OutputShortcut, settings.HotkeysEnabled && settings.OutputHotkeyEnabled);
         Hotkey(settings.InputShortcut, settings.HotkeysEnabled && settings.InputHotkeyEnabled);
         Hotkey(settings.ProfileCycleShortcut, settings.HotkeysEnabled && settings.ProfileCycleHotkeyEnabled);
+        Hotkey(settings.MicrophoneMuteShortcut, settings.HotkeysEnabled && settings.MicrophoneMuteHotkeyEnabled);
         var profileIds = new HashSet<string>();
         foreach (var profile in settings.Profiles)
         {
@@ -148,6 +149,7 @@ public static class SettingsTransfer
         settings.OutputShortcut = NormalizeShortcut(settings.OutputShortcut);
         settings.InputShortcut = NormalizeShortcut(settings.InputShortcut);
         settings.ProfileCycleShortcut = NormalizeShortcut(settings.ProfileCycleShortcut);
+        settings.MicrophoneMuteShortcut = NormalizeShortcut(settings.MicrophoneMuteShortcut);
         foreach (var profile in settings.Profiles) if (profile.Hotkey != null) profile.Hotkey = NormalizeShortcut(profile.Hotkey);
     }
     private static Shortcut NormalizeShortcut(Shortcut key)

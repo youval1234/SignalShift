@@ -18,6 +18,8 @@ internal sealed class BackgroundHost : Forms.ApplicationContext
     private readonly KeyWindow keys = new();
     private readonly Forms.NotifyIcon tray;
     private readonly AudioService audio = new();
+    private readonly MicrophoneMuteService microphoneMute;
+    private Forms.ToolStripMenuItem? microphoneMuteItem;
     private readonly SettingsStore store = new();
     private Settings settings;
     private IReadOnlyList<AudioDevice> outputs = Array.Empty<AudioDevice>(), inputs = Array.Empty<AudioDevice>();
@@ -40,6 +42,7 @@ internal sealed class BackgroundHost : Forms.ApplicationContext
 
     internal BackgroundHost(bool startInTray)
     {
+        microphoneMute = new(() => Post(QueueRefresh));
         _ = dispatch.Handle;
         Directory.CreateDirectory(SettingsStore.DirectoryPath);
         settings = store.Load();
@@ -123,6 +126,12 @@ internal sealed class BackgroundHost : Forms.ApplicationContext
         }
         switch (command)
         {
+            case "mic-state":
+                microphoneMute.Refresh();
+                return JsonSerializer.Serialize(new { microphoneMute = microphoneMute.State.ToString(), endpoints = microphoneMute.Snapshot(), error = microphoneMute.Error });
+            case "mic-toggle":
+                var result = ToggleMicrophoneMute();
+                return JsonSerializer.Serialize(new { success = result, microphoneMute = microphoneMute.State.ToString(), error = result ? null : microphoneMute.Error ?? "Could not change microphone mute." });
             case "show": ShowInterface(); break;
             case "quit": _ = Task.Delay(100).ContinueWith(_ => Post(ExitThread)); break;
             case "reload": settings = store.Load(); feedback.SetTheme(settings.Theme); RegisterKeys(); Refresh(); break;
@@ -133,7 +142,7 @@ internal sealed class BackgroundHost : Forms.ApplicationContext
             case "test-switch-stress": if (Environment.GetEnvironmentVariable("SONARSHIFT_TEST_DATA") != null) _ = Task.Delay(100).ContinueWith(_ => Post(() => File.WriteAllText(Path.Combine(SettingsStore.DirectoryPath, "stress-report.json"), SwitchAllocationProbe()))); break;
             case "test-notification": if (Environment.GetEnvironmentVariable("SONARSHIFT_TEST_DATA") != null) feedback.Present("Output switched", "Diagnostic speaker", AudioFlow.Output); break;
         }
-        return JsonSerializer.Serialize(new { pid = Environment.ProcessId, interfaceRunning = ui != null && !ui.HasExited, interfacePid = ui != null && !ui.HasExited ? ui.Id : 0, conflicts, refreshes = RefreshCount, testHotkeyWindow = Environment.GetEnvironmentVariable("SONARSHIFT_TEST_DATA") != null ? keys.Handle.ToInt64() : 0, theme = settings.Theme, wpfLoaded = AppDomain.CurrentDomain.GetAssemblies().Any(a => a.GetName().Name == "PresentationFramework"), audioTestsLoaded = AppDomain.CurrentDomain.GetAssemblies().Any(a => a.GetName().Name?.StartsWith("NAudio", StringComparison.Ordinal) == true), activeProfileId, profileCycleEnabled = settings.ProfileCycleHotkeyEnabled, eventDriven = notifications != null });
+        return JsonSerializer.Serialize(new { pid = Environment.ProcessId, interfaceRunning = ui != null && !ui.HasExited, interfacePid = ui != null && !ui.HasExited ? ui.Id : 0, conflicts, refreshes = RefreshCount, testHotkeyWindow = Environment.GetEnvironmentVariable("SONARSHIFT_TEST_DATA") != null ? keys.Handle.ToInt64() : 0, theme = settings.Theme, wpfLoaded = AppDomain.CurrentDomain.GetAssemblies().Any(a => a.GetName().Name == "PresentationFramework"), audioTestsLoaded = AppDomain.CurrentDomain.GetAssemblies().Any(a => a.GetName().Name?.StartsWith("NAudio", StringComparison.Ordinal) == true), activeProfileId, profileCycleEnabled = settings.ProfileCycleHotkeyEnabled, microphoneMute = microphoneMute.State.ToString(), microphoneMuteHotkeyEnabled = settings.MicrophoneMuteHotkeyEnabled, eventDriven = notifications != null });
     }
     // Synthetic allocation probe: never changes Windows defaults or reads user settings.
     // Available only to an isolated test instance, not the normal desktop host.
@@ -182,6 +191,7 @@ internal sealed class BackgroundHost : Forms.ApplicationContext
         try
         {
             RefreshCount++;
+            microphoneMute.Refresh();
             outputs = audio.Enumerate(AudioFlow.Output); inputs = audio.Enumerate(AudioFlow.Input);
             UpdateTray();
         }
@@ -197,6 +207,7 @@ internal sealed class BackgroundHost : Forms.ApplicationContext
             Add(1, settings.OutputHotkeyEnabled, settings.OutputShortcut, "output", () => Cycle(AudioFlow.Output, true));
             Add(2, settings.InputHotkeyEnabled, settings.InputShortcut, "input", () => Cycle(AudioFlow.Input, true));
             Add(4, settings.ProfileCycleHotkeyEnabled, settings.ProfileCycleShortcut, "profile cycle", CycleProfiles);
+            Add(5, settings.MicrophoneMuteHotkeyEnabled, settings.MicrophoneMuteShortcut, "microphone mute", () => ToggleMicrophoneMute());
             var id = 10;
             foreach (var profile in settings.Profiles) if (profile.Hotkey != null) Add(id++, true, profile.Hotkey, profile.Name, () => ActivateProfile(profile, true));
         }
@@ -217,6 +228,7 @@ internal sealed class BackgroundHost : Forms.ApplicationContext
     }
     private void UpdateTray()
     {
+        UpdateMicrophoneMuteMenu();
         var identity = string.Join("|", outputs.Concat(inputs).Select(d => d.Flow + d.Id + d.Name)) + JsonSerializer.Serialize(settings.Profiles);
         if (identity == menuIdentity)
         {
@@ -234,11 +246,34 @@ internal sealed class BackgroundHost : Forms.ApplicationContext
             menu.Items.Add(group);
         }
         menu.Items.Add("Next output", null, (_, _) => Cycle(AudioFlow.Output, false)); menu.Items.Add("Next input", null, (_, _) => Cycle(AudioFlow.Input, false));
+        microphoneMuteItem = new Forms.ToolStripMenuItem("Microphone mute");
+        microphoneMuteItem.Click += (_, _) => ToggleMicrophoneMute(); menu.Items.Add(microphoneMuteItem);
+        menu.Opening += (_, _) => { microphoneMute.Refresh(); UpdateMicrophoneMuteMenu(); };
+        UpdateMicrophoneMuteMenu();
         if (settings.Profiles.Count > 0) { var group = new Forms.ToolStripMenuItem("Profiles"); foreach (var profile in settings.Profiles) group.DropDownItems.Add(profile.Name, null, (_, _) => ActivateProfile(profile, false)); menu.Items.Add(group); }
         menu.Items.Add(new Forms.ToolStripSeparator()); menu.Items.Add("Quit SignalShift", null, (_, _) => ExitThread());
         var old = tray.ContextMenuStrip; tray.ContextMenuStrip = menu; old?.Dispose();
     }
     private IReadOnlyList<AudioDevice> Devices(AudioFlow flow) => flow == AudioFlow.Output ? outputs : inputs;
+    private void UpdateMicrophoneMuteMenu()
+    {
+        if (microphoneMuteItem == null) return;
+        microphoneMuteItem.Text = microphoneMute.State == MicrophoneMuteState.Muted ? "Unmute microphone" : "Mute microphone";
+        microphoneMuteItem.Checked = microphoneMute.State == MicrophoneMuteState.Muted;
+        microphoneMuteItem.Enabled = microphoneMute.State != MicrophoneMuteState.Unavailable;
+    }
+    private bool ToggleMicrophoneMute()
+    {
+        try
+        {
+            var muted = microphoneMute.Toggle() == MicrophoneMuteState.Muted;
+            UpdateMicrophoneMuteMenu();
+            if (settings.HotkeySounds) feedback.Play(muted ? AudioFlow.Input : AudioFlow.Output);
+            if (settings.Notifications) feedback.Present(muted ? "Microphone muted" : "Microphone live", muted ? "Your default microphones are muted" : "Your default microphones are ready", AudioFlow.Input);
+            return true;
+        }
+        catch (Exception ex) { feedback.Present("Could not mute microphone", ex.Message, AudioFlow.Input); return false; }
+    }
     private void Cycle(AudioFlow flow, bool hotkey)
     {
         try
@@ -284,7 +319,7 @@ internal sealed class BackgroundHost : Forms.ApplicationContext
     protected override void ExitThreadCore()
     {
         if (closing) return;
-        closing = true; stop.Cancel(); keys.Clear(); notifications?.Dispose(); files.Dispose(); refresh.Dispose(); retry.Dispose(); fallback.Dispose(); settingsReload.Dispose();
+        closing = true; stop.Cancel(); keys.Clear(); notifications?.Dispose(); microphoneMute.Dispose(); files.Dispose(); refresh.Dispose(); retry.Dispose(); fallback.Dispose(); settingsReload.Dispose();
         feedback.Dispose(); tray.Visible = false; tray.ContextMenuStrip?.Dispose(); tray.Icon?.Dispose(); tray.Dispose(); keys.Destroy(); dispatch.Dispose();
         if (ui != null && !ui.HasExited) Native.PostMessage(ui.MainWindowHandle, 0x8002, IntPtr.Zero, IntPtr.Zero);
         ui?.Dispose(); stop.Dispose(); base.ExitThreadCore();
