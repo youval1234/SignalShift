@@ -55,7 +55,7 @@ public static class Program
             }
             Forms.Application.SetHighDpiMode(Forms.HighDpiMode.PerMonitorV2);
             Forms.Application.EnableVisualStyles();
-            using var host = new BackgroundHost(args.Contains("--tray"), !args.Contains("--updated"));
+            using var host = new BackgroundHost(args.Contains("--tray"), !args.Contains("--updated"), args.Contains("--show"));
             Forms.Application.Run(host);
         }
         catch (Exception ex) { Forms.MessageBox.Show(ex.Message, "SignalShift could not start"); Environment.ExitCode = 1; }

@@ -180,7 +180,7 @@ internal static class AppUpdater
     private static void Restart(Plan plan, Version? expected = null)
     {
         var start = new ProcessStartInfo(plan.Target) { UseShellExecute = false, CreateNoWindow = true };
-        start.ArgumentList.Add("--updated"); if (!plan.ShowWindow) start.ArgumentList.Add("--tray");
+        start.ArgumentList.Add("--updated"); start.ArgumentList.Add(plan.ShowWindow ? "--show" : "--tray");
         using var process = Process.Start(start) ?? throw new IOException("Could not restart SignalShift.");
         if (expected == null) return;
         for (var attempt = 0; attempt < 30; attempt++)

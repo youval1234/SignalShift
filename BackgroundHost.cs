@@ -41,7 +41,7 @@ internal sealed class BackgroundHost : Forms.ApplicationContext
     private bool updateChecking;
     internal int RefreshCount { get; private set; }
 
-    internal BackgroundHost(bool startInTray, bool checkUpdates = true)
+    internal BackgroundHost(bool startInTray, bool checkUpdates = true, bool forceInterface = false)
     {
         microphoneMute = new(() => Post(QueueRefresh));
         _ = dispatch.Handle;
@@ -75,7 +75,7 @@ internal sealed class BackgroundHost : Forms.ApplicationContext
             Post(() => { try { completion.TrySetResult(Command(command)); } catch (Exception ex) { completion.TrySetResult(JsonSerializer.Serialize(new { error = ex.Message })); } });
             return completion.Task;
         }, stop.Token);
-        if (!startInTray && !settings.StartMinimized) ShowInterface();
+        if (!startInTray && (!settings.StartMinimized || forceInterface)) ShowInterface();
         if (checkUpdates) Post(CheckUpdates);
     }
     private void CheckUpdates() => CheckUpdates(false);
@@ -87,8 +87,9 @@ internal sealed class BackgroundHost : Forms.ApplicationContext
         {
             var directory = await Task.Run(() => AppUpdater.PrepareAsync(stop.Token));
             if (directory == null || closing || (!manual && !settings.AutomaticUpdates)) return;
-            var show = ui != null && !ui.HasExited;
-            AppUpdater.Start(directory, show ? ui!.Id : 0, show);
+            var uiPid = ui != null && !ui.HasExited ? ui.Id : 0;
+            var show = uiPid != 0 && Native.IsWindowVisible(ui!.MainWindowHandle);
+            AppUpdater.Start(directory, uiPid, show);
             ExitThread();
         }
         catch (OperationCanceledException) { if (!closing) AppUpdater.Status("Update check timed out; try again next launch."); }
@@ -360,6 +361,7 @@ internal sealed class BackgroundHost : Forms.ApplicationContext
     }
     private static class Native
     {
+        [DllImport("user32.dll")] internal static extern bool IsWindowVisible(IntPtr hwnd);
         [DllImport("user32.dll")] internal static extern uint GetGuiResources(IntPtr process, uint flags);
         [DllImport("user32.dll")] internal static extern bool RegisterHotKey(IntPtr hwnd, int id, uint modifiers, uint key);
         [DllImport("user32.dll")] internal static extern bool UnregisterHotKey(IntPtr hwnd, int id);
