@@ -5,7 +5,7 @@
 SignalShift is a native Windows audio switcher with global shortcuts, saved audio
 profiles, dark/light themes and a lightweight background tray.
 
-**[Download SignalShift 2.1 preview](https://github.com/youval1234/SignalShift/releases/tag/preview-2.1.0)**
+**[Download SignalShift 2.2 preview](https://github.com/youval1234/SignalShift/releases/tag/preview-2.2.0)**
 for Windows x64. This self-contained EXE is unsigned; see the
 [Windows trust guide and responsibility notice](docs/windows-trust.md).
 
@@ -13,14 +13,28 @@ for Windows x64. This self-contained EXE is unsigned; see the
 | --- | --- |
 | ![Dark appearance](Assets/SignalShift-Dark.png) | ![Light appearance](Assets/SignalShift-Light.png) |
 
-## New in 2.1
+## New in 2.2
+
+- **Click to change appearance:** the sidebar light/dark button switches immediately
+  and remembers your choice. Settings also offers Dark and Light buttons. The theme
+  hotkey has been removed; older theme-shortcut preferences are ignored on import.
+- **Test any output:** click **Test** beside a playback device, then **Play test sound**
+  to hear a gentle chime through that exact endpoint without changing Windows defaults.
+- **Hear your microphone:** click **Test** beside a recording device, choose a playback
+  output, then **Record & hear (5 s)**. A live meter shows the input level; the clip
+  plays after recording ends. Replay it or stop at any time. Recording starts only
+  when requested, stays in a bounded memory buffer, and is discarded on close.
+- **Lightweight tray preserved:** device-test audio libraries are used only by the
+  settings process. The idle tray does not load them or capture microphone audio.
+
+[Full release notes](docs/release-2.2.md).
+
+## Audio profiles
 
 - **One shortcut for all profiles:** enable **Cycle audio profiles** under Shortcuts.
   Its suggested shortcut is **Ctrl + Alt + P**, and you can record a different one.
   It applies the next profile's output and microphone together, skips disconnected
   setups, and wraps to the first profile. Profiles cycle in their displayed order.
-- **Dark and light mode:** choose your theme in Settings, or enable a separate
-  configurable appearance shortcut. Both shortcut actions work from the tray.
 - **More resilient settings reload:** brief file locks are retried while retaining
   the current settings, rather than crashing the background app.
 - **Audio-only scope:** the experimental camera feature has been removed completely.
@@ -29,7 +43,7 @@ for Windows x64. This self-contained EXE is unsigned; see the
 
 New shortcuts default to disabled when upgrading so they do not unexpectedly claim
 keys. Existing individual profile shortcuts, audio choices and exports remain usable.
-[Full release notes](docs/release-2.1.md).
+[Previous release notes](docs/release-2.1.md).
 
 ## Audio and profiles
 
@@ -52,7 +66,7 @@ releases its process; the tray keeps handling shortcuts. Choose Quit to exit.
 ## Downloads and Windows trust
 
 Download **SignalShift.exe** and **SHA256SUMS.txt** from the
-[2.1 preview release](https://github.com/youval1234/SignalShift/releases/tag/preview-2.1.0).
+[2.2 preview release](https://github.com/youval1234/SignalShift/releases/tag/preview-2.2.0).
 Quit older Sonora/SonarShift/SignalShift processes before replacing the EXE.
 Audio switching and themes support Windows 10/11 x64.
 
@@ -68,7 +82,7 @@ Distribution is through GitHub Releases.
 If you installed the optional 2.0 component, close apps using SignalShift Camera and
 run the original **SignalShift.CameraSetup.exe --uninstall** with administrator
 approval, then remove its extracted files. That installer belongs to the retired
-2.0 component and is not shipped with 2.1. Select your normal webcam again in apps
+2.0 component and is not shipped with current releases. Select your normal webcam again in apps
 that used the virtual device. Your physical webcams and phone-camera software are
 separate and do not need removal.
 
@@ -78,10 +92,11 @@ Preferences remain in `%LOCALAPPDATA%\Sonora\settings.json` to preserve upgrades
 Settings → Export writes a UTF-8 Notepad `.txt` backup. Import accepts SignalShift,
 SonarShift and Sonora exports, raw settings and SoundSwitch configurations; a
 restorable backup is made before replacement. Retired camera fields are ignored
-when importing old settings and are not exported by 2.1.
+when importing old settings and are not exported by current versions.
 
 Exports contain audio-device names and IDs, so share them intentionally. The app
-has no account, telemetry, advertising, network service or recording feature.
+has no account, telemetry, advertising or network service. Microphone testing is
+local and temporary: no recording is saved to disk or uploaded.
 Startup is opt-in. [Privacy policy](PRIVACY.md).
 
 ## Build and validation
@@ -98,12 +113,15 @@ makes a smaller EXE at the cost of higher private RAM. No native camera build to
 or camera packages are required.
 
 Checks cover settings migration/import/export, profile-cycle planning and shortcut
-conflicts, live theme colors and page rendering, tray appearance dispatch, locked
+conflicts, the sidebar theme button and page rendering, retired theme-hotkey handling, locked
 settings recovery, IPC collision handling, and repeated synthetic switch resource
-use. These do not establish compatibility with every Windows audio driver.
+use, plus bounded test recordings, clip erasure, cancellation before opening devices
+and test-tone amplitude. These do not establish compatibility with every Windows audio driver.
 
 The separate settings process, event-driven device refresh, reusable popup/tray,
 bounded sound buffers and file-backed assemblies retain previous optimizations.
 [Memory measurements](docs/performance-1.5.md) and
 [switch allocation results](docs/performance-switching.md) remain historical
-benchmarks, not new measurements of every 2.1 workload.
+benchmarks, not new measurements of every workload. Optional audio tests use
+[NAudio](https://github.com/naudio/NAudio) under the MIT license; notices are included
+in the EXE and available under Settings → Third-party licenses.

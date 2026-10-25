@@ -22,6 +22,82 @@ public static class Diagnostics
             catch (Exception ex) { failed = true; report.Add(new { test = name, passed = false, error = ex.ToString() }); }
         }
         void Require(bool condition, string message) { if (!condition) throw new InvalidOperationException(message); }
+        Check("Retired theme shortcut is ignored and omitted from exports", () =>
+        {
+            var json = JsonNode.Parse(JsonSerializer.Serialize(new Settings()))!.AsObject();
+            json["Theme"] = "Light"; json["ThemeHotkeyEnabled"] = true;
+            json["ThemeShortcut"] = new JsonObject { ["Modifiers"] = 0, ["Key"] = 0, ["Label"] = "retired" };
+            var loaded = SettingsTransfer.Parse(json.ToJsonString(), new Settings(), Array.Empty<AudioDevice>()).Settings;
+            var exported = SettingsTransfer.Export(loaded, Array.Empty<AudioDevice>(), false);
+            Require(loaded.Theme == "Light" && !exported.Contains("ThemeShortcut") && !exported.Contains("ThemeHotkeyEnabled"), "Retired theme hotkey survived migration");
+        });
+        Check("Microphone test clips stay bounded, frame aligned and clear on disposal", () =>
+        {
+            using var clip = new AudioDeviceTest.Clip();
+            var packet = new byte[9601]; Array.Fill(packet, (byte)127);
+            for (var i = 0; i < 1000; i++) clip.Append(packet, packet.Length);
+            Require(clip.Length == AudioDeviceTest.MaximumBytes && clip.Length % 2 == 0, "Capture buffer exceeded its five-second limit");
+            using var stream = clip.Open();
+            Require(stream.TotalTime.TotalSeconds == 5 && clip.Peak > 0, "Unexpected test format or missing meter");
+            clip.Dispose();
+            clip.Append(packet, packet.Length);
+            Require(clip.Length == 0 && stream.ReadByte() == 0 && clip.Peak == 0, "Recording bytes were not erased");
+        });
+        Check("Output test tone is short, bounded and faded", () =>
+        {
+            using var tone = AudioDeviceTest.Tone();
+            Require(tone.TotalTime.TotalSeconds == 1 && tone.ReadByte() == 0 && tone.ReadByte() == 0, "Tone duration or attack is wrong");
+            var maximum = 0; using var reader = new BinaryReader(tone);
+            while (tone.Position < tone.Length) maximum = Math.Max(maximum, Math.Abs((int)reader.ReadInt16()));
+            Require(maximum > 1000 && maximum < short.MaxValue * 0.13, "Tone exceeded its quiet amplitude");
+        });
+        Check("Cancelled device tests do not open endpoints", () =>
+        {
+            using var stop = new System.Threading.CancellationTokenSource(); stop.Cancel();
+            using var clip = new AudioDeviceTest.Clip(); using var tone = AudioDeviceTest.Tone();
+            bool recordCancelled = false, playCancelled = false;
+            try { AudioDeviceTest.RecordAsync("does-not-exist", clip, stop.Token).GetAwaiter().GetResult(); } catch (OperationCanceledException) { recordCancelled = true; }
+            try { AudioDeviceTest.PlayAsync("does-not-exist", tone, stop.Token).GetAwaiter().GetResult(); } catch (OperationCanceledException) { playCancelled = true; }
+            Require(recordCancelled && playCancelled && clip.Length == 0, "Cancelled operation touched audio hardware");
+        });
+        if (Environment.GetEnvironmentVariable("SONARSHIFT_TEST_DATA") != null) Check("Sidebar theme button switches both ways and persists the choice", () =>
+        {
+            var window = new MainWindow(previewMode: true, previewTheme: "Dark");
+            _ = new WindowInteropHelper(window).EnsureHandle();
+            System.Windows.Controls.Button? Find(System.Windows.DependencyObject root)
+            {
+                if (root is System.Windows.Controls.Button button && System.Windows.Automation.AutomationProperties.GetName(button) == "Switch to light mode") return button;
+                foreach (var child in System.Windows.LogicalTreeHelper.GetChildren(root).OfType<System.Windows.DependencyObject>())
+                    if (Find(child) is { } match) return match;
+                return null;
+            }
+            var toggle = Find(window) ?? throw new InvalidOperationException("Sidebar theme button missing");
+            foreach (var expected in new[] { "Light", "Dark" })
+            {
+                toggle.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Button.ClickEvent));
+                Require(window.Preferences.Theme == expected && new SettingsStore().Load().Theme == expected, "Theme button did not persist " + expected);
+            }
+            foreach (var theme in new[] { "Light", "Dark" })
+            {
+                ThemePalette.Apply(theme);
+                foreach (var flow in new[] { AudioFlow.Output, AudioFlow.Input })
+                {
+                    var dialog = window.CreateDeviceTestDialog(new AudioDevice("test", "Test device", flow, false, false));
+                    dialog.Measure(new Size(590, 540)); dialog.Arrange(new Rect(0, 0, 590, 540));
+                    Require(dialog.Title.Contains("Test"), "Device test dialog could not be built");
+                    if (Environment.GetEnvironmentVariable("SONARSHIFT_TEST_DATA") != null)
+                    {
+                        var surface = (FrameworkElement)dialog.Content;
+                        surface.Measure(new Size(570, 490)); surface.Arrange(new Rect(0, 0, 570, 490)); surface.UpdateLayout();
+                        var bitmap = new System.Windows.Media.Imaging.RenderTargetBitmap(570, 490, 96, 96, System.Windows.Media.PixelFormats.Pbgra32);
+                        bitmap.Render(surface);
+                        var encoder = new System.Windows.Media.Imaging.PngBitmapEncoder(); encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bitmap));
+                        using var file = File.Create(Path.Combine(SettingsStore.DirectoryPath, "test-" + theme + "-" + flow + ".png")); encoder.Save(file);
+                    }
+                }
+            }
+            ThemePalette.Apply("Dark");
+        });
         if (Environment.GetEnvironmentVariable("SONARSHIFT_TEST_DATA") != null) Check("Occupied IPC channel yields and cancels without blocking startup", () =>
         {
             var suffix = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(SettingsStore.DirectoryPath)))[..16];

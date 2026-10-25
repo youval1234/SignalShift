@@ -30,8 +30,6 @@ public sealed class Settings
     public Shortcut ProfileCycleShortcut { get; set; } = new(3, 0x50, "Ctrl + Alt + P");
     public bool ProfileCycleHotkeyEnabled { get; set; }
     public string Theme { get; set; } = "Dark";
-    public Shortcut ThemeShortcut { get; set; } = new(3, 0x54, "Ctrl + Alt + T");
-    public bool ThemeHotkeyEnabled { get; set; }
     public bool HotkeysEnabled { get; set; } = true;
     public bool OutputHotkeyEnabled { get; set; } = true;
     public bool InputHotkeyEnabled { get; set; } = true;

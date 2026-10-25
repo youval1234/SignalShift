@@ -10,7 +10,7 @@
     <Nullable>enable</Nullable>
     <ApplicationIcon>Assets\SonarShift.ico</ApplicationIcon>
     <AssemblyName>SignalShift</AssemblyName>
-    <Version>2.1.0</Version>
+    <Version>2.2.0</Version>
     <Product>SignalShift</Product>
     <Description>Audio profiles and appearance, one shortcut away.</Description>
     <Company>SignalShift</Company>
@@ -23,8 +23,10 @@
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
     <ApplicationManifest>app.manifest</ApplicationManifest>
   </PropertyGroup>
+  <ItemGroup><PackageReference Include="NAudio.Wasapi" Version="2.2.1" /></ItemGroup>
   <ItemGroup><Resource Include="Assets\SonarShift.ico" /><Resource Include="Assets\SonarShift.png" /><Resource Include="Assets\SwitchOutput.wav" /><Resource Include="Assets\SwitchInput.wav" /></ItemGroup>
   <ItemGroup>
+    <EmbeddedResource Include="THIRD-PARTY-NOTICES.txt" LogicalName="SignalShift.ThirdPartyNotices" />
     <Compile Remove="Packaging\StartupProjection\**\*.cs" />
     <Compile Remove="tests\**\*.cs" />
     <EmbeddedResource Include="Assets\SonarShift.ico" LogicalName="SonarShift.TrayIcon" />

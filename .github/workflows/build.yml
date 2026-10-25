@@ -34,7 +34,7 @@ jobs:
             }
           }
           Remove-Item Env:SONARSHIFT_TEST_DATA
-          ./tools/Test-AppearanceHotkey.ps1 -Executable ./dist/SignalShift.exe -ReportPath ./dist/appearance-hotkey-report.json
+          ./tools/Test-RetiredThemeHotkey.ps1 -Executable ./dist/SignalShift.exe -ReportPath ./dist/retired-theme-hotkey-report.json
           ./tools/Test-SettingsReload.ps1 -Executable ./dist/SignalShift.exe -ReportPath ./dist/settings-reload-report.json
       - name: Test release source and signature guards
         run: ./tools/Test-ReleaseAutomation.ps1 -ExePath dist/SignalShift.exe
@@ -62,6 +62,6 @@ jobs:
           name: SignalShift-feature-review
           path: |
             dist/features-report.json
-            dist/appearance-hotkey-report.json
+            dist/retired-theme-hotkey-report.json
             dist/settings-reload-report.json
             dist/preview-*.png

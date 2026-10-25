@@ -122,10 +122,13 @@ public sealed partial class MainWindow : Window
         sidebar.Children.Add(brand);
         navigation.Margin = new Thickness(16, 0, 16, 0); Grid.SetRow(navigation, 1); sidebar.Children.Add(navigation);
         var bottom = new StackPanel { Margin = new Thickness(24, 20, 24, 24) };
+        themeToggle = Button("", ToggleTheme);
+        themeToggle.Margin = new Thickness(0, 0, 0, 22);
+        UpdateThemeToggle(); bottom.Children.Add(themeToggle);
         bottom.Children.Add(Text("ALWAYS WITHIN REACH", 10, Muted, FontWeights.SemiBold));
         var trayLine = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 12, 0, 20) };
         trayLine.Children.Add(Text("●  ", 12, Mint)); trayLine.Children.Add(trayStatus); bottom.Children.Add(trayLine);
-        bottom.Children.Add(Text("SIGNALSHIFT  /  2.1", 10, Brush("#5D637B")));
+        bottom.Children.Add(Text("SIGNALSHIFT  /  2.2", 10, Brush("#5D637B")));
         Grid.SetRow(bottom, 2); sidebar.Children.Add(bottom); shell.Children.Add(sidebar);
         var main = new Grid(); Grid.SetColumn(main, 1);
         main.RowDefinitions.Add(new RowDefinition { Height = new GridLength(44) });
@@ -222,7 +225,11 @@ public sealed partial class MainWindow : Window
             info.Children.Add(new TextBlock { Text = device.Title, FontSize = 13, FontWeight = FontWeights.SemiBold, TextTrimming = TextTrimming.CharacterEllipsis, ToolTip = device.Name });
             info.Children.Add(new TextBlock { Text = device.Detail, FontSize = 11, Foreground = Muted, Margin = new Thickness(0, 4, 0, 0), TextTrimming = TextTrimming.CharacterEllipsis }); Grid.SetColumn(info, 1); row.Children.Add(info);
             var badge = new Border { Child = Text("●  DEFAULT", 9, Mint, FontWeights.SemiBold), Background = Brush("#1D3531"), CornerRadius = new CornerRadius(5), Padding = new Thickness(9, 5, 9, 5), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 16, 0), Visibility = device.IsDefault ? Visibility.Visible : Visibility.Collapsed }; Grid.SetColumn(badge, 2); row.Children.Add(badge);
-            var use = Button(device.IsDefault ? "Active" : "Switch  ↗", () => Switch(device)); use.IsEnabled = !device.IsDefault; use.Padding = new Thickness(12, 7, 12, 7); use.VerticalAlignment = VerticalAlignment.Center; use.MinWidth = 78; Grid.SetColumn(use, 3); row.Children.Add(use);
+            var actions = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+            var test = Button("Test", () => ShowDeviceTest(device)); test.Padding = new Thickness(12, 7, 12, 7); test.Margin = new Thickness(0, 0, 8, 0);
+            test.ToolTip = device.Flow == AudioFlow.Output ? "Play a sound through this device" : "Record a short clip and hear your microphone";
+            AutomationPropertiesName(test, "Test " + device.Name); actions.Children.Add(test);
+            var use = Button(device.IsDefault ? "Active" : "Switch  ↗", () => Switch(device)); use.IsEnabled = !device.IsDefault; use.Padding = new Thickness(12, 7, 12, 7); use.MinWidth = 78; actions.Children.Add(use); Grid.SetColumn(actions, 3); row.Children.Add(actions);
             var card = Card(row, 15); card.Margin = new Thickness(0, 0, 0, 8); if (device.IsDefault) { card.BorderBrush = Brush("#3C4950"); card.Background = Brush("#192126"); } rows.Children.Add(card);
             deviceRows[device.Id] = (card, use, badge);
         }
@@ -274,7 +281,6 @@ public sealed partial class MainWindow : Window
             p.Children.Add(active);
             var card = Card(p, 24); card.Margin = new Thickness(0, 0, 0, 16); page.Children.Add(card);
         }
-        BuildThemeShortcut();
         var enabled = new CheckBox { Content = "Enable global shortcuts", IsChecked = Preferences.HotkeysEnabled, Margin = new Thickness(2, 8, 0, 15) };
         enabled.Click += (_, _) =>
         {
@@ -324,7 +330,7 @@ public sealed partial class MainWindow : Window
         return result;
     }
     private bool IsDuplicateShortcut(Shortcut shortcut, string? exclude, string? profileId) =>
-        (exclude != "output" && Same(shortcut, Preferences.OutputShortcut)) || (exclude != "input" && Same(shortcut, Preferences.InputShortcut)) || (exclude != "theme" && Same(shortcut, Preferences.ThemeShortcut)) || (exclude != "profile-cycle" && Same(shortcut, Preferences.ProfileCycleShortcut)) || Preferences.Profiles.Any(p => p.Id != profileId && p.Hotkey != null && Same(shortcut, p.Hotkey));
+        (exclude != "output" && Same(shortcut, Preferences.OutputShortcut)) || (exclude != "input" && Same(shortcut, Preferences.InputShortcut)) || (exclude != "profile-cycle" && Same(shortcut, Preferences.ProfileCycleShortcut)) || Preferences.Profiles.Any(p => p.Id != profileId && p.Hotkey != null && Same(shortcut, p.Hotkey));
     private static bool Same(Shortcut a, Shortcut b) => a.Modifiers == b.Modifiers && a.Key == b.Key;
     private void BuildProfiles()
     {
@@ -410,8 +416,16 @@ public sealed partial class MainWindow : Window
         preferences.Children.Add(startup);
         Option("Open in the tray", "Keep the main window hidden when SignalShift starts.", Preferences.StartMinimized, v => Preferences.StartMinimized = v);
         page.Children.Add(Card(preferences, 25));
-        var about = new StackPanel { Margin = new Thickness(0, 25, 0, 0) }; about.Children.Add(Text("SIGNALSHIFT 2.0", 11, Purple, FontWeights.SemiBold)); about.Children.Add(new TextBlock { Text = "Native Windows audio switching. No account, no ads, no telemetry.\nYour preferences stay on this computer.", Foreground = Muted, FontSize = 13, LineHeight = 24, Margin = new Thickness(0, 10, 0, 15) });
+        var about = new StackPanel { Margin = new Thickness(0, 25, 0, 0) }; about.Children.Add(Text("SIGNALSHIFT 2.2", 11, Purple, FontWeights.SemiBold)); about.Children.Add(new TextBlock { Text = "Native Windows audio switching. No account, no ads, no telemetry.\nYour preferences stay on this computer.", Foreground = Muted, FontSize = 13, LineHeight = 24, Margin = new Thickness(0, 10, 0, 15) });
         var line = new StackPanel { Orientation = Orientation.Horizontal }; line.Children.Add(Button("Open settings folder", () => Process.Start(new ProcessStartInfo("explorer.exe", SettingsStore.DirectoryPath) { UseShellExecute = true })));
+        var licenses = Button("Third-party licenses", () =>
+        {
+            using var stream = typeof(MainWindow).Assembly.GetManifestResourceStream("SignalShift.ThirdPartyNotices")!;
+            using var reader = new StreamReader(stream);
+            var dialog = Dialog("Third-party licenses", 650, 520);
+            dialog.Content = new TextBox { Text = reader.ReadToEnd(), IsReadOnly = true, TextWrapping = TextWrapping.Wrap, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Margin = new Thickness(20) };
+            dialog.ShowDialog();
+        }); licenses.Margin = new Thickness(12, 0, 0, 0); line.Children.Add(licenses);
         var quit = Button("Quit SignalShift", Quit); quit.Margin = new Thickness(12, 0, 0, 0); line.Children.Add(quit); about.Children.Add(line); page.Children.Add(about);
     }
     private void Cycle(AudioFlow f, bool fromHotkey = false)
@@ -464,12 +478,11 @@ public sealed partial class MainWindow : Window
         {
             if (Preferences.OutputHotkeyEnabled && !hotkeys.Register(1, Preferences.OutputShortcut, () => Cycle(AudioFlow.Output, fromHotkey: true))) hotkeyErrors.Add("output");
             if (Preferences.InputHotkeyEnabled && !hotkeys.Register(2, Preferences.InputShortcut, () => Cycle(AudioFlow.Input, fromHotkey: true))) hotkeyErrors.Add("input");
-            if (Preferences.ThemeHotkeyEnabled && !hotkeys.Register(3, Preferences.ThemeShortcut, ToggleTheme)) hotkeyErrors.Add("appearance");
             if (Preferences.ProfileCycleHotkeyEnabled && !hotkeys.Register(4, Preferences.ProfileCycleShortcut, CycleProfiles)) hotkeyErrors.Add("profile cycle");
             var id = 10; foreach (var profile in Preferences.Profiles) if (profile.Hotkey != null && !hotkeys.Register(id++, profile.Hotkey, () => ActivateProfile(profile, fromHotkey: true))) hotkeyErrors.Add(profile.Name);
         }
         lastShortcutRetry = DateTime.UtcNow;
-        var anyEnabled = Preferences.HotkeysEnabled && (Preferences.OutputHotkeyEnabled || Preferences.InputHotkeyEnabled || Preferences.ThemeHotkeyEnabled || Preferences.Profiles.Any(p => p.Hotkey != null));
+        var anyEnabled = Preferences.HotkeysEnabled && (Preferences.OutputHotkeyEnabled || Preferences.InputHotkeyEnabled || Preferences.ProfileCycleHotkeyEnabled || Preferences.Profiles.Any(p => p.Hotkey != null));
         trayStatus.Text = !anyEnabled ? "Shortcuts paused" : hotkeyErrors.Count > 0 ? "Shortcut needs attention" : "Shortcuts active";
         trayStatus.Foreground = hotkeyErrors.Count > 0 ? Brush("#F0B68A") : Mint;
         if (hotkeyErrors.Count > 0) SetStatus("Shortcut conflict: " + string.Join(", ", hotkeyErrors) + ". Open Shortcuts to change it.", true);

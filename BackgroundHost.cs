@@ -133,7 +133,7 @@ internal sealed class BackgroundHost : Forms.ApplicationContext
             case "test-switch-stress": if (Environment.GetEnvironmentVariable("SONARSHIFT_TEST_DATA") != null) _ = Task.Delay(100).ContinueWith(_ => Post(() => File.WriteAllText(Path.Combine(SettingsStore.DirectoryPath, "stress-report.json"), SwitchAllocationProbe()))); break;
             case "test-notification": if (Environment.GetEnvironmentVariable("SONARSHIFT_TEST_DATA") != null) feedback.Present("Output switched", "Diagnostic speaker", AudioFlow.Output); break;
         }
-        return JsonSerializer.Serialize(new { pid = Environment.ProcessId, interfaceRunning = ui != null && !ui.HasExited, interfacePid = ui != null && !ui.HasExited ? ui.Id : 0, conflicts, refreshes = RefreshCount, testHotkeyWindow = Environment.GetEnvironmentVariable("SONARSHIFT_TEST_DATA") != null ? keys.Handle.ToInt64() : 0, theme = settings.Theme, wpfLoaded = AppDomain.CurrentDomain.GetAssemblies().Any(a => a.GetName().Name == "PresentationFramework"), activeProfileId, profileCycleEnabled = settings.ProfileCycleHotkeyEnabled, eventDriven = notifications != null });
+        return JsonSerializer.Serialize(new { pid = Environment.ProcessId, interfaceRunning = ui != null && !ui.HasExited, interfacePid = ui != null && !ui.HasExited ? ui.Id : 0, conflicts, refreshes = RefreshCount, testHotkeyWindow = Environment.GetEnvironmentVariable("SONARSHIFT_TEST_DATA") != null ? keys.Handle.ToInt64() : 0, theme = settings.Theme, wpfLoaded = AppDomain.CurrentDomain.GetAssemblies().Any(a => a.GetName().Name == "PresentationFramework"), audioTestsLoaded = AppDomain.CurrentDomain.GetAssemblies().Any(a => a.GetName().Name?.StartsWith("NAudio", StringComparison.Ordinal) == true), activeProfileId, profileCycleEnabled = settings.ProfileCycleHotkeyEnabled, eventDriven = notifications != null });
     }
     // Synthetic allocation probe: never changes Windows defaults or reads user settings.
     // Available only to an isolated test instance, not the normal desktop host.
@@ -196,7 +196,6 @@ internal sealed class BackgroundHost : Forms.ApplicationContext
             void Add(int id, bool enabled, Shortcut shortcut, string name, Action action) { if (enabled && !keys.Register(id, shortcut, action)) conflicts.Add(name); }
             Add(1, settings.OutputHotkeyEnabled, settings.OutputShortcut, "output", () => Cycle(AudioFlow.Output, true));
             Add(2, settings.InputHotkeyEnabled, settings.InputShortcut, "input", () => Cycle(AudioFlow.Input, true));
-            Add(3, settings.ThemeHotkeyEnabled, settings.ThemeShortcut, "appearance", ToggleTheme);
             Add(4, settings.ProfileCycleHotkeyEnabled, settings.ProfileCycleShortcut, "profile cycle", CycleProfiles);
             var id = 10;
             foreach (var profile in settings.Profiles) if (profile.Hotkey != null) Add(id++, true, profile.Hotkey, profile.Name, () => ActivateProfile(profile, true));
@@ -215,12 +214,6 @@ internal sealed class BackgroundHost : Forms.ApplicationContext
             ActivateProfile(next, true);
         }
         catch (Exception ex) { Error(ex); }
-    }
-    private void ToggleTheme()
-    {
-        settings.Theme = settings.Theme == "Dark" ? "Light" : "Dark";
-        store.Save(settings); feedback.SetTheme(settings.Theme);
-        if (settings.Notifications) feedback.Present("Appearance changed", settings.Theme + " mode", null);
     }
     private void UpdateTray()
     {
