@@ -148,6 +148,7 @@ public sealed partial class MainWindow : Window
     }
     private void Navigate(string name)
     {
+        if (name == "Devices") microphoneMute.Refresh();
         currentPage = name; rows = null; microphoneMuteButton = null; microphoneMuteLabel = null; page.Children.Clear(); navigation.Children.Clear();
         navigation.Children.Add(Text("WORKSPACE", 10, Muted, FontWeights.SemiBold));
         foreach (var item in new[] { ("Devices", "\uE7F4"), ("Shortcuts", "\uE765"), ("Profiles", "\uE8A9"), ("Settings", "\uE713") })
