@@ -8,7 +8,18 @@ namespace SonarShift;
 // Core Audio runs on the application's STA dispatcher. COM objects never cross threads.
 public sealed class AudioService
 {
-    private static IMMDeviceEnumerator CreateEnumerator() => (IMMDeviceEnumerator)new MMDeviceEnumerator();
+    internal static IMMDeviceEnumerator CreateEnumerator()
+    {
+        // Windows can return one enumerator identity for multiple activations.
+        // Keep our wrapper out of the RCW cache: otherwise a live notification
+        // subscription can make NAudio's different imported coclass fail to cast.
+        var clsid = new Guid("BCDE0395-E52F-467C-8E3D-C4579291692E");
+        var iid = typeof(IMMDeviceEnumerator).GUID;
+        Marshal.ThrowExceptionForHR(CoCreateInstance(ref clsid, IntPtr.Zero, 1, ref iid, out var pointer));
+        try { return (IMMDeviceEnumerator)Marshal.GetUniqueObjectForIUnknown(pointer); }
+        finally { Marshal.Release(pointer); }
+    }
+    [DllImport("ole32.dll")] private static extern int CoCreateInstance(ref Guid clsid, IntPtr outer, uint context, ref Guid iid, out IntPtr instance);
     private static void Release(object? value) { if (value != null && Marshal.IsComObject(value)) Marshal.ReleaseComObject(value); }
     public IReadOnlyList<AudioDevice> Enumerate(AudioFlow flow)
     {
@@ -85,7 +96,6 @@ public sealed class AudioService
 
 [StructLayout(LayoutKind.Sequential)] public struct PropertyKey { public Guid FormatId; public uint PropertyId; }
 [StructLayout(LayoutKind.Explicit, Size = 24)] internal struct PropVariant { [FieldOffset(0)] public ushort Type; [FieldOffset(8)] public IntPtr Pointer; }
-[ComImport, Guid("BCDE0395-E52F-467C-8E3D-C4579291692E")] internal class MMDeviceEnumerator { }
 [ComImport, Guid("A95664D2-9614-4F35-A746-DE8DB63617E6"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
 internal interface IMMDeviceEnumerator
 {

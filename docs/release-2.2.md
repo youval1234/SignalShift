@@ -1,5 +1,15 @@
 # SignalShift 2.2 preview
 
+## 2.2.1 fix
+
+Version 2.2.0 could show “Specified cast is not valid” for both device tests while
+the settings window's device watcher was active. Windows reuses the enumerator's
+COM identity, and the two imported coclass wrappers conflicted. The lightweight
+Core Audio path now uses independent wrappers outside the shared RCW cache.
+A regression test retains the watcher while creating the audio-test enumerator.
+The actual WPF window with its watcher active was used to verify output playback
+and microphone initialization; that check does not record microphone audio.
+
 ## Appearance by button
 
 Click the sidebar's **Light mode / Dark mode** button from any page. The theme

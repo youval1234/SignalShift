@@ -27,7 +27,7 @@ public static class Program
                 if (report != null) File.WriteAllText(report, result);
                 return;
             }
-            if (args.Any(a => a is "--diagnostics" or "--export-preview" or "--export-notification-preview" or "--import-soundswitch" or "--import-settings" or "--export-settings"))
+            if (args.Any(a => a is "--test-output-playback" or "--diagnostics" or "--export-preview" or "--export-notification-preview" or "--import-soundswitch" or "--import-settings" or "--export-settings"))
             { RunInterface(args); return; }
             if (args.Contains("--ui"))
             {

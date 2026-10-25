@@ -5,7 +5,7 @@
 SignalShift is a native Windows audio switcher with global shortcuts, saved audio
 profiles, dark/light themes and a lightweight background tray.
 
-**[Download SignalShift 2.2 preview](https://github.com/youval1234/SignalShift/releases/tag/preview-2.2.0)**
+**[Download SignalShift 2.2.1 preview](https://github.com/youval1234/SignalShift/releases/tag/preview-2.2.1)**
 for Windows x64. This self-contained EXE is unsigned; see the
 [Windows trust guide and responsibility notice](docs/windows-trust.md).
 
@@ -14,6 +14,10 @@ for Windows x64. This self-contained EXE is unsigned; see the
 | ![Dark appearance](Assets/SignalShift-Dark.png) | ![Light appearance](Assets/SignalShift-Light.png) |
 
 ## New in 2.2
+
+**2.2.1 fixes the “Specified cast is not valid” error in both device tests.**
+The Core Audio watcher and test library now use independent COM wrappers. A
+regression check keeps the watcher alive while opening the test enumerator.
 
 - **Click to change appearance:** the sidebar light/dark button switches immediately
   and remembers your choice. Settings also offers Dark and Light buttons. The theme
@@ -66,7 +70,7 @@ releases its process; the tray keeps handling shortcuts. Choose Quit to exit.
 ## Downloads and Windows trust
 
 Download **SignalShift.exe** and **SHA256SUMS.txt** from the
-[2.2 preview release](https://github.com/youval1234/SignalShift/releases/tag/preview-2.2.0).
+[2.2.1 preview release](https://github.com/youval1234/SignalShift/releases/tag/preview-2.2.1).
 Quit older Sonora/SonarShift/SignalShift processes before replacing the EXE.
 Audio switching and themes support Windows 10/11 x64.
 

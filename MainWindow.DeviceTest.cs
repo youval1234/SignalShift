@@ -81,7 +81,9 @@ public sealed partial class MainWindow
             catch (Exception ex)
             {
                 clip?.Dispose(); clip = null;
-                message.Text = "Could not complete the test: " + ex.Message + (device.Flow == AudioFlow.Input ? " Check Windows microphone permissions and whether another app is using the device exclusively." : "");
+                try { System.IO.File.AppendAllText(System.IO.Path.Combine(SettingsStore.DirectoryPath, "errors.log"), DateTime.Now + " Device test " + device.Flow + ": " + ex + Environment.NewLine); } catch { }
+                var accessDenied = ex is UnauthorizedAccessException || ex.HResult == unchecked((int)0x80070005);
+                message.Text = "Could not complete the test: " + ex.Message + (accessDenied && device.Flow == AudioFlow.Input ? " Check Windows microphone permissions." : "");
             }
             finally
             {

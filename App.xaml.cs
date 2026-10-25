@@ -17,6 +17,25 @@ public partial class App : Application
     protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+        if (e.Args.Contains("--test-output-playback"))
+        {
+            var reportPath = e.Args.SkipWhile(a => a != "--report").Skip(1).First();
+            try
+            {
+                var window = new MainWindow { ShowInTaskbar = false, WindowStartupLocation = WindowStartupLocation.Manual, Left = -10000, Top = -10000 };
+                window.Show();
+                var audio = new AudioService();
+                _ = audio.Enumerate(AudioFlow.Output); _ = audio.Enumerate(AudioFlow.Input);
+                using var tone = AudioDeviceTest.Tone();
+                await AudioDeviceTest.PlayAsync(audio.GetDefaultId(AudioFlow.Output)!, tone, CancellationToken.None);
+                using var devices = new NAudio.CoreAudioApi.MMDeviceEnumerator();
+                using var microphone = devices.GetDevice(audio.GetDefaultId(AudioFlow.Input)!);
+                using var capture = new NAudio.CoreAudioApi.WasapiCapture(microphone) { WaveFormat = AudioDeviceTest.Format };
+                File.WriteAllText(reportPath, JsonSerializer.Serialize(new { success = true, context = "WPF STA with MainWindow and live device watcher", outputPlayback = true, microphoneInitialized = true, microphoneRecorded = false }));
+            }
+            catch (Exception ex) { File.WriteAllText(reportPath, JsonSerializer.Serialize(new { success = false, error = ex.ToString() })); Environment.ExitCode = 1; }
+            Shutdown(); return;
+        }
         if (e.Args.Contains("--diagnostics")) { Diagnostics.Run(e.Args); Shutdown(); return; }
         if (e.Args.Contains("--export-notification-preview"))
         {

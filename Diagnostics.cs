@@ -22,6 +22,14 @@ public static class Diagnostics
             catch (Exception ex) { failed = true; report.Add(new { test = name, passed = false, error = ex.ToString() }); }
         }
         void Require(bool condition, string message) { if (!condition) throw new InvalidOperationException(message); }
+        Check("Live device watcher coexists with audio-test COM wrappers", () =>
+        {
+            using var watcher = new AudioDeviceNotifications(() => { });
+            using var enumerator = new NAudio.CoreAudioApi.MMDeviceEnumerator();
+            foreach (var flow in new[] { AudioFlow.Output, AudioFlow.Input }) _ = new AudioService().Enumerate(flow);
+            var endpoints = enumerator.EnumerateAudioEndPoints(NAudio.CoreAudioApi.DataFlow.All, NAudio.CoreAudioApi.DeviceState.Active);
+            Require(endpoints.Count >= 0, "Could not enumerate audio-test endpoints");
+        });
         Check("Retired theme shortcut is ignored and omitted from exports", () =>
         {
             var json = JsonNode.Parse(JsonSerializer.Serialize(new Settings()))!.AsObject();

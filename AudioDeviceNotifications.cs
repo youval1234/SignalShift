@@ -15,7 +15,7 @@ public sealed class AudioDeviceNotifications : IDisposable
         callback = new Callback(changed);
         try
         {
-            enumerator = (IMMDeviceEnumerator)new MMDeviceEnumerator();
+            enumerator = AudioService.CreateEnumerator();
             callbackPointer = Marshal.GetComInterfaceForObject(callback, typeof(IEndpointNotifications));
             Marshal.ThrowExceptionForHR(enumerator.RegisterEndpointNotificationCallback(callbackPointer));
         }
