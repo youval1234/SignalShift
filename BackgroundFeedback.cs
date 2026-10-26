@@ -37,6 +37,7 @@ internal sealed class BackgroundFeedback : IDisposable
     internal IntPtr NotificationHandle => popup?.Handle ?? IntPtr.Zero;
     internal int ActivationCount => popup?.ActivationCount ?? 0;
     internal static void ExportPreview(string path) { using var preview = new Popup(); preview.Export(path); }
+    internal static void ExportMicrophonePreview(string path, bool muted) { using var preview = new Popup(); preview.Export(path, muted); }
     internal void Dismiss() => popup?.Dismiss();
     public void Dispose() { CancelSound(); soundDelay.Dispose(); popup?.Dispose(); foreach (var wave in waves.Values) wave.Free(); waves.Clear(); }
     [DllImport("winmm.dll")] private static extern bool PlaySound(IntPtr sound, IntPtr module, uint flags);
@@ -51,6 +52,8 @@ internal sealed class BackgroundFeedback : IDisposable
         private readonly Font icon = new("Segoe MDL2 Assets", 23, FontStyle.Regular, GraphicsUnit.Pixel);
         // GDI objects are owned by this reusable popup, not allocated on every frame.
         private readonly Pen outline = new(Color.FromArgb(59, 53, 79));
+        private readonly Pen muteSlash = new(Color.FromArgb(255, 99, 120), 2.5f) { StartCap = LineCap.Round, EndCap = LineCap.Round };
+        private readonly Pen muteSlashBackground = new(Color.FromArgb(48, 40, 64), 5.5f) { StartCap = LineCap.Round, EndCap = LineCap.Round };
         private readonly GraphicsPath outlinePath = Rounded(new RectangleF(0.5f, 0.5f, 383, 101), 18);
         private readonly GraphicsPath iconPath = Rounded(new RectangleF(20, 25, 44, 44), 14);
         private readonly SolidBrush iconBackground = new(Color.FromArgb(48, 40, 64));
@@ -64,6 +67,7 @@ internal sealed class BackgroundFeedback : IDisposable
         private float regionScale;
         private string title = "", message = "", glyph = "";
         private bool microphoneFeedback;
+        private bool microphoneMuted;
         internal string CurrentMessage => message;
         internal int ActivationCount { get; private set; }
         protected override bool ShowWithoutActivation => true;
@@ -91,16 +95,14 @@ internal sealed class BackgroundFeedback : IDisposable
             foreground.Color = value ? Color.FromArgb(32, 36, 57) : Color.FromArgb(243, 240, 252);
             track.Color = value ? Color.FromArgb(222, 225, 237) : Color.FromArgb(41, 44, 60);
             mint.Color = value ? Color.FromArgb(23, 111, 88) : Color.FromArgb(139, 226, 197);
+            if (microphoneFeedback) accent.Color = microphoneMuted
+                ? (light ? Color.FromArgb(192, 49, 76) : Color.FromArgb(255, 99, 120))
+                : (light ? Color.FromArgb(23, 111, 88) : Color.FromArgb(92, 230, 162));
             Invalidate();
         }
         internal void Present(string caption, string device, AudioFlow? flow)
         {
-            title = caption.ToUpperInvariant(); message = device; glyph = flow == AudioFlow.Output ? "\uE7F5" : flow == AudioFlow.Input ? "\uE720" : "\uE8A9";
-            microphoneFeedback = caption == "Microphone" && device is "Microphone muted" or "Microphone live";
-            accent.Color = microphoneFeedback && device == "Microphone muted" ? (light ? Color.FromArgb(192, 49, 76) : Color.FromArgb(255, 99, 120))
-                : microphoneFeedback ? (light ? Color.FromArgb(23, 111, 88) : Color.FromArgb(92, 230, 162))
-                : light ? Color.FromArgb(105, 80, 199) : Color.FromArgb(184, 163, 255);
-            AccessibleName = caption + ": " + device;
+            SetContent(caption, device, flow);
             elapsed.Restart(); Opacity = 1;
             var foreground = GetForegroundWindow();
             var screen = Forms.Screen.FromHandle(foreground);
@@ -117,10 +119,21 @@ internal sealed class BackgroundFeedback : IDisposable
             if (!Visible) Show();
             Invalidate(); animation.Start();
         }
-        internal void Dismiss() { animation.Stop(); Hide(); elapsed.Reset(); Opacity = 1; }
-        internal void Export(string path)
+        private void SetContent(string caption, string device, AudioFlow? flow)
         {
-            title = "OUTPUT SWITCHED"; message = "Desktop speakers"; glyph = "\uE7F5"; Size = new Size(384, 102);
+            title = caption.ToUpperInvariant(); message = device; glyph = flow == AudioFlow.Output ? "\uE7F5" : flow == AudioFlow.Input ? "\uE720" : "\uE8A9";
+            microphoneFeedback = caption == "Microphone" && device is "Microphone muted" or "Microphone live";
+            microphoneMuted = microphoneFeedback && device == "Microphone muted";
+            accent.Color = microphoneMuted ? (light ? Color.FromArgb(192, 49, 76) : Color.FromArgb(255, 99, 120))
+                : microphoneFeedback ? (light ? Color.FromArgb(23, 111, 88) : Color.FromArgb(92, 230, 162))
+                : light ? Color.FromArgb(105, 80, 199) : Color.FromArgb(184, 163, 255);
+            AccessibleName = caption + ": " + device;
+        }
+        internal void Dismiss() { animation.Stop(); Hide(); elapsed.Reset(); Opacity = 1; }
+        internal void Export(string path, bool? muted = null)
+        {
+            SetContent(muted == null ? "Output switched" : "Microphone", muted == null ? "Desktop speakers" : muted.Value ? "Microphone muted" : "Microphone live", muted == null ? AudioFlow.Output : AudioFlow.Input);
+            Size = new Size(384, 102);
             using var image = new Bitmap(Width, Height); DrawToBitmap(image, new Rectangle(0, 0, Width, Height));
             image.Save(path, System.Drawing.Imaging.ImageFormat.Png);
         }
@@ -132,6 +145,11 @@ internal sealed class BackgroundFeedback : IDisposable
             g.DrawPath(outline, outlinePath);
             g.FillPath(iconBackground, iconPath);
             g.DrawString(glyph, icon, accent, new PointF(29, 34));
+            if (microphoneMuted)
+            {
+                muteSlash.Color = accent.Color; muteSlashBackground.Color = iconBackground.Color;
+                g.DrawLine(muteSlashBackground, 29, 34, 56, 59); g.DrawLine(muteSlash, 29, 34, 56, 59);
+            }
             g.DrawString(title, heading, accent, new PointF(76, 20));
             g.DrawString("SIGNALSHIFT", brand, muted, new PointF(304, 20));
             g.DrawString(message, text, foreground, new RectangleF(76, 39, 288, 40), format);
@@ -145,7 +163,7 @@ internal sealed class BackgroundFeedback : IDisposable
             p.AddArc(rect.Right - diameter, rect.Bottom - diameter, diameter, diameter, 0, 90); p.AddArc(rect.Left, rect.Bottom - diameter, diameter, diameter, 90, 90); p.CloseFigure(); return p;
         }
         private static bool AnimationsEnabled() => SystemParametersInfo(0x1042, 0, out var enabled, 0) && enabled;
-        protected override void Dispose(bool disposing) { if (disposing) { animation.Dispose(); heading.Dispose(); text.Dispose(); brand.Dispose(); icon.Dispose(); outline.Dispose(); outlinePath.Dispose(); iconPath.Dispose(); iconBackground.Dispose(); accent.Dispose(); muted.Dispose(); foreground.Dispose(); track.Dispose(); mint.Dispose(); format.Dispose(); } base.Dispose(disposing); }
+        protected override void Dispose(bool disposing) { if (disposing) { animation.Dispose(); heading.Dispose(); text.Dispose(); brand.Dispose(); icon.Dispose(); outline.Dispose(); muteSlash.Dispose(); muteSlashBackground.Dispose(); outlinePath.Dispose(); iconPath.Dispose(); iconBackground.Dispose(); accent.Dispose(); muted.Dispose(); foreground.Dispose(); track.Dispose(); mint.Dispose(); format.Dispose(); } base.Dispose(disposing); }
         [DllImport("user32.dll")] private static extern IntPtr GetForegroundWindow();
         [DllImport("user32.dll")] private static extern uint GetDpiForWindow(IntPtr handle);
         [DllImport("user32.dll")] private static extern bool SystemParametersInfo(uint action, uint parameter, [MarshalAs(UnmanagedType.Bool)] out bool value, uint flags);

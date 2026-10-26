@@ -22,6 +22,7 @@ public sealed class SwitchNotification : Window, IDisposable
     private readonly TextBlock caption;
     private readonly TextBlock device;
     private readonly TextBlock glyph;
+    private readonly System.Windows.Shapes.Line muteSlash;
     private readonly Border progress;
     private bool disposed;
     internal string CurrentMessage => device.Text;
@@ -53,7 +54,10 @@ public sealed class SwitchNotification : Window, IDisposable
             Text = "\uE7F5", FontFamily = new FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets"), FontSize = 21,
             Foreground = ColorBrush("#D7CBFF"), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center
         };
-        body.Children.Add(new Border { Width = 44, Height = 44, CornerRadius = new CornerRadius(14), Background = ColorBrush("#302840"), Child = glyph, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 0, 8) });
+        var iconPanel = new Grid(); iconPanel.Children.Add(glyph);
+        muteSlash = new System.Windows.Shapes.Line { X1 = 9, Y1 = 9, X2 = 35, Y2 = 35, Stroke = ColorBrush("#FF6378"), StrokeThickness = 2.5, StrokeStartLineCap = PenLineCap.Round, StrokeEndLineCap = PenLineCap.Round, Visibility = Visibility.Collapsed };
+        iconPanel.Children.Add(muteSlash);
+        body.Children.Add(new Border { Width = 44, Height = 44, CornerRadius = new CornerRadius(14), Background = ColorBrush("#302840"), Child = iconPanel, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 0, 8) });
         var copy = new StackPanel(); Grid.SetColumn(copy, 2);
         var heading = new Grid();
         heading.ColumnDefinitions.Add(new ColumnDefinition()); heading.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -96,6 +100,12 @@ public sealed class SwitchNotification : Window, IDisposable
     {
         caption.Text = title.ToUpperInvariant(); device.Text = message;
         glyph.Text = flow == AudioFlow.Input ? "\uE720" : flow == AudioFlow.Output ? "\uE7F5" : "\uE8A9";
+        var muted = title == "Microphone" && message == "Microphone muted";
+        var live = title == "Microphone" && message == "Microphone live";
+        glyph.Foreground = muted ? ColorBrush("#FF6378") : live ? ColorBrush("#5CE6A2") : ColorBrush("#D7CBFF");
+        caption.Foreground = muted || live ? glyph.Foreground : ColorBrush("#B8A3FF");
+        progress.Background = muted || live ? glyph.Foreground : ColorBrush("#8BE2C5");
+        muteSlash.Visibility = muted ? Visibility.Visible : Visibility.Collapsed;
         progress.Width = 288;
     }
 

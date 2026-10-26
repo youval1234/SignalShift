@@ -35,14 +35,15 @@ public static class StartupRegistration
     {
         // Retain a previous startup opt-in, updating its executable after rename.
         using var key = Registry.CurrentUser.OpenSubKey(RegistryPath);
-        if (key?.GetValue("Sonora") != null || key?.GetValue("SonarShift") != null) return SetAsync(true);
+        if (key?.GetValue("Sonora") != null || key?.GetValue("SonarShift") != null ||
+            key?.GetValue("SignalShift") as string == "\"" + Environment.ProcessPath + "\" --tray") return SetAsync(true);
         return Task.CompletedTask;
     }
     public static bool IsEnabled() { using var key = Registry.CurrentUser.OpenSubKey(RegistryPath); return key?.GetValue("SignalShift") != null || key?.GetValue("SonarShift") != null || key?.GetValue("Sonora") != null; }
     public static Task SetAsync(bool enabled)
     {
         using var key = Registry.CurrentUser.CreateSubKey(RegistryPath);
-        if (enabled) key.SetValue("SignalShift", "\"" + Environment.ProcessPath + "\" --tray");
+        if (enabled) key.SetValue("SignalShift", "\"" + Environment.ProcessPath + "\" --tray --startup");
         else key.DeleteValue("SignalShift", false);
         key.DeleteValue("Sonora", false);
         key.DeleteValue("SonarShift", false);

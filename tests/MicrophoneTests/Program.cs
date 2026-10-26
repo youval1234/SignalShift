@@ -96,6 +96,32 @@ internal static class Program
             if (cold.RootElement.GetProperty("interfaceRunning").GetBoolean() || cold.RootElement.GetProperty("wpfLoaded").GetBoolean()
                 || cold.RootElement.GetProperty("audioTestsLoaded").GetBoolean()) throw new InvalidOperationException("Cold mute command loaded the settings or audio test UI.");
             coldStart = true;
+            void StopHost()
+            {
+                using var status = Command("status"); using var ownedHost = Process.GetProcessById(status.RootElement.GetProperty("pid").GetInt32());
+                using (Command("quit")) { }
+                if (!ownedHost.WaitForExit(5000)) throw new InvalidOperationException("Startup test host did not exit.");
+            }
+            void RequireTray(string expected)
+            {
+                WaitFor(() => { using var status = Command("status"); return status.RootElement.GetProperty("microphoneMute").GetString() == expected && status.RootElement.GetProperty("testTrayMicrophoneCorrect").GetBoolean(); });
+            }
+            StopHost();
+            foreach (var endpoint in snapshot) MicrophoneMuteService.RestoreEndpoint(endpoint.Id, true);
+            settings.StartMicrophoneLive = false;
+            File.WriteAllText(Path.Combine(data, "settings.json"), JsonSerializer.Serialize(settings));
+            host?.Dispose(); host = Launch("--tray", "--startup");
+            RequireTray("Muted"); if (!All(true)) throw new InvalidOperationException("Startup without opt-in changed mute.");
+            StopHost();
+            settings.StartMicrophoneLive = true;
+            File.WriteAllText(Path.Combine(data, "settings.json"), JsonSerializer.Serialize(settings));
+            host.Dispose(); host = Launch("--tray");
+            RequireTray("Muted"); if (!All(true)) throw new InvalidOperationException("Ordinary restart overrode mute.");
+            StopHost(); host.Dispose(); host = Launch("--tray", "--startup");
+            WaitFor(() => All(false)); RequireTray("Live");
+            foreach (var endpoint in snapshot) MicrophoneMuteService.RestoreEndpoint(endpoint.Id, true);
+            RequireTray("Muted"); Thread.Sleep(1500);
+            if (!All(true)) throw new InvalidOperationException("Sign-in policy overwrote later mute.");
         }
         finally
         {
@@ -114,7 +140,7 @@ internal static class Program
             if (!defaults.SequenceEqual(after)) throw new InvalidOperationException("A default device changed.");
         }
         var report = new { success = true, defaultSwitchChecked, defaultFullScans, muteFullScans, endpoints = snapshot.Count, callbacks, commandLineToggle = true, registeredHotkey = true, externalMuteNotification = true,
-            coldStart, originalMicrophoneStatesRestored = true, speakerMuteAndVolumePreserved = true, allSixDefaultRolesPreserved = true, microphoneRecorded = false };
+            coldStart, signInUnmuteOptIn = true, ordinaryRestartPreservesMute = true, trayFollowsExternalMute = true, laterMutePreserved = true, originalMicrophoneStatesRestored = true, speakerMuteAndVolumePreserved = true, allSixDefaultRolesPreserved = true, microphoneRecorded = false };
         var json = JsonSerializer.Serialize(report, new JsonSerializerOptions { WriteIndented = true });
         File.WriteAllText(Path.Combine(data, "hardware-report.json"), json); Console.WriteLine(json); return 0;
     }

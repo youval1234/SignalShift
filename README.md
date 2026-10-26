@@ -5,7 +5,7 @@
 SignalShift is a portable Windows audio switcher with global shortcuts, saved audio
 profiles, microphone mute, dark/light themes and a lightweight system tray.
 
-**[Download the Windows x64 release](https://github.com/youval1234/SignalShift/releases/tag/v2.4.4)**.
+**[Download the Windows x64 release](https://github.com/youval1234/SignalShift/releases/tag/v2.4.5)**.
 The self-contained EXE needs no separate .NET runtime. Releases are currently unsigned;
 see the [Windows trust guide](docs/windows-trust.md).
 
@@ -24,6 +24,7 @@ Screenshots use sample devices and profiles.
 - **Microphone mute:** use the app button, tray menu or a configurable shortcut.
   The suggested combination is **Ctrl + Alt + M**, enabled under Shortcuts.
   The app reads the real Windows mute state and follows external changes.
+  A green/red microphone tray icon shows live/muted state. [Startup unmute](docs/microphone-status.md) is an explicit sign-in option.
 - **Clear feedback:** a reusable popup shows the latest action immediately, with
   optional confirmation sounds. Microphone feedback says **Microphone muted** or
   **Microphone live**.
@@ -54,7 +55,7 @@ keyboard-shortcut switch.
 ## Install and update
 
 Download **SignalShift.exe** and **SHA256SUMS.txt** from the
-[release page](https://github.com/youval1234/SignalShift/releases/tag/v2.4.4).
+[release page](https://github.com/youval1234/SignalShift/releases/tag/v2.4.5).
 Quit the previous instance from its tray menu before replacing the EXE. Keep it in
 a permanent location if you enable startup. Existing preferences are preserved.
 From 2.4 onward, automatic launch checks can install newer verified downloads and

@@ -41,6 +41,7 @@ public sealed partial class MainWindow : Window
     private AudioChangeKind pendingDeviceChange;
     private bool hostExiting;
     private Forms.NotifyIcon? tray;
+    private MicrophoneTrayIcons? trayMicrophoneIcons;
     private HotkeyService? hotkeys;
     private readonly List<string> hotkeyErrors = new();
     private IReadOnlyList<AudioDevice> outputs = Array.Empty<AudioDevice>();
@@ -459,6 +460,7 @@ public sealed partial class MainWindow : Window
         var inputPreview = Button("Preview input sound", () => soundCues.Play(AudioFlow.Input)); inputPreview.Margin = new Thickness(8, 0, 0, 0); previews.Children.Add(inputPreview); sounds.Children.Add(previews);
         Option("Show a notification after switching", "A small popup shows the latest device immediately. Repeated switches update the same popup.", Preferences.Notifications, v => { Preferences.Notifications = v; if (!v) switchNotification?.Dismiss(); });
         Option("Keep running when the window closes", "Your shortcuts keep working. Choose Quit from the tray to exit.", Preferences.CloseToTray, v => Preferences.CloseToTray = v);
+        Option("Start microphone live at Windows sign-in", "Unmute the default microphones once when SignalShift starts with Windows. Restarting the app keeps your current mute state. Off preserves the state Windows provides.", Preferences.StartMicrophoneLive, v => Preferences.StartMicrophoneLive = v);
         var startup = new StackPanel { Margin = new Thickness(0, 0, 0, 23) };
         var startupCheck = new CheckBox { Content = "Start with Windows", IsChecked = IsStartupEnabled() };
         startupCheck.Click += async (_, _) =>
@@ -553,8 +555,8 @@ public sealed partial class MainWindow : Window
     }
     private void SetupTray()
     {
-        using var stream = Application.GetResourceStream(new Uri("pack://application:,,,/Assets/SonarShift.ico")).Stream;
-        tray = new Forms.NotifyIcon { Icon = new System.Drawing.Icon(stream), Text = "SignalShift · Your sound, one shortcut away", Visible = true };
+        trayMicrophoneIcons = new MicrophoneTrayIcons();
+        tray = new Forms.NotifyIcon { Icon = trayMicrophoneIcons.For(microphoneMute.State), Text = MicrophoneTrayIcons.Tooltip(microphoneMute.State), Visible = true };
         tray.DoubleClick += (_, _) => Dispatcher.Invoke(ShowWindow); UpdateTray();
     }
     private void UpdateTray()
@@ -601,7 +603,7 @@ public sealed partial class MainWindow : Window
     {
         if (!Program.IsInterface && !quitting && Preferences.CloseToTray) { e.Cancel = true; Hide(); SetStatus("SignalShift is running in your tray"); return; }
         if (Program.IsInterface && !hostExiting && (quitting || (!backgroundClose && !Preferences.CloseToTray))) HostConnection.TrySend("quit");
-        timer.Stop(); deviceNotifications?.Dispose(); microphoneMute.Dispose(); signalWatcher?.Dispose(); hotkeys?.Dispose(); soundCues.Dispose(); switchNotification?.Dispose(); tray?.Dispose(); Application.Current.Shutdown();
+        timer.Stop(); deviceNotifications?.Dispose(); microphoneMute.Dispose(); signalWatcher?.Dispose(); hotkeys?.Dispose(); soundCues.Dispose(); switchNotification?.Dispose(); tray?.Dispose(); trayMicrophoneIcons?.Dispose(); Application.Current.Shutdown();
     }
     private void QueueDeviceRefresh() => QueueDeviceRefresh(AudioChangeKind.Topology);
     private void QueueDeviceRefresh(AudioChangeKind kind)

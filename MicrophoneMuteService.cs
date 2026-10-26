@@ -75,10 +75,20 @@ public sealed class MicrophoneMuteService : IDisposable
         if (State == MicrophoneMuteState.Unavailable) throw new InvalidOperationException(Error ?? "No default microphone is connected.");
         // A mixed setup is muted first, rather than accidentally opening a mic.
         var target = State != MicrophoneMuteState.Muted;
+        return ApplyMute(target);
+    }
+    internal MicrophoneMuteState SetMuted(bool muted)
+    {
+        Refresh();
+        if (State == MicrophoneMuteState.Unavailable) throw new InvalidOperationException(Error ?? "No default microphone is connected.");
+        return ApplyMute(muted);
+    }
+    private MicrophoneMuteState ApplyMute(bool target)
+    {
         var previous = Snapshot();
         try
         {
-            foreach (var endpoint in endpoints.Values) Set(endpoint, target);
+            foreach (var value in previous) if (value.Muted != target) Set(endpoints[value.Id], target);
             if (Snapshot().Any(value => value.Muted != target)) throw new InvalidOperationException("Windows did not apply microphone mute to every default input.");
             State = target ? MicrophoneMuteState.Muted : MicrophoneMuteState.Live;
             return State;

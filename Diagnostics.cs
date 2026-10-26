@@ -117,6 +117,58 @@ public static class Diagnostics
             Require(MicrophoneMuteService.Classify(new[] { new MicrophoneMuteSnapshot("a", false) }) == MicrophoneMuteState.Live, "Live input reported muted");
             Require(MicrophoneMuteService.Classify(new[] { new MicrophoneMuteSnapshot("a", false), new MicrophoneMuteSnapshot("b", true) }) == MicrophoneMuteState.Mixed, "Mixed role states lost");
         });
+        Check("Microphone startup opt-in preserves old settings and survives export", () =>
+        {
+            var old = JsonNode.Parse(JsonSerializer.Serialize(new Settings()))!.AsObject(); old.Remove("StartMicrophoneLive");
+            var migrated = SettingsTransfer.Parse(old.ToJsonString(), new Settings(), Array.Empty<AudioDevice>()).Settings;
+            Require(!migrated.StartMicrophoneLive, "Upgrade unexpectedly unmutes microphones");
+            migrated.StartMicrophoneLive = true;
+            var loaded = SettingsTransfer.Parse(SettingsTransfer.Export(migrated, Array.Empty<AudioDevice>(), true), new Settings(), Array.Empty<AudioDevice>()).Settings;
+            Require(loaded.StartMicrophoneLive, "Sign-in microphone choice was lost");
+        });
+        Check("Sign-in microphone policy waits briefly, applies once and respects cancellation", () =>
+        {
+            var writes = 0; Action makeLive = () => writes++;
+            var disabled = new MicrophoneStartupPolicy(false);
+            disabled.TryApply(MicrophoneMuteState.Muted, TimeSpan.Zero, makeLive);
+            Require(writes == 0, "Ordinary startup changed mute");
+            var pending = new MicrophoneStartupPolicy(true);
+            Require(!pending.TryApply(MicrophoneMuteState.Unavailable, TimeSpan.FromSeconds(2), makeLive) && pending.Pending, "Delayed device was not awaited");
+            Require(pending.TryApply(MicrophoneMuteState.Mixed, TimeSpan.FromSeconds(3), makeLive), "Connected microphones were not made live");
+            pending.TryApply(MicrophoneMuteState.Muted, TimeSpan.FromSeconds(4), makeLive);
+            Require(writes == 1 && !pending.Pending, "Later intentional mute was overwritten");
+            var cancelled = new MicrophoneStartupPolicy(true); cancelled.Cancel(); cancelled.TryApply(MicrophoneMuteState.Muted, TimeSpan.Zero, makeLive);
+            var expired = new MicrophoneStartupPolicy(true); expired.TryApply(MicrophoneMuteState.Muted, TimeSpan.FromSeconds(30), makeLive);
+            Require(writes == 1 && !expired.Pending, "Cancelled or expired policy opened a microphone");
+            var live = new MicrophoneStartupPolicy(true); live.TryApply(MicrophoneMuteState.Live, TimeSpan.Zero, makeLive);
+            Require(writes == 1 && !live.Pending, "Already-live microphone was rewritten");
+            var failed = new MicrophoneStartupPolicy(true);
+            try { failed.TryApply(MicrophoneMuteState.Muted, TimeSpan.Zero, () => throw new InvalidOperationException("fixture")); } catch (InvalidOperationException) { }
+            Require(!failed.Pending, "Failed startup keeps trying to override mute");
+        });
+        Check("Microphone tray icons are distinct, cached and have accessible state labels", () =>
+        {
+            using var icons = new MicrophoneTrayIcons();
+            var handles = new HashSet<IntPtr>();
+            foreach (var state in Enum.GetValues<MicrophoneMuteState>())
+            {
+                Require(handles.Add(icons.For(state).Handle), "States share one icon");
+                Require(MicrophoneTrayIcons.Tooltip(state).Contains(MicrophoneTrayIcons.Description(state)), "Tray state is not labelled");
+                Require(MicrophoneTrayIcons.Tooltip(state, true).Length <= 63, "Tray tooltip exceeds the Windows limit");
+            }
+            var muted = icons.For(MicrophoneMuteState.Muted); _ = MicrophoneTrayIcons.Tooltip(MicrophoneMuteState.Muted);
+            var same = true;
+            void Lookups() { for (var index = 0; index < 10000; index++) { same &= ReferenceEquals(muted, icons.For(MicrophoneMuteState.Muted)); _ = MicrophoneTrayIcons.Tooltip(MicrophoneMuteState.Muted); } }
+            Lookups(); Lookups(); Lookups();
+            var allocated = GC.GetAllocatedBytesForCurrentThread(); Lookups();
+            var bytes = GC.GetAllocatedBytesForCurrentThread() - allocated;
+            Require(same, "Refresh replaced its icon");
+            Require(bytes < 50000, "Tray state refresh allocated " + bytes + " bytes");
+            var directory = Path.GetDirectoryName(Path.GetFullPath(reportPath))!; Directory.CreateDirectory(directory);
+            foreach (var state in Enum.GetValues<MicrophoneMuteState>()) { using var image = icons.For(state).ToBitmap(); image.Save(Path.Combine(directory, "microphone-tray-" + state + ".png")); }
+            BackgroundFeedback.ExportMicrophonePreview(Path.Combine(directory, "microphone-muted-popup.png"), true);
+            BackgroundFeedback.ExportMicrophonePreview(Path.Combine(directory, "microphone-live-popup.png"), false);
+        });
         Check("Live device watcher coexists with audio-test COM wrappers", () =>
         {
             using var watcher = new AudioDeviceNotifications(() => { });
