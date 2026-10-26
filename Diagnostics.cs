@@ -169,6 +169,26 @@ public static class Diagnostics
             BackgroundFeedback.ExportMicrophonePreview(Path.Combine(directory, "microphone-muted-popup.png"), true);
             BackgroundFeedback.ExportMicrophonePreview(Path.Combine(directory, "microphone-live-popup.png"), false);
         });
+        Check("Separate microphone indicator preserves the app icon, reuses updates and leaves menu ownership with the host", () =>
+        {
+            using var brand = (System.Drawing.Icon)System.Drawing.SystemIcons.Application.Clone();
+            using var main = new System.Windows.Forms.NotifyIcon { Icon = brand, Text = "SignalShift", Visible = true };
+            using var menu = new System.Windows.Forms.ContextMenuStrip(); menu.Items.Add("Open SignalShift"); main.ContextMenuStrip = menu;
+            using var indicator = new MicrophoneTrayIndicator(() => { }); indicator.SetMenu(menu);
+            foreach (var state in Enum.GetValues<MicrophoneMuteState>())
+            {
+                indicator.Update(state);
+                Require(indicator.Matches(state) && indicator.IsSeparateFrom(main), "Microphone status replaced the app icon");
+                Require(ReferenceEquals(main.Icon, brand) && main.Text == "SignalShift", "App branding changed with microphone state");
+            }
+            indicator.Update(MicrophoneMuteState.Muted);
+            void Updates() { for (var index = 0; index < 10000; index++) indicator.Update(MicrophoneMuteState.Muted); }
+            Updates(); Updates(); Updates(); var allocated = GC.GetAllocatedBytesForCurrentThread(); Updates();
+            var bytes = GC.GetAllocatedBytesForCurrentThread() - allocated;
+            Require(bytes < 50000, "Unchanged microphone indicator updates allocate: " + bytes);
+            indicator.Dispose();
+            Require(!menu.IsDisposed && main.Visible && ReferenceEquals(main.Icon, brand), "Disposing microphone indicator destroyed the app tray/menu");
+        });
         Check("Live device watcher coexists with audio-test COM wrappers", () =>
         {
             using var watcher = new AudioDeviceNotifications(() => { });

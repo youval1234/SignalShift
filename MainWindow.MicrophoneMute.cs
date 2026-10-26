@@ -24,12 +24,7 @@ public sealed partial class MainWindow
     }
     private void UpdateMicrophoneMuteVisuals()
     {
-        if (tray != null && trayMicrophoneIcons != null)
-        {
-            var icon = trayMicrophoneIcons.For(microphoneMute.State);
-            if (!ReferenceEquals(tray.Icon, icon)) tray.Icon = icon;
-            tray.Text = MicrophoneTrayIcons.Tooltip(microphoneMute.State, hotkeyErrors.Count != 0);
-        }
+        microphoneTrayIndicator?.Update(microphoneMute.State, hotkeyErrors.Count != 0);
         if (microphoneMuteButton == null || microphoneMuteLabel == null) return;
         var state = useDemoDevices ? MicrophoneMuteState.Live : microphoneMute.State;
         microphoneMuteButton.Content = state == MicrophoneMuteState.Muted ? "Unmute microphone" : "Mute microphone";

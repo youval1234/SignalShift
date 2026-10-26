@@ -1,6 +1,6 @@
 # Microphone startup and tray status
 
-SignalShift's tray microphone shows the state of the Windows default input devices for audio and calls:
+SignalShift keeps its purple app icon and shows a separate microphone status icon beside it. The microphone icon shows the state of the Windows default input devices for audio and calls:
 
 - Green microphone: all tracked microphones are live.
 - Red microphone with a diagonal slash: all tracked microphones are muted.

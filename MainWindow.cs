@@ -41,7 +41,7 @@ public sealed partial class MainWindow : Window
     private AudioChangeKind pendingDeviceChange;
     private bool hostExiting;
     private Forms.NotifyIcon? tray;
-    private MicrophoneTrayIcons? trayMicrophoneIcons;
+    private MicrophoneTrayIndicator? microphoneTrayIndicator;
     private HotkeyService? hotkeys;
     private readonly List<string> hotkeyErrors = new();
     private IReadOnlyList<AudioDevice> outputs = Array.Empty<AudioDevice>();
@@ -555,8 +555,10 @@ public sealed partial class MainWindow : Window
     }
     private void SetupTray()
     {
-        trayMicrophoneIcons = new MicrophoneTrayIcons();
-        tray = new Forms.NotifyIcon { Icon = trayMicrophoneIcons.For(microphoneMute.State), Text = MicrophoneTrayIcons.Tooltip(microphoneMute.State), Visible = true };
+        using var stream = Application.GetResourceStream(new Uri("pack://application:,,,/Assets/SonarShift.ico")).Stream;
+        tray = new Forms.NotifyIcon { Icon = new System.Drawing.Icon(stream), Text = "SignalShift · Your sound, one shortcut away", Visible = true };
+        microphoneTrayIndicator = new(() => Dispatcher.Invoke(ShowWindow));
+        microphoneTrayIndicator.Update(microphoneMute.State);
         tray.DoubleClick += (_, _) => Dispatcher.Invoke(ShowWindow); UpdateTray();
     }
     private void UpdateTray()
@@ -571,7 +573,7 @@ public sealed partial class MainWindow : Window
         }
         menu.Items.Add("Next output", null, (_, _) => Dispatcher.Invoke(() => Cycle(AudioFlow.Output))); menu.Items.Add("Next input", null, (_, _) => Dispatcher.Invoke(() => Cycle(AudioFlow.Input)));
         if (Preferences.Profiles.Count > 0) { var profiles = new Forms.ToolStripMenuItem("Profiles"); foreach (var profile in Preferences.Profiles) profiles.DropDownItems.Add(profile.Name, null, (_, _) => Dispatcher.Invoke(() => ActivateProfile(profile))); menu.Items.Add(profiles); }
-        menu.Items.Add(new Forms.ToolStripSeparator()); menu.Items.Add("Quit SignalShift", null, (_, _) => Dispatcher.Invoke(Quit)); var old = tray.ContextMenuStrip; tray.ContextMenuStrip = menu; old?.Dispose();
+        menu.Items.Add(new Forms.ToolStripSeparator()); menu.Items.Add("Quit SignalShift", null, (_, _) => Dispatcher.Invoke(Quit)); var old = tray.ContextMenuStrip; tray.ContextMenuStrip = menu; microphoneTrayIndicator?.SetMenu(menu); old?.Dispose();
     }
     private void Tick()
     {
@@ -603,7 +605,7 @@ public sealed partial class MainWindow : Window
     {
         if (!Program.IsInterface && !quitting && Preferences.CloseToTray) { e.Cancel = true; Hide(); SetStatus("SignalShift is running in your tray"); return; }
         if (Program.IsInterface && !hostExiting && (quitting || (!backgroundClose && !Preferences.CloseToTray))) HostConnection.TrySend("quit");
-        timer.Stop(); deviceNotifications?.Dispose(); microphoneMute.Dispose(); signalWatcher?.Dispose(); hotkeys?.Dispose(); soundCues.Dispose(); switchNotification?.Dispose(); tray?.Dispose(); trayMicrophoneIcons?.Dispose(); Application.Current.Shutdown();
+        timer.Stop(); deviceNotifications?.Dispose(); microphoneMute.Dispose(); signalWatcher?.Dispose(); hotkeys?.Dispose(); soundCues.Dispose(); switchNotification?.Dispose(); microphoneTrayIndicator?.Dispose(); tray?.ContextMenuStrip?.Dispose(); tray?.Icon?.Dispose(); tray?.Dispose(); Application.Current.Shutdown();
     }
     private void QueueDeviceRefresh() => QueueDeviceRefresh(AudioChangeKind.Topology);
     private void QueueDeviceRefresh(AudioChangeKind kind)

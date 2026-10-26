@@ -17,7 +17,7 @@ internal sealed class BackgroundHost : Forms.ApplicationContext
     private readonly Forms.Control dispatch = new();
     private readonly KeyWindow keys = new();
     private readonly Forms.NotifyIcon tray;
-    private readonly MicrophoneTrayIcons microphoneIcons = new();
+    private readonly MicrophoneTrayIndicator microphoneIndicator;
     private readonly Forms.Timer startupMicrophoneRetry = new() { Interval = 1000 };
     private readonly Stopwatch startupElapsed = Stopwatch.StartNew();
     private readonly MicrophoneStartupPolicy startupMicrophone;
@@ -57,8 +57,10 @@ internal sealed class BackgroundHost : Forms.ApplicationContext
         startupMicrophone = new(windowsSignIn && settings.StartMicrophoneLive);
         feedback.SetTheme(settings.Theme);
         if (Environment.GetEnvironmentVariable("SONARSHIFT_TEST_DATA") == null) StartupRegistration.InitializeAsync().GetAwaiter().GetResult();
-        tray = new Forms.NotifyIcon { Icon = microphoneIcons.For(MicrophoneMuteState.Unavailable), Text = MicrophoneTrayIcons.Tooltip(MicrophoneMuteState.Unavailable), Visible = true };
+        using var icon = typeof(BackgroundHost).Assembly.GetManifestResourceStream("SonarShift.TrayIcon")!;
+        tray = new Forms.NotifyIcon { Icon = new System.Drawing.Icon(icon), Text = "SignalShift", Visible = true };
         tray.DoubleClick += (_, _) => ShowInterface();
+        microphoneIndicator = new(ShowInterface);
         refresh.Tick += (_, _) => { refresh.Stop(); var kind = pendingChange; pendingChange = AudioChangeKind.None; RefreshChanged(kind); };
         retry.Tick += (_, _) => RegisterKeys();
         fallback.Tick += (_, _) => Refresh();
@@ -181,7 +183,7 @@ internal sealed class BackgroundHost : Forms.ApplicationContext
             case "test-notification": if (Environment.GetEnvironmentVariable("SONARSHIFT_TEST_DATA") != null) feedback.Present("Output switched", "Diagnostic speaker", AudioFlow.Output); break;
         }
         var testTrayMicrophoneCorrect = Environment.GetEnvironmentVariable("SONARSHIFT_TEST_DATA") != null
-            ? ReferenceEquals(tray.Icon, microphoneIcons.For(microphoneMute.State)) && tray.Text == MicrophoneTrayIcons.Tooltip(microphoneMute.State, conflicts.Count != 0) : (bool?)null;
+            ? microphoneIndicator.Matches(microphoneMute.State, conflicts.Count != 0) && microphoneIndicator.IsSeparateFrom(tray) : (bool?)null;
         return JsonSerializer.Serialize(new { version = AppUpdater.Current.ToString(3), testTrayMicrophoneCorrect, updateChecking, trayBuilds, fastDefaultRefreshes, fastMuteRefreshes, fullEnumerations = AudioService.EnumerationCount, propertyReads = AudioService.PropertyReadCount, testOutputDefault = Environment.GetEnvironmentVariable("SONARSHIFT_TEST_DATA") != null ? outputs.FirstOrDefault(d => d.IsDefault)?.Id : null, testOutputCalls = Environment.GetEnvironmentVariable("SONARSHIFT_TEST_DATA") != null ? outputs.FirstOrDefault(d => d.IsCommunications)?.Id : null, testTrayChecksCorrect = Environment.GetEnvironmentVariable("SONARSHIFT_TEST_DATA") != null ? outputs.All(d => trayDevices.TryGetValue((d.Flow, d.Id), out var item) && item.Checked == d.IsDefault) : (bool?)null, pid = Environment.ProcessId, interfaceRunning = ui != null && !ui.HasExited, interfacePid = ui != null && !ui.HasExited ? ui.Id : 0, conflicts, refreshes = RefreshCount, testHotkeyWindow = Environment.GetEnvironmentVariable("SONARSHIFT_TEST_DATA") != null ? keys.Handle.ToInt64() : 0, theme = settings.Theme, wpfLoaded = AppDomain.CurrentDomain.GetAssemblies().Any(a => a.GetName().Name == "PresentationFramework"), audioTestsLoaded = AppDomain.CurrentDomain.GetAssemblies().Any(a => a.GetName().Name?.StartsWith("NAudio", StringComparison.Ordinal) == true), activeProfileId, profileCycleEnabled = settings.ProfileCycleHotkeyEnabled, microphoneMute = microphoneMute.State.ToString(), microphoneMuteHotkeyEnabled = settings.MicrophoneMuteHotkeyEnabled, eventDriven = notifications != null });
     }
     // Synthetic allocation probe: never changes Windows defaults or reads user settings.
@@ -280,6 +282,7 @@ internal sealed class BackgroundHost : Forms.ApplicationContext
             foreach (var profile in settings.Profiles) if (profile.Hotkey != null) Add(id++, true, profile.Hotkey, profile.Name, () => ActivateProfile(profile, true));
         }
         if (conflicts.Count != 0) retry.Start();
+        tray.Text = conflicts.Count == 0 ? "SignalShift · Your sound, one shortcut away" : "SignalShift · Shortcut needs attention";
         UpdateMicrophoneMuteMenu();
     }
     private void CycleProfiles()
@@ -321,14 +324,12 @@ internal sealed class BackgroundHost : Forms.ApplicationContext
         UpdateMicrophoneMuteMenu();
         if (settings.Profiles.Count > 0) { var group = new Forms.ToolStripMenuItem("Profiles"); foreach (var profile in settings.Profiles) group.DropDownItems.Add(profile.Name, null, (_, _) => ActivateProfile(profile, false)); menu.Items.Add(group); }
         menu.Items.Add(new Forms.ToolStripSeparator()); menu.Items.Add("Quit SignalShift", null, (_, _) => ExitThread());
-        var old = tray.ContextMenuStrip; tray.ContextMenuStrip = menu; old?.Dispose();
+        var old = tray.ContextMenuStrip; tray.ContextMenuStrip = menu; microphoneIndicator.SetMenu(menu); old?.Dispose();
     }
     private IReadOnlyList<AudioDevice> Devices(AudioFlow flow) => flow == AudioFlow.Output ? outputs : inputs;
     private void UpdateMicrophoneMuteMenu()
     {
-        var icon = microphoneIcons.For(microphoneMute.State);
-        if (!ReferenceEquals(tray.Icon, icon)) tray.Icon = icon;
-        tray.Text = MicrophoneTrayIcons.Tooltip(microphoneMute.State, conflicts.Count != 0);
+        microphoneIndicator.Update(microphoneMute.State, conflicts.Count != 0);
         if (microphoneMuteItem == null) return;
         microphoneMuteItem.Text = microphoneMute.State == MicrophoneMuteState.Muted ? "Unmute microphone" : "Mute microphone";
         microphoneMuteItem.Checked = microphoneMute.State == MicrophoneMuteState.Muted;
@@ -401,7 +402,7 @@ internal sealed class BackgroundHost : Forms.ApplicationContext
     {
         if (closing) return;
         closing = true; stop.Cancel(); keys.Clear(); notifications?.Dispose(); microphoneMute.Dispose(); files.Dispose(); refresh.Dispose(); retry.Dispose(); fallback.Dispose(); settingsReload.Dispose();
-        startupMicrophoneRetry.Dispose(); feedback.Dispose(); tray.Visible = false; tray.ContextMenuStrip?.Dispose(); tray.Dispose(); microphoneIcons.Dispose(); keys.Destroy(); dispatch.Dispose();
+        startupMicrophoneRetry.Dispose(); feedback.Dispose(); tray.Visible = false; microphoneIndicator.Dispose(); tray.ContextMenuStrip?.Dispose(); tray.Icon?.Dispose(); tray.Dispose(); keys.Destroy(); dispatch.Dispose();
         if (ui != null && !ui.HasExited) Native.PostMessage(ui.MainWindowHandle, 0x8002, IntPtr.Zero, IntPtr.Zero);
         ui?.Dispose(); stop.Dispose(); base.ExitThreadCore();
     }

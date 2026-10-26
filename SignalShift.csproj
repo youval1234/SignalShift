@@ -10,8 +10,8 @@
     <Nullable>enable</Nullable>
     <ApplicationIcon>Assets\SonarShift.ico</ApplicationIcon>
     <AssemblyName>SignalShift</AssemblyName>
-    <Version>2.4.5</Version>
-    <InformationalVersion>2.4.5</InformationalVersion>
+    <Version>2.4.6</Version>
+    <InformationalVersion>2.4.6</InformationalVersion>
     <Product>SignalShift</Product>
     <Description>Audio profiles and appearance, one shortcut away.</Description>
     <Company>SignalShift</Company>
