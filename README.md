@@ -6,7 +6,7 @@
   <a href="https://github.com/youval1234/SignalShift/releases/latest"><strong>Download for Windows x64</strong></a>
   &nbsp; · &nbsp; <a href="#get-started">Get started</a>
   &nbsp; · &nbsp; <a href="#find-your-color">Explore themes</a>
-  &nbsp; · &nbsp; <a href="docs/release-2.5.1.md">What's new</a>
+  &nbsp; · &nbsp; <a href="docs/release-2.5.2.md">What's new</a>
 </p>
 <p align="center"><a href="https://github.com/youval1234/SignalShift/actions/workflows/build.yml"><img src="https://github.com/youval1234/SignalShift/actions/workflows/build.yml/badge.svg" alt="Windows build and checks" /></a> · <a href="LICENSE">MIT license</a></p>
 

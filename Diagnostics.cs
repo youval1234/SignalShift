@@ -23,6 +23,35 @@ public static class Diagnostics
         }
         void Require(bool condition, string message) { if (!condition) throw new InvalidOperationException(message); }
         UpdaterChecks.Run(Check, Require);
+        Check("Reset defaults uses current devices, clears customization and preserves a restorable backup on failure", () =>
+        {
+            var devices = new[] { new AudioDevice("out", "Speakers", AudioFlow.Output, true, true), new AudioDevice("other", "Headphones", AudioFlow.Output, false, false), new AudioDevice("in", "Microphone", AudioFlow.Input, true, true) };
+            var defaults = SettingsTransfer.CreateDefaults(devices);
+            Require(defaults.Initialized && defaults.Outputs.SetEquals(new[] { "out" }) && defaults.Inputs.SetEquals(new[] { "in" }), "Default cycles did not select only current devices");
+            Require(defaults.Theme == "Dark" && defaults.Profiles.Count == 0 && defaults.AutomaticUpdates && !defaults.StartMicrophoneLive && !defaults.MicrophoneMuteHotkeyEnabled && !defaults.ProfileCycleHotkeyEnabled && defaults.ShowMicrophoneTrayIcon, "Factory preferences differ");
+            SettingsTransfer.Validate(defaults);
+            var directory = Path.Combine(Path.GetTempPath(), "SignalShift-reset-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                var store = new SettingsStore(Path.Combine(directory, "settings.json"));
+                var previous = new Settings { Theme = "Scary", AutomaticUpdates = false, Profiles = new() { new() { Name = "Custom", OutputId = "out" } } };
+                store.Save(previous);
+                // Startup registration is deliberately excluded from diagnostics on the real PC.
+                var imported = new SettingsImport(defaults, "Defaults", null, new());
+                using (var locked = new FileStream(store.FilePath, FileMode.Open, FileAccess.Read, FileShare.None))
+                {
+                    var rejected = false;
+                    try { SettingsTransfer.ApplyAsync(store, imported, devices).GetAwaiter().GetResult(); } catch (IOException) { rejected = true; }
+                    Require(rejected, "Reset ignored a settings lock");
+                }
+                Require(store.Load().Theme == "Scary", "Failed reset changed existing preferences");
+                var backup = SettingsTransfer.ApplyAsync(store, imported, devices).GetAwaiter().GetResult();
+                Require(store.Load().Theme == "Dark" && store.Load().Profiles.Count == 0, "Reset was not persisted");
+                var restored = SettingsTransfer.ReadFile(backup, defaults, devices).Settings;
+                Require(restored.Theme == "Scary" && !restored.AutomaticUpdates && restored.Profiles.Single().Name == "Custom", "Backup cannot restore customization");
+            }
+            finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
+        });
         Check("Audio notifications distinguish default changes from topology changes and stop safely", () =>
         {
             var seen = new List<AudioChangeKind>();

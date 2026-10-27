@@ -54,6 +54,13 @@ public static class StartupRegistration
 
 public static class SettingsTransfer
 {
+    public static Settings CreateDefaults(IEnumerable<AudioDevice> devices)
+    {
+        var settings = new Settings { Initialized = true };
+        foreach (var device in devices)
+            if (device.IsDefault) (device.Flow == AudioFlow.Output ? settings.Outputs : settings.Inputs).Add(device.Id);
+        return settings;
+    }
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = true, PropertyNameCaseInsensitive = true,
