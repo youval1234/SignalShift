@@ -14,7 +14,7 @@ public sealed partial class MainWindow
         var line = new WrapPanel { Margin = new Thickness(0, 12, 0, 0) };
         microphoneMuteButton = Button("Mute microphone", ToggleMicrophoneMute);
         microphoneMuteButton.Padding = new Thickness(10, 5, 10, 5);
-        microphoneMuteButton.ToolTip = "Toggle all current default microphone roles.";
+        microphoneMuteButton.ToolTip = "Mute or unmute the default microphones used for audio and calls.";
         AutomationPropertiesName(microphoneMuteButton, "Toggle microphone mute");
         microphoneMuteLabel = Text("", 11, Muted);
         microphoneMuteLabel.VerticalAlignment = VerticalAlignment.Center;
@@ -32,7 +32,7 @@ public sealed partial class MainWindow
         microphoneMuteButton.IsEnabled = state != MicrophoneMuteState.Unavailable;
         microphoneMuteLabel.Text = state switch { MicrophoneMuteState.Muted => "●  Muted", MicrophoneMuteState.Live => "●  Live", MicrophoneMuteState.Mixed => "●  Mixed", _ => "Unavailable" };
         microphoneMuteLabel.Foreground = state == MicrophoneMuteState.Muted ? Brush("#F16D85") : state == MicrophoneMuteState.Live ? Mint : Muted;
-        microphoneMuteLabel.ToolTip = microphoneMute.Error ?? "Controls the Windows default microphone endpoints for audio and calls.";
+        microphoneMuteLabel.ToolTip = microphoneMute.Error ?? "Controls the default microphones used by Windows for audio and calls. Mixed means some are muted and others are live.";
     }
     private void ToggleMicrophoneMute()
     {
@@ -54,7 +54,7 @@ public sealed partial class MainWindow
             microphoneMute.Refresh(); UpdateMicrophoneMuteVisuals();
             SetStatus(microphoneMute.State == MicrophoneMuteState.Muted ? "Microphone muted" : "Microphone live");
         }
-        catch (Exception ex) { SetStatus("Could not change microphone mute: " + ex.Message, true); }
+        catch (Exception ex) { SetStatus("Could not change microphone mute status: " + ex.Message, true); }
     }
     private void BuildMicrophoneMuteShortcut()
     {
@@ -63,7 +63,7 @@ public sealed partial class MainWindow
         content.Children.Add(new TextBlock { Text = "Mute or unmute your default microphone devices for audio and calls. The app button and shortcut use the same control.", Foreground = Muted, TextWrapping = TextWrapping.Wrap });
         var line = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 18, 0, 0) };
         line.Children.Add(Card(Text(Preferences.MicrophoneMuteShortcut.Label, 17, Purple, FontWeights.SemiBold), 13));
-        var edit = Button("Record shortcut", ChangeMicrophoneMuteShortcut); edit.Margin = new Thickness(14, 0, 0, 0); line.Children.Add(edit); content.Children.Add(line);
+        var edit = Button("Change shortcut", ChangeMicrophoneMuteShortcut); edit.Margin = new Thickness(14, 0, 0, 0); line.Children.Add(edit); content.Children.Add(line);
         var enabled = new CheckBox { Content = "Enable microphone mute shortcut", IsChecked = Preferences.MicrophoneMuteHotkeyEnabled, Margin = new Thickness(0, 16, 0, 0) };
         enabled.Click += (_, _) =>
         {
@@ -80,7 +80,7 @@ public sealed partial class MainWindow
         if (shortcut == null) return;
         if (IsDuplicateShortcut(shortcut, "microphone-mute", null)) { SetStatus("That shortcut is already assigned in SignalShift.", true); return; }
         hotkeys?.Clear();
-        if (hotkeys != null && !hotkeys.Register(500, shortcut, () => { })) { RegisterShortcuts(); SetStatus("Another app uses that shortcut. Your previous shortcut is kept.", true); return; }
+        if (hotkeys != null && !hotkeys.Register(500, shortcut, () => { })) { RegisterShortcuts(); SetStatus("Another app uses that shortcut. Your previous shortcut has been kept.", true); return; }
         hotkeys?.Clear(); Preferences.MicrophoneMuteShortcut = shortcut; RegisterShortcuts(); Save(); Navigate("Shortcuts");
     }
 }

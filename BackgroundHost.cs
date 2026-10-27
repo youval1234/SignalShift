@@ -105,7 +105,7 @@ internal sealed class BackgroundHost : Forms.ApplicationContext
             AppUpdater.Start(directory, uiPid, show);
             ExitThread();
         }
-        catch (OperationCanceledException) { if (!closing) AppUpdater.Status("Update check timed out; try again next launch."); }
+        catch (OperationCanceledException) { if (!closing) AppUpdater.Status("The update check timed out. Try Check for updates in Settings or launch SignalShift again."); }
         catch (Exception ex) { if (!closing) AppUpdater.Status("Update unavailable: " + ex.Message); }
         finally { updateChecking = false; }
     }
@@ -170,7 +170,7 @@ internal sealed class BackgroundHost : Forms.ApplicationContext
                 return JsonSerializer.Serialize(new { microphoneMute = microphoneMute.State.ToString(), endpoints = microphoneMute.Snapshot(), error = microphoneMute.Error });
             case "mic-toggle":
                 var result = ToggleMicrophoneMute();
-                return JsonSerializer.Serialize(new { success = result, microphoneMute = microphoneMute.State.ToString(), error = result ? null : microphoneMute.Error ?? "Could not change microphone mute." });
+                return JsonSerializer.Serialize(new { success = result, microphoneMute = microphoneMute.State.ToString(), error = result ? null : microphoneMute.Error ?? "Could not change microphone mute status." });
             case "show": ShowInterface(); break;
             case "show-launch": ShowInterface(); Post(CheckUpdates); break;
             case "quit": _ = Task.Delay(100).ContinueWith(_ => Post(ExitThread)); break;

@@ -16,7 +16,7 @@ public sealed partial class MainWindow
         var enabled = new CheckBox { Content = "Automatically update when SignalShift launches", IsChecked = Preferences.AutomaticUpdates, Margin = new Thickness(0, 16, 0, 8) };
         enabled.Click += (_, _) => { Preferences.AutomaticUpdates = enabled.IsChecked == true; Save(); };
         content.Children.Add(enabled);
-        content.Children.Add(new TextBlock { Text = "Checks the official GitHub releases in the background, verifies the download and restarts the app when a newer version is ready. Your settings and executable location are preserved.", TextWrapping = TextWrapping.Wrap, Foreground = Muted, FontSize = 12, Margin = new Thickness(30, 0, 0, 16) });
+        content.Children.Add(new TextBlock { Text = "When enabled, SignalShift checks its GitHub releases in the background, downloads and verifies a newer version, then restarts to install it. Your settings and app location are preserved.", TextWrapping = TextWrapping.Wrap, Foreground = Muted, FontSize = 12, Margin = new Thickness(30, 0, 0, 16) });
         updateStatus = new TextBlock { Foreground = Muted, FontSize = 12, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 12) }; content.Children.Add(updateStatus);
         UpdateStatusText();
         var check = Button("Check for updates", () =>

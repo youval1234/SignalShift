@@ -24,7 +24,7 @@ public sealed partial class MainWindow
         panel.Children.Add(Text(device.Flow == AudioFlow.Input ? "Hear yourself clearly." : "Give it a listen.", 24, null, FontWeights.SemiBold));
         panel.Children.Add(new TextBlock { Text = device.Name, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 10, 0, 18), Foreground = Purple });
         panel.Children.Add(new TextBlock { Text = device.Flow == AudioFlow.Input
-            ? "Record five seconds, then hear the clip through your chosen output. Use headphones for privacy. The clip stays in memory and is discarded when you close this test."
+            ? "Record a five-second clip, then play it through your chosen output device. Use headphones for privacy. The clip stays in memory and is discarded when you close this test."
             : "Play a short, soft chime through this device. Tests use its current volume and do not change your default devices.", TextWrapping = TextWrapping.Wrap, FontSize = 13, Foreground = Muted });
         ComboBox? output = null;
         if (device.Flow == AudioFlow.Input)
@@ -40,7 +40,7 @@ public sealed partial class MainWindow
         var meter = new ProgressBar { Minimum = 0, Maximum = 100, Height = 8, Margin = new Thickness(0, 0, 0, 20), Visibility = device.Flow == AudioFlow.Input ? Visibility.Visible : Visibility.Collapsed };
         AutomationPropertiesName(meter, "Microphone input level"); panel.Children.Add(meter);
         var buttons = new WrapPanel(); panel.Children.Add(buttons);
-        var start = Button(device.Flow == AudioFlow.Input ? "Record & hear (5 s)" : "Play test sound", () => { }, true);
+        var start = Button(device.Flow == AudioFlow.Input ? "Record & play (5 s)" : "Play test sound", () => { }, true);
         var replay = Button("Play again", () => { }); replay.Margin = new Thickness(8, 0, 0, 0); replay.IsEnabled = false;
         replay.Visibility = device.Flow == AudioFlow.Input ? Visibility.Visible : Visibility.Collapsed;
         var stop = Button("Stop", () => { }); stop.Margin = new Thickness(8, 0, 0, 0); stop.IsEnabled = false;
@@ -75,7 +75,7 @@ public sealed partial class MainWindow
                 message.Text = device.Flow == AudioFlow.Input ? "Playing your microphone clip…" : "Playing test sound…";
                 using var source = device.Flow == AudioFlow.Output ? AudioDeviceTest.Tone() : clip!.Open();
                 await AudioDeviceTest.PlayAsync(outputId, source, operation.Token);
-                message.Text = "Test finished. Nothing audible? Check the device's volume, mute and connections.";
+                message.Text = "Test finished. If you heard nothing, check the device’s volume, mute status, and connections.";
             }
             catch (OperationCanceledException) { clip?.Dispose(); clip = null; message.Text = "Test stopped."; }
             catch (Exception ex)

@@ -15,7 +15,7 @@ internal sealed class MicrophoneTrayIcons : IDisposable
     {
         MicrophoneMuteState.Live => "Microphone live",
         MicrophoneMuteState.Muted => "Microphone muted",
-        MicrophoneMuteState.Mixed => "Microphone states mixed",
+        MicrophoneMuteState.Mixed => "Microphones partly muted",
         _ => "Microphone unavailable"
     };
     internal static string Tooltip(MicrophoneMuteState state, bool conflict = false) => tooltips[(int)state + (conflict ? 4 : 0)];

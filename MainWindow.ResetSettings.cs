@@ -13,12 +13,12 @@ public sealed partial class MainWindow
     {
         var content = new StackPanel();
         content.Children.Add(Text("START FRESH", 11, Purple, FontWeights.SemiBold));
-        content.Children.Add(new TextBlock { Text = "Restore the original setup.", FontSize = 21, FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 12, 0, 8) });
-        content.Children.Add(new TextBlock { Text = "Reset themes, shortcuts and preferences, clear saved profiles, and turn off Start with Windows. Your current audio devices and microphone mute state stay unchanged. A settings backup is saved first.", Foreground = Muted, FontSize = 12, TextWrapping = TextWrapping.Wrap });
-        var reset = Button("Reset settings to defaults", ResetSettings);
+        content.Children.Add(new TextBlock { Text = "Restore default settings.", FontSize = 21, FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 12, 0, 8) });
+        content.Children.Add(new TextBlock { Text = "Restore the default theme, shortcuts, and preferences. This removes saved profiles and disables the Start with Windows option. Your current audio devices and microphone mute state will remain unchanged. A backup of your settings will be saved first.", Foreground = Muted, FontSize = 12, TextWrapping = TextWrapping.Wrap });
+        var reset = Button("Reset to default settings", ResetSettings);
         reset.HorizontalAlignment = HorizontalAlignment.Left;
         reset.Margin = new Thickness(0, 16, 0, 0);
-        AutomationPropertiesName(reset, "Reset settings to defaults");
+        AutomationPropertiesName(reset, "Reset to default settings");
         content.Children.Add(reset);
         var card = Card(content, 24); card.Margin = new Thickness(0, 18, 0, 0); page.Children.Add(card);
     }
@@ -30,7 +30,7 @@ public sealed partial class MainWindow
         try
         {
             if (MessageBox.Show(this,
-                "Restore all SignalShift settings to defaults?\n\nThis clears your profiles and custom shortcuts, selects the Dark theme, enables automatic updates, and turns off Start with Windows and Start microphone live. Your current audio devices and mute state will not change.\n\nA backup will be saved first; use Import settings file to restore it.",
+                "Restore the default SignalShift settings?\n\nThis removes saved profiles, restores the default shortcuts, selects the Dark theme, and enables automatic updates. It also disables the Start with Windows and Start microphone live options. Your current audio devices and mute state will not change.\n\nA backup will be saved first; choose Import settings file to restore your previous setup.",
                 "Reset SignalShift settings", MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No) != MessageBoxResult.Yes) return;
             await RestoreDefaultSettingsAsync();
         }
@@ -49,7 +49,7 @@ public sealed partial class MainWindow
         ThemePalette.Apply(Preferences.Theme); UpdateThemeToggle();
         RegisterShortcuts(); UpdateMicrophoneMuteVisuals(); UpdateTray();
         if (Program.IsInterface) HostConnection.TrySend("reload");
-        transferMessage = "Settings reset to defaults. Restore your previous setup with Import settings file. Backup: " + backup;
-        Navigate("Settings"); SetStatus("Settings restored to defaults");
+        transferMessage = "Default settings restored. Choose Import settings file to restore your previous setup. Backup: " + backup;
+        Navigate("Settings"); SetStatus("Default settings restored");
     }
 }

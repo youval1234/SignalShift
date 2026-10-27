@@ -24,8 +24,8 @@ public sealed partial class MainWindow
             }
         };
         content.Children.Add(visible);
-        content.Children.Add(new TextBlock { Text = "To keep it beside the clock, drag the microphone from the ^ hidden-icons menu onto the taskbar. Windows remembers your choice. You can also use Windows taskbar settings.", FontSize = 12, Foreground = Muted, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 12, 0, 12) });
-        var setup = Button("Set taskbar visibility  ↗", () =>
+        content.Children.Add(new TextBlock { Text = "To keep it beside the clock, drag the microphone icon from the hidden-icons menu (^) to the visible area of the taskbar. Windows remembers your choice. You can also use Windows taskbar settings.", FontSize = 12, Foreground = Muted, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 12, 0, 12) });
+        var setup = Button("Open taskbar settings  ↗", () =>
         {
             try { Process.Start(new ProcessStartInfo("ms-settings:taskbar") { UseShellExecute = true }); }
             catch (System.Exception ex) { SetStatus("Could not open Windows taskbar settings: " + ex.Message, true); }

@@ -258,7 +258,7 @@ public sealed partial class MainWindow : Window
         var searchField = new Grid { VerticalAlignment = VerticalAlignment.Center }; searchField.Children.Add(searchBox);
         var placeholder = new TextBlock { Text = "⌕  Search devices", Foreground = Muted, FontSize = 12, Margin = new Thickness(12, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center, IsHitTestVisible = false, Visibility = search.Length == 0 ? Visibility.Visible : Visibility.Collapsed }; searchField.Children.Add(placeholder);
         searchBox.TextChanged += (_, _) => { search = searchBox.Text; placeholder.Visibility = search.Length == 0 ? Visibility.Visible : Visibility.Collapsed; PopulateRows(); }; DockPanel.SetDock(searchField, Dock.Right); tabs.Children.Add(searchField); tabs.Children.Add(selector); page.Children.Add(tabs);
-        var hint = new DockPanel { Margin = new Thickness(0, 0, 0, 10) }; cycleCount = Text("", 11, Mint); DockPanel.SetDock(cycleCount, Dock.Right); hint.Children.Add(cycleCount); hint.Children.Add(Text("Check devices to include them in your shortcut cycle.", 11, Muted)); page.Children.Add(hint);
+        var hint = new DockPanel { Margin = new Thickness(0, 0, 0, 10) }; cycleCount = Text("", 11, Mint); DockPanel.SetDock(cycleCount, Dock.Right); hint.Children.Add(cycleCount); hint.Children.Add(Text("Select the devices to cycle through with your shortcut.", 11, Muted)); page.Children.Add(hint);
         rows = new StackPanel(); page.Children.Add(rows); PopulateRows();
     }
     private void PopulateRows()
@@ -266,7 +266,7 @@ public sealed partial class MainWindow : Window
         if (rows == null) return;
         rows.Children.Clear(); deviceRows.Clear(); UpdateCycleCount();
         var list = Devices(flow).Where(d => d.Name.Contains(search, StringComparison.OrdinalIgnoreCase)).OrderByDescending(d => Selected(flow).Contains(d.Id)).ThenBy(d => d.Name, StringComparer.OrdinalIgnoreCase).ToList();
-        if (list.Count == 0) { rows.Children.Add(Card(Text(Devices(flow).Count == 0 ? "No active devices. Connect a device, then refresh." : "No devices match your search.", 13, Muted), 24)); return; }
+        if (list.Count == 0) { rows.Children.Add(Card(Text(Devices(flow).Count == 0 ? "No connected devices. Connect a device, then select Refresh." : "No devices match your search.", 13, Muted), 24)); return; }
         foreach (var device in list)
         {
             var row = new Grid(); row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(39) }); row.ColumnDefinitions.Add(new ColumnDefinition()); row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -321,7 +321,7 @@ public sealed partial class MainWindow : Window
             p.Children.Add(Text("Cycles through the connected devices you selected on the Devices page.", 12, Muted));
             var line = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 22, 0, 0) };
             line.Children.Add(Card(Text((f == AudioFlow.Output ? Preferences.OutputShortcut : Preferences.InputShortcut).Label, 17, Purple, FontWeights.SemiBold), 13));
-            var edit = Button("Record shortcut", () => ChangeShortcut(f)); edit.Margin = new Thickness(14, 0, 0, 0); edit.VerticalAlignment = VerticalAlignment.Center; line.Children.Add(edit); p.Children.Add(line);
+            var edit = Button("Change shortcut", () => ChangeShortcut(f)); edit.Margin = new Thickness(14, 0, 0, 0); edit.VerticalAlignment = VerticalAlignment.Center; line.Children.Add(edit); p.Children.Add(line);
             var active = new CheckBox { Content = "Enable this shortcut", IsChecked = f == AudioFlow.Output ? Preferences.OutputHotkeyEnabled : Preferences.InputHotkeyEnabled, Margin = new Thickness(0, 16, 0, 0) };
             active.Click += (_, _) =>
             {
@@ -341,7 +341,7 @@ public sealed partial class MainWindow : Window
             catch (Exception ex) { Preferences.HotkeysEnabled = previous; enabled.IsChecked = previous; RegisterShortcuts(); SetStatus(ex.Message, true); }
         }; page.Children.Add(enabled);
         page.Children.Add(Text("Use Ctrl, Alt or Shift with a letter, number or function key. Esc cancels recording.", 12, Muted));
-        if (hotkeyErrors.Count > 0) page.Children.Add(new TextBlock { Text = "Shortcut unavailable: " + string.Join(", ", hotkeyErrors) + ". Choose a different combination or release it in the other app.", Foreground = Brush("#F0B68A"), TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 16, 0, 0) });
+        if (hotkeyErrors.Count > 0) page.Children.Add(new TextBlock { Text = "Shortcut unavailable: " + string.Join(", ", hotkeyErrors) + ". Choose a different combination or unassign it in the other app.", Foreground = Brush("#F0B68A"), TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 16, 0, 0) });
     }
     private void ChangeShortcut(AudioFlow f)
     {
@@ -350,7 +350,7 @@ public sealed partial class MainWindow : Window
         if (shortcut == null) return;
         if (IsDuplicateShortcut(shortcut, f == AudioFlow.Output ? "output" : "input", null)) { SetStatus("That shortcut is already assigned in SignalShift.", true); return; }
         hotkeys!.Clear();
-        if (!hotkeys.Register(500, shortcut, () => { })) { RegisterShortcuts(); SetStatus("That shortcut is used by another app. Your previous shortcut is kept.", true); return; }
+        if (!hotkeys.Register(500, shortcut, () => { })) { RegisterShortcuts(); SetStatus("That shortcut is used by another app. Your previous shortcut has been kept.", true); return; }
         hotkeys.Clear();
         if (f == AudioFlow.Output) Preferences.OutputShortcut = shortcut; else Preferences.InputShortcut = shortcut;
         RegisterShortcuts(); Save(); Navigate("Shortcuts"); SetStatus("Shortcut saved · " + shortcut.Label);
@@ -360,7 +360,7 @@ public sealed partial class MainWindow : Window
         hotkeys?.Clear(); paused = true;
         Shortcut? result = null;
         var dialog = Dialog("Record a shortcut", 470, 250);
-        var stack = new StackPanel { Margin = new Thickness(30) }; stack.Children.Add(Text("Make it yours.", 24, null, FontWeights.SemiBold)); stack.Children.Add(new TextBlock { Text = "Press Ctrl, Alt or Shift plus another key.\nEsc cancels. F12 and Windows shortcuts are reserved.", Foreground = Muted, FontSize = 13, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 14, 0, 18) });
+        var stack = new StackPanel { Margin = new Thickness(30) }; stack.Children.Add(Text("Make it yours.", 24, null, FontWeights.SemiBold)); stack.Children.Add(new TextBlock { Text = "Press Ctrl, Alt or Shift plus another key.\nEsc cancels. F12 and shortcuts using the Windows key are unavailable.", Foreground = Muted, FontSize = 13, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 14, 0, 18) });
         var feedback = Text(initial?.Label ?? "Waiting for your shortcut…", 17, Purple); stack.Children.Add(feedback); dialog.Content = stack;
         dialog.Focusable = true;
         dialog.Loaded += (_, _) => { dialog.Activate(); Keyboard.Focus(dialog); };
@@ -455,13 +455,13 @@ public sealed partial class MainWindow : Window
             var p = new StackPanel { Margin = new Thickness(0, 0, 0, 23) }; var check = new CheckBox { Content = title, IsChecked = value }; check.Click += (_, _) => { try { change(check.IsChecked == true); Save(); } catch (Exception ex) { check.IsChecked = value; SetStatus(ex.Message, true); } }; p.Children.Add(check); p.Children.Add(new TextBlock { Text = description, Foreground = Muted, FontSize = 12, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(30, 7, 0, 0) }); preferences.Children.Add(p); return p;
         }
         Option("Also switch communications devices", "Keep calls and voice chat on the same device as your other audio.", Preferences.CommunicationsToo, v => Preferences.CommunicationsToo = v);
-        var sounds = Option("Play confirmation sounds", "Soft plucks confirm device/profile shortcuts and microphone mute controls. Separate from visual notifications.", Preferences.HotkeySounds, v => { Preferences.HotkeySounds = v; if (!v) soundCues.Cancel(); });
+        var sounds = Option("Play confirmation sounds", "Play a soft sound after switching devices or profiles with a shortcut, or changing microphone mute status. Sounds work independently of visual notifications.", Preferences.HotkeySounds, v => { Preferences.HotkeySounds = v; if (!v) soundCues.Cancel(); });
         var previews = new WrapPanel { Margin = new Thickness(30, 10, 0, 0) };
         previews.Children.Add(Button("Preview output sound", () => soundCues.Play(AudioFlow.Output)));
         var inputPreview = Button("Preview input sound", () => soundCues.Play(AudioFlow.Input)); inputPreview.Margin = new Thickness(8, 0, 0, 0); previews.Children.Add(inputPreview); sounds.Children.Add(previews);
         Option("Show a notification after switching", "A small popup shows the latest device immediately. Repeated switches update the same popup.", Preferences.Notifications, v => { Preferences.Notifications = v; if (!v) switchNotification?.Dismiss(); });
-        Option("Keep running when the window closes", "Your shortcuts keep working. Choose Quit from the tray to exit.", Preferences.CloseToTray, v => Preferences.CloseToTray = v);
-        Option("Start microphone live at Windows sign-in", "Unmute the default microphones once when SignalShift starts with Windows. Restarting the app keeps your current mute state. Off preserves the state Windows provides.", Preferences.StartMicrophoneLive, v => Preferences.StartMicrophoneLive = v);
+        Option("Keep running when the window closes", "Your shortcuts keep working. Choose Quit SignalShift from the tray menu to exit.", Preferences.CloseToTray, v => Preferences.CloseToTray = v);
+        Option("Start microphone live at Windows sign-in", "Unmute the default microphones once when SignalShift starts with Windows. Restarting the app keeps your current mute state. When this option is off, SignalShift keeps the mute state set by Windows.", Preferences.StartMicrophoneLive, v => Preferences.StartMicrophoneLive = v);
         var startup = new StackPanel { Margin = new Thickness(0, 0, 0, 23) };
         var startupCheck = new CheckBox { Content = "Start with Windows", IsChecked = IsStartupEnabled() };
         startupCheck.Click += async (_, _) =>
@@ -474,7 +474,7 @@ public sealed partial class MainWindow : Window
         startup.Children.Add(startupCheck);
         startup.Children.Add(new TextBlock { Text = "Launch SignalShift in your tray when you sign in.", Foreground = Muted, FontSize = 12, Margin = new Thickness(30, 7, 0, 0) });
         preferences.Children.Add(startup);
-        Option("Open in the tray", "Keep the main window hidden when SignalShift starts.", Preferences.StartMinimized, v => Preferences.StartMinimized = v);
+        Option("Start minimized to the tray", "Keep the main window hidden when SignalShift starts.", Preferences.StartMinimized, v => Preferences.StartMinimized = v);
         page.Children.Add(Card(preferences, 25));
         BuildResetSettings();
         var about = new StackPanel { Margin = new Thickness(0, 25, 0, 0) }; about.Children.Add(Text("SIGNALSHIFT " + AppUpdater.Current.ToString(3), 11, Purple, FontWeights.SemiBold)); about.Children.Add(new TextBlock { Text = "Native Windows audio switching. No account, no ads, no telemetry.\nYour preferences stay on this computer.", Foreground = Muted, FontSize = 13, LineHeight = 24, Margin = new Thickness(0, 10, 0, 15) });
