@@ -273,6 +273,64 @@ public static class Diagnostics
             }
             ThemePalette.Apply("Dark");
         });
+        Check("Every curated theme roundtrips and keeps readable text, muted text and action labels", () =>
+        {
+            double Luminance(System.Windows.Media.Color color)
+            {
+                double Linear(byte channel) { var value = channel / 255.0; return value <= .04045 ? value / 12.92 : Math.Pow((value + .055) / 1.055, 2.4); }
+                return .2126 * Linear(color.R) + .7152 * Linear(color.G) + .0722 * Linear(color.B);
+            }
+            double Contrast(string theme, string a, string b)
+            {
+                var first = Luminance((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(ThemeCatalog.Resolve(theme, a)));
+                var second = Luminance((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(ThemeCatalog.Resolve(theme, b)));
+                return (Math.Max(first, second) + .05) / (Math.Min(first, second) + .05);
+            }
+            foreach (var theme in ThemeCatalog.All)
+            {
+                var settings = new Settings { Theme = theme.Name };
+                Require(SettingsTransfer.Parse(SettingsTransfer.Export(settings, Array.Empty<AudioDevice>(), false), new Settings(), Array.Empty<AudioDevice>()).Settings.Theme == theme.Name, "Theme export lost " + theme.Name);
+                var previewDirectory = Path.GetDirectoryName(Path.GetFullPath(reportPath))!; Directory.CreateDirectory(previewDirectory);
+                BackgroundFeedback.ExportPreview(Path.Combine(previewDirectory, "popup-" + theme.Name + ".png"), theme.Name);
+                Require(Contrast(theme.Name, "#F4F4FA", "#0D0F15") >= 4.5, "Unreadable main text: " + theme.Name);
+                Require(Contrast(theme.Name, "#9297AC", "#171A23") >= 4.5, "Unreadable secondary text: " + theme.Name);
+                Require(Contrast(theme.Name, "#171124", "#B8A3FF") >= 4.5, "Unreadable primary button: " + theme.Name);
+                Require(Contrast(theme.Name, "#8BE2C5", "#1D3531") >= 4.5, "Unreadable active state: " + theme.Name);
+                if (theme.Name is not ("Dark" or "Light"))
+                {
+                    Require(Contrast(theme.Name, "#9297AC", "#2E2146") >= 4.5 && Contrast(theme.Name, "#9297AC", "#1A1F2E") >= 4.5, "Unreadable hero text: " + theme.Name);
+                    foreach (var token in ThemeCatalog.ResourceKeys) Require(ThemeCatalog.HasToken(theme.Name, token), "Unmapped theme token: " + theme.Name + " " + token);
+                }
+            }
+            var invalid = new Settings { Theme = "Unknown" }; var rejected = false;
+            try { SettingsTransfer.Validate(invalid); } catch (InvalidDataException) { rejected = true; }
+            Require(rejected, "Unknown imported theme was accepted");
+        });
+        if (Environment.GetEnvironmentVariable("SONARSHIFT_TEST_DATA") != null) Check("Settings appearance cards apply all themes, persist selection and reuse shared brushes", () =>
+        {
+            var window = new MainWindow(previewMode: true, previewTheme: "Dark", previewPage: "Settings");
+            _ = new WindowInteropHelper(window).EnsureHandle();
+            System.Windows.Controls.Button? Find(DependencyObject root, string name)
+            {
+                if (root is System.Windows.Controls.Button button && System.Windows.Automation.AutomationProperties.GetName(button) == name) return button;
+                foreach (var child in LogicalTreeHelper.GetChildren(root).OfType<DependencyObject>()) if (Find(child, name) is { } found) return found;
+                return null;
+            }
+            var background = ThemePalette.Get("#0D0F15");
+            foreach (var theme in ThemeCatalog.All)
+            {
+                var name = "Apply " + theme.Name + " theme";
+                var choice = Find(window, name) ?? Find(window, name + ", selected") ?? throw new InvalidOperationException("Theme card missing: " + theme.Name);
+                choice.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Button.ClickEvent));
+                Require(window.Preferences.Theme == theme.Name && new SettingsStore().Load().Theme == theme.Name, "Settings did not persist " + theme.Name);
+                Require(Find(window, name + ", selected") != null, "Selection marker missing: " + theme.Name);
+                Require(ReferenceEquals(background, ThemePalette.Get("#0D0F15")), "Theme replaced cached brushes");
+            }
+            var darkToggle = Find(window, "Switch to dark mode") ?? throw new InvalidOperationException("Light preset did not preserve the sidebar toggle");
+            darkToggle.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Button.ClickEvent));
+            Require(window.Preferences.Theme == "Dark", "Sidebar cannot leave a custom theme");
+            ThemePalette.Apply("Dark");
+        });
         if (Environment.GetEnvironmentVariable("SONARSHIFT_TEST_DATA") != null) Check("Occupied IPC channel yields and cancels without blocking startup", () =>
         {
             var suffix = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(SettingsStore.DirectoryPath)))[..16];

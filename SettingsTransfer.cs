@@ -128,7 +128,7 @@ public static class SettingsTransfer
         if (settings == null || settings.SchemaVersion != 1) throw new InvalidDataException("Unsupported settings version.");
         if (settings.Outputs == null || settings.Inputs == null || settings.Profiles == null || settings.Outputs.Concat(settings.Inputs).Any(string.IsNullOrWhiteSpace)) throw new InvalidDataException("Invalid device selections.");
         if (settings.Outputs.Count + settings.Inputs.Count > 1000 || settings.Profiles.Count > 128) throw new InvalidDataException("Too many saved devices or profiles.");
-        if (settings.Theme is not ("Dark" or "Light")) throw new InvalidDataException("Choose Dark or Light appearance.");
+        if (!ThemeCatalog.Contains(settings.Theme)) throw new InvalidDataException("Choose an available appearance theme.");
         var active = new List<Shortcut>();
         void Hotkey(Shortcut key, bool enabled)
         {

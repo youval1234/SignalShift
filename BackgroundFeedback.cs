@@ -13,8 +13,8 @@ namespace SonarShift;
 internal sealed class BackgroundFeedback : IDisposable
 {
     private Popup? popup;
-    private bool light;
-    internal void SetTheme(string theme) { light = theme == "Light"; popup?.SetTheme(light); }
+    private string theme = "Dark";
+    internal void SetTheme(string value) { theme = ThemeCatalog.Contains(value) ? value : "Dark"; popup?.SetTheme(theme); }
     private readonly Forms.Timer soundDelay = new() { Interval = 120 };
     private AudioFlow pending;
     private readonly Dictionary<AudioFlow, GCHandle> waves = new();
@@ -31,12 +31,12 @@ internal sealed class BackgroundFeedback : IDisposable
         PlaySound(pinned.AddrOfPinnedObject(), IntPtr.Zero, 0x0001 | 0x0002 | 0x0004);
     }
     internal void CancelSound() { soundDelay.Stop(); PlaySound(IntPtr.Zero, IntPtr.Zero, 0); }
-    internal void Present(string title, string message, AudioFlow? flow) { popup ??= new Popup(); popup.SetTheme(light); popup.Present(title, message, flow); }
+    internal void Present(string title, string message, AudioFlow? flow) { popup ??= new Popup(); popup.SetTheme(theme); popup.Present(title, message, flow); }
     internal bool IsNotificationVisible => popup?.Visible == true;
     internal string? CurrentMessage => popup?.CurrentMessage;
     internal IntPtr NotificationHandle => popup?.Handle ?? IntPtr.Zero;
     internal int ActivationCount => popup?.ActivationCount ?? 0;
-    internal static void ExportPreview(string path) { using var preview = new Popup(); preview.Export(path); }
+    internal static void ExportPreview(string path, string theme = "Dark") { using var preview = new Popup(); preview.SetTheme(theme); preview.Export(path); }
     internal static void ExportMicrophonePreview(string path, bool muted) { using var preview = new Popup(); preview.Export(path, muted); }
     internal void Dismiss() => popup?.Dismiss();
     public void Dispose() { CancelSound(); soundDelay.Dispose(); popup?.Dispose(); foreach (var wave in waves.Values) wave.Free(); waves.Clear(); }
@@ -68,6 +68,7 @@ internal sealed class BackgroundFeedback : IDisposable
         private string title = "", message = "", glyph = "";
         private bool microphoneFeedback;
         private bool microphoneMuted;
+        private Color normalAccent = Color.FromArgb(184, 163, 255);
         internal string CurrentMessage => message;
         internal int ActivationCount { get; private set; }
         protected override bool ShowWithoutActivation => true;
@@ -82,19 +83,17 @@ internal sealed class BackgroundFeedback : IDisposable
             Activated += (_, _) => ActivationCount++;
             animation.Tick += (_, _) => { if (elapsed.ElapsedMilliseconds >= 1760) Dismiss(); else { if (elapsed.ElapsedMilliseconds > 1600 && AnimationsEnabled()) Opacity = Math.Max(0, 1 - (elapsed.ElapsedMilliseconds - 1600) / 160.0); Invalidate(); } };
         }
-        private bool light;
-        internal void SetTheme(bool value)
+        private string theme = "Dark";
+        private bool light => ThemeCatalog.IsLight(theme);
+        private Color ThemeColor(string key) => ColorTranslator.FromHtml(ThemeCatalog.Resolve(theme, key));
+        internal void SetTheme(string value)
         {
-            if (light == value) return;
-            light = value;
-            BackColor = value ? Color.FromArgb(250, 250, 255) : Color.FromArgb(23, 25, 35);
-            outline.Color = value ? Color.FromArgb(208, 202, 224) : Color.FromArgb(59, 53, 79);
-            iconBackground.Color = value ? Color.FromArgb(234, 227, 248) : Color.FromArgb(48, 40, 64);
-            accent.Color = value ? Color.FromArgb(105, 80, 199) : Color.FromArgb(184, 163, 255);
-            muted.Color = value ? Color.FromArgb(99, 104, 126) : Color.FromArgb(116, 120, 143);
-            foreground.Color = value ? Color.FromArgb(32, 36, 57) : Color.FromArgb(243, 240, 252);
-            track.Color = value ? Color.FromArgb(222, 225, 237) : Color.FromArgb(41, 44, 60);
-            mint.Color = value ? Color.FromArgb(23, 111, 88) : Color.FromArgb(139, 226, 197);
+            if (theme == value) return;
+            theme = value;
+            BackColor = ThemeColor("#171A23"); outline.Color = ThemeColor("#35394A");
+            iconBackground.Color = ThemeColor("#302944"); normalAccent = ThemeColor("#B8A3FF"); accent.Color = normalAccent;
+            muted.Color = ThemeColor("#9297AC"); foreground.Color = ThemeColor("#F4F4FA");
+            track.Color = ThemeColor("#292D3A"); mint.Color = ThemeColor("#8BE2C5");
             if (microphoneFeedback) accent.Color = microphoneMuted
                 ? (light ? Color.FromArgb(192, 49, 76) : Color.FromArgb(255, 99, 120))
                 : (light ? Color.FromArgb(23, 111, 88) : Color.FromArgb(92, 230, 162));
@@ -126,7 +125,7 @@ internal sealed class BackgroundFeedback : IDisposable
             microphoneMuted = microphoneFeedback && device == "Microphone muted";
             accent.Color = microphoneMuted ? (light ? Color.FromArgb(192, 49, 76) : Color.FromArgb(255, 99, 120))
                 : microphoneFeedback ? (light ? Color.FromArgb(23, 111, 88) : Color.FromArgb(92, 230, 162))
-                : light ? Color.FromArgb(105, 80, 199) : Color.FromArgb(184, 163, 255);
+                : normalAccent;
             AccessibleName = caption + ": " + device;
         }
         internal void Dismiss() { animation.Stop(); Hide(); elapsed.Reset(); Opacity = 1; }

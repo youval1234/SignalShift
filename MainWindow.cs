@@ -65,7 +65,7 @@ public sealed partial class MainWindow : Window
         useDemoDevices = previewMode;
         microphoneMute = new(() => QueueDeviceRefresh(AudioChangeKind.Mute));
         Preferences = previewMode ? PreviewPreferences() : store.Load();
-        if (previewMode && previewTheme is "Dark" or "Light") Preferences.Theme = previewTheme;
+        if (previewMode && ThemeCatalog.Contains(previewTheme)) Preferences.Theme = previewTheme!;
         soundCues.PlaybackFailed += ex => SetStatus("Confirmation sound unavailable: " + ex.Message, true);
         Title = "SignalShift — Your sound, one shortcut away";
         Width = 1160; Height = 900; MinWidth = 960; MinHeight = 680;

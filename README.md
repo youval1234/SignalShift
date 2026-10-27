@@ -5,7 +5,7 @@
 SignalShift is a portable Windows audio switcher with global shortcuts, saved audio
 profiles, microphone mute, dark/light themes and a lightweight system tray.
 
-**[Download the Windows x64 release](https://github.com/youval1234/SignalShift/releases/tag/v2.4.6)**.
+**[Download the Windows x64 release](https://github.com/youval1234/SignalShift/releases/tag/v2.5.0)**.
 The self-contained EXE needs no separate .NET runtime. Releases are currently unsigned;
 see the [Windows trust guide](docs/windows-trust.md).
 
@@ -14,6 +14,8 @@ see the [Windows trust guide](docs/windows-trust.md).
 | ![Dark appearance](Assets/SignalShift-Dark.png) | ![Light appearance](Assets/SignalShift-Light.png) |
 
 Screenshots use sample devices and profiles.
+
+![Theme picker in Settings](Assets/SignalShift-Themes.png)
 
 ## Features
 
@@ -33,7 +35,7 @@ Screenshots use sample devices and profiles.
   and are discarded when the test closes.
 - **Automatic updates:** launch checks download newer releases from this repository, verify SHA-256 and executable metadata, then replace the portable EXE and restart. Settings includes an opt-out and a manual check. Updates follow published regular releases.
 - **Responsive interface:** short hover, press and page transitions respect Windows animation preferences.
-- **Light and dark themes:** switch with the sidebar button or choose in Settings.
+- **Eight curated themes:** Dark, Light, Aurora, Ocean, Sunset, Rose, Sakura and Sand. Choose a preview card in **Settings → Appearance**, or use the sidebar light/dark button.
 - **Readable backups:** import/export Notepad `.txt` settings and migrate supported
   SoundSwitch device-cycle settings.
 
@@ -55,7 +57,7 @@ keyboard-shortcut switch.
 ## Install and update
 
 Download **SignalShift.exe** and **SHA256SUMS.txt** from the
-[release page](https://github.com/youval1234/SignalShift/releases/tag/v2.4.6).
+[release page](https://github.com/youval1234/SignalShift/releases/tag/v2.5.0).
 Quit the previous instance from its tray menu before replacing the EXE. Keep it in
 a permanent location if you enable startup. Existing preferences are preserved.
 From 2.4 onward, automatic launch checks can install newer verified downloads and
