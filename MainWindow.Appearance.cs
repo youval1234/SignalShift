@@ -29,13 +29,13 @@ public sealed partial class MainWindow
         var content = new StackPanel();
         content.Children.Add(Text("APPEARANCE", 11, Purple, FontWeights.SemiBold));
         content.Children.Add(new TextBlock { Text = "A different shade of focus.", FontSize = 21, FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 12, 0, 6) });
-        content.Children.Add(new TextBlock { Text = "Eight looks. Pick your color, keep your flow. Changes apply immediately.", Foreground = Muted, FontSize = 12, TextWrapping = TextWrapping.Wrap });
+        content.Children.Add(new TextBlock { Text = ThemeCatalog.All.Count + " looks. Pick your color, keep your flow. Changes apply immediately.", Foreground = Muted, FontSize = 12, TextWrapping = TextWrapping.Wrap });
         var choices = new WrapPanel { Margin = new Thickness(0, 18, 0, 0) };
         foreach (var theme in ThemeCatalog.All)
         {
             var selected = Preferences.Theme == theme.Name;
             var choice = Button(theme.Name, () => SetTheme(theme.Name));
-            choice.Width = 210; choice.Padding = new Thickness(12); choice.Margin = new Thickness(0, 0, 12, 12);
+            choice.Width = 148; choice.Padding = new Thickness(12); choice.Margin = new Thickness(0, 0, 10, 10);
             choice.HorizontalContentAlignment = HorizontalAlignment.Stretch;
             choice.BorderBrush = selected ? Purple : Brush("#35394A"); choice.BorderThickness = new Thickness(selected ? 2 : 1);
             choice.ToolTip = "Apply " + theme.Name + " theme · " + theme.Description;
@@ -56,7 +56,8 @@ public sealed partial class MainWindow
             body.Children.Add(new Border { CornerRadius = new CornerRadius(6), ClipToBounds = true, Child = miniature });
             var title = new DockPanel { Margin = new Thickness(0, 10, 0, 4) };
             var marker = Text(selected ? "✓" : theme.IsLight ? "☀" : "☾", 13, selected ? Mint : Muted); DockPanel.SetDock(marker, Dock.Right); title.Children.Add(marker); title.Children.Add(Text(theme.Name, 14, null, FontWeights.SemiBold)); body.Children.Add(title);
-            body.Children.Add(Text(theme.Description, 10, Muted)); choice.Content = body; choices.Children.Add(choice);
+            var description = Text(theme.Description, 10, Muted); description.MaxWidth = 124; description.TextTrimming = TextTrimming.CharacterEllipsis;
+            body.Children.Add(description); choice.Content = body; choices.Children.Add(choice);
         }
         content.Children.Add(choices);
         var card = Card(content, 24); card.Margin = new Thickness(0, 0, 0, 16); page.Children.Add(card);

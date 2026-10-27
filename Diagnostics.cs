@@ -186,8 +186,43 @@ public static class Diagnostics
             Updates(); Updates(); Updates(); var allocated = GC.GetAllocatedBytesForCurrentThread(); Updates();
             var bytes = GC.GetAllocatedBytesForCurrentThread() - allocated;
             Require(bytes < 50000, "Unchanged microphone indicator updates allocate: " + bytes);
+            indicator.SetVisible(false);
+            Require(indicator.Matches(MicrophoneMuteState.Muted) && indicator.IsSeparateFrom(main), "Hiding microphone icon disturbed app identity or cached state");
+            indicator.SetVisible(true);
+            Require(indicator.Matches(MicrophoneMuteState.Muted) && main.Visible, "Showing microphone icon disturbed app tray");
             indicator.Dispose();
             Require(!menu.IsDisposed && main.Visible && ReferenceEquals(main.Icon, brand), "Disposing microphone indicator destroyed the app tray/menu");
+        });
+        Check("Microphone tray visibility stays enabled on upgrade and roundtrips independently of mute", () =>
+        {
+            var old = JsonNode.Parse(JsonSerializer.Serialize(new Settings()))!.AsObject(); old.Remove("ShowMicrophoneTrayIcon");
+            var migrated = SettingsTransfer.Parse(old.ToJsonString(), new Settings(), Array.Empty<AudioDevice>()).Settings;
+            Require(migrated.ShowMicrophoneTrayIcon, "Upgrade unexpectedly hid the microphone icon");
+            migrated.ShowMicrophoneTrayIcon = false;
+            var restored = SettingsTransfer.Parse(SettingsTransfer.Export(migrated, Array.Empty<AudioDevice>(), false), new Settings(), Array.Empty<AudioDevice>()).Settings;
+            Require(!restored.ShowMicrophoneTrayIcon && !restored.StartMicrophoneLive, "Icon preference changed microphone startup behavior");
+        });
+        if (Environment.GetEnvironmentVariable("SONARSHIFT_TEST_DATA") != null) Check("Microphone visibility setting saves and rolls back its checkbox when settings are locked", () =>
+        {
+            var window = new MainWindow(previewMode: true, previewPage: "Settings");
+            _ = new WindowInteropHelper(window).EnsureHandle();
+            System.Windows.Controls.CheckBox? Find(DependencyObject root)
+            {
+                if (root is System.Windows.Controls.CheckBox check && System.Windows.Automation.AutomationProperties.GetName(check) == "Show separate microphone status icon") return check;
+                foreach (var child in LogicalTreeHelper.GetChildren(root).OfType<DependencyObject>()) if (Find(child) is { } result) return result;
+                return null;
+            }
+            var visible = Find(window) ?? throw new InvalidOperationException("Microphone visibility setting missing");
+            visible.IsChecked = false; visible.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+            Require(!new SettingsStore().Load().ShowMicrophoneTrayIcon && !window.Preferences.ShowMicrophoneTrayIcon, "Visibility choice was not saved");
+            using (var locked = new FileStream(new SettingsStore().FilePath, FileMode.Open, FileAccess.Read, FileShare.None))
+            {
+                visible.IsChecked = true; visible.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+                Require(visible.IsChecked == false && !window.Preferences.ShowMicrophoneTrayIcon, "Failed save left a misleading visible state");
+            }
+            visible.IsChecked = true; visible.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+            Require(new SettingsStore().Load().ShowMicrophoneTrayIcon, "Checkbox could not recover after settings lock");
+            ThemePalette.Apply("Dark");
         });
         Check("Live device watcher coexists with audio-test COM wrappers", () =>
         {
@@ -326,9 +361,10 @@ public static class Diagnostics
                 Require(Find(window, name + ", selected") != null, "Selection marker missing: " + theme.Name);
                 Require(ReferenceEquals(background, ThemePalette.Get("#0D0F15")), "Theme replaced cached brushes");
             }
-            var darkToggle = Find(window, "Switch to dark mode") ?? throw new InvalidOperationException("Light preset did not preserve the sidebar toggle");
-            darkToggle.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Button.ClickEvent));
-            Require(window.Preferences.Theme == "Dark", "Sidebar cannot leave a custom theme");
+            var nextTheme = ThemeCatalog.IsLight(window.Preferences.Theme) ? "Dark" : "Light";
+            var themeToggle = Find(window, "Switch to " + nextTheme.ToLowerInvariant() + " mode") ?? throw new InvalidOperationException("Preset did not preserve the sidebar toggle");
+            themeToggle.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Button.ClickEvent));
+            Require(window.Preferences.Theme == nextTheme, "Sidebar cannot leave a custom theme");
             ThemePalette.Apply("Dark");
         });
         if (Environment.GetEnvironmentVariable("SONARSHIFT_TEST_DATA") != null) Check("Occupied IPC channel yields and cancels without blocking startup", () =>

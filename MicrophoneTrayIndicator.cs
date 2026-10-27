@@ -9,12 +9,19 @@ internal sealed class MicrophoneTrayIndicator : IDisposable
 {
     private readonly MicrophoneTrayIcons icons = new();
     private readonly Forms.NotifyIcon tray;
-    internal MicrophoneTrayIndicator(Action openInterface)
+    private bool requestedVisible;
+    internal MicrophoneTrayIndicator(Action openInterface, bool visible = true)
     {
-        tray = new Forms.NotifyIcon { Icon = icons.For(MicrophoneMuteState.Unavailable), Text = MicrophoneTrayIcons.Tooltip(MicrophoneMuteState.Unavailable), Visible = true };
+        requestedVisible = visible;
+        tray = new Forms.NotifyIcon { Icon = icons.For(MicrophoneMuteState.Unavailable), Text = MicrophoneTrayIcons.Tooltip(MicrophoneMuteState.Unavailable), Visible = visible };
         tray.DoubleClick += (_, _) => openInterface();
     }
     internal void SetMenu(Forms.ContextMenuStrip menu) => tray.ContextMenuStrip = menu;
+    internal void SetVisible(bool value)
+    {
+        requestedVisible = value;
+        if (tray.Visible != value) tray.Visible = value;
+    }
     internal void Update(MicrophoneMuteState state, bool conflict = false)
     {
         var icon = icons.For(state);
@@ -22,8 +29,8 @@ internal sealed class MicrophoneTrayIndicator : IDisposable
         var text = MicrophoneTrayIcons.Tooltip(state, conflict);
         if (tray.Text != text) tray.Text = text;
     }
-    internal bool Matches(MicrophoneMuteState state, bool conflict = false) => tray.Visible && ReferenceEquals(tray.Icon, icons.For(state)) && tray.Text == MicrophoneTrayIcons.Tooltip(state, conflict);
-    internal bool IsSeparateFrom(Forms.NotifyIcon main) => main.Visible && tray.Visible && !ReferenceEquals(main, tray) && main.Icon != null && !ReferenceEquals(main.Icon, tray.Icon);
+    internal bool Matches(MicrophoneMuteState state, bool conflict = false) => tray.Visible == requestedVisible && ReferenceEquals(tray.Icon, icons.For(state)) && tray.Text == MicrophoneTrayIcons.Tooltip(state, conflict);
+    internal bool IsSeparateFrom(Forms.NotifyIcon main) => main.Visible && tray.Visible == requestedVisible && !ReferenceEquals(main, tray) && main.Icon != null && !ReferenceEquals(main.Icon, tray.Icon);
     public void Dispose()
     {
         tray.Visible = false; tray.ContextMenuStrip = null; tray.Dispose(); icons.Dispose();

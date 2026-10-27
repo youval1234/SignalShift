@@ -60,7 +60,7 @@ internal sealed class BackgroundHost : Forms.ApplicationContext
         using var icon = typeof(BackgroundHost).Assembly.GetManifestResourceStream("SonarShift.TrayIcon")!;
         tray = new Forms.NotifyIcon { Icon = new System.Drawing.Icon(icon), Text = "SignalShift", Visible = true };
         tray.DoubleClick += (_, _) => ShowInterface();
-        microphoneIndicator = new(ShowInterface);
+        microphoneIndicator = new(ShowInterface, settings.ShowMicrophoneTrayIcon);
         refresh.Tick += (_, _) => { refresh.Stop(); var kind = pendingChange; pendingChange = AudioChangeKind.None; RefreshChanged(kind); };
         retry.Tick += (_, _) => RegisterKeys();
         fallback.Tick += (_, _) => Refresh();
@@ -329,6 +329,7 @@ internal sealed class BackgroundHost : Forms.ApplicationContext
     private IReadOnlyList<AudioDevice> Devices(AudioFlow flow) => flow == AudioFlow.Output ? outputs : inputs;
     private void UpdateMicrophoneMuteMenu()
     {
+        microphoneIndicator.SetVisible(settings.ShowMicrophoneTrayIcon);
         microphoneIndicator.Update(microphoneMute.State, conflicts.Count != 0);
         if (microphoneMuteItem == null) return;
         microphoneMuteItem.Text = microphoneMute.State == MicrophoneMuteState.Muted ? "Unmute microphone" : "Mute microphone";

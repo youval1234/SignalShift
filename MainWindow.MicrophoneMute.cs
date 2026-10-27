@@ -24,6 +24,7 @@ public sealed partial class MainWindow
     }
     private void UpdateMicrophoneMuteVisuals()
     {
+        microphoneTrayIndicator?.SetVisible(Preferences.ShowMicrophoneTrayIcon);
         microphoneTrayIndicator?.Update(microphoneMute.State, hotkeyErrors.Count != 0);
         if (microphoneMuteButton == null || microphoneMuteLabel == null) return;
         var state = useDemoDevices ? MicrophoneMuteState.Live : microphoneMute.State;

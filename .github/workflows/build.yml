@@ -26,7 +26,7 @@ jobs:
           $report = Join-Path $PWD 'dist/features-report.json'
           $process = Start-Process ./dist/SignalShift.exe -ArgumentList @('--diagnostics','--headless','--report',('"' + $report + '"')) -PassThru -Wait
           if ($process.ExitCode -ne 0 -or !(Test-Path $report) -or !(Get-Content $report -Raw | ConvertFrom-Json).success) { throw 'Feature diagnostics failed.' }
-          foreach ($theme in 'Dark','Light','Aurora','Ocean','Sunset','Rose','Sakura','Sand') {
+          foreach ($theme in 'Dark','Light','Aurora','Ocean','Sunset','Rose','Sakura','Sand','Mystic','Solar','Futuristic','Winter','Noir','Scary') {
             foreach ($page in 'Devices','Profiles','Shortcuts','Settings') {
               $path = Join-Path $PWD "dist/preview-$theme-$page.png"
               $preview = Start-Process ./dist/SignalShift.exe -ArgumentList @('--export-preview',('"' + $path + '"'),'--preview-theme',$theme,'--preview-page',$page) -PassThru -Wait

@@ -9,6 +9,8 @@ SignalShift keeps its purple app icon and shows a separate microphone status ico
 
 Hover over the icon to read the state. Windows may put SignalShift in the hidden-icons area beside the clock; open the **^** menu and drag the microphone out to keep it visible. The tray menu still provides microphone mute and the other audio controls. Mute changes made by other programs update the icon through audio notifications.
 
+**Settings → Microphone icon** can show/hide the separate status icon and open Windows taskbar settings. Hiding the icon does not mute the microphone or disable its controls. Windows saves your choice when you move the icon beside the clock. The app does not automatically promote icons from the hidden area: [Microsoft's notification-area guidance](https://learn.microsoft.com/en-us/windows/win32/shell/notification-area) reserves that choice to the user.
+
 ## Start the microphone live at sign-in
 
 In **Settings**, enable **Start with Windows** and **Start microphone live at Windows sign-in**. This makes the current default microphone devices live once at Windows sign-in. If the devices are not ready, SignalShift waits for up to 30 seconds. A manual mute command cancels the pending startup action.

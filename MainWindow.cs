@@ -446,6 +446,7 @@ public sealed partial class MainWindow : Window
     {
         Heading("Small details, your way", "Settle into your flow.", "SignalShift stays quietly in your system tray, ready whenever you need it.");
         BuildAppearance();
+        BuildTrayIconSettings();
         BuildUpdates();
         BuildSettingsTransfer();
         var preferences = new StackPanel();
@@ -557,7 +558,7 @@ public sealed partial class MainWindow : Window
     {
         using var stream = Application.GetResourceStream(new Uri("pack://application:,,,/Assets/SonarShift.ico")).Stream;
         tray = new Forms.NotifyIcon { Icon = new System.Drawing.Icon(stream), Text = "SignalShift · Your sound, one shortcut away", Visible = true };
-        microphoneTrayIndicator = new(() => Dispatcher.Invoke(ShowWindow));
+        microphoneTrayIndicator = new(() => Dispatcher.Invoke(ShowWindow), Preferences.ShowMicrophoneTrayIcon);
         microphoneTrayIndicator.Update(microphoneMute.State);
         tray.DoubleClick += (_, _) => Dispatcher.Invoke(ShowWindow); UpdateTray();
     }
